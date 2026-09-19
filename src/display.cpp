@@ -58,4 +58,35 @@ void update(const String &lastAction) {
     oled.display();
 }
 
+void showList(const String &title, const std::vector<String> &items, int selectedIndex) {
+    oled.clearDisplay();
+    oled.setTextSize(1);
+    oled.setCursor(0, 0);
+    oled.println(title);
+    oled.println("----------------");
+
+    const int visibleRows = 5;
+    int start = selectedIndex - visibleRows / 2;
+    if (start < 0) start = 0;
+    if ((int)items.size() > visibleRows && start > (int)items.size() - visibleRows) {
+        start = items.size() - visibleRows;
+    }
+
+    for (int i = start; i < (int)items.size() && i < start + visibleRows; i++) {
+        oled.print(i == selectedIndex ? "> " : "  ");
+        oled.println(items[i].substring(0, 19));
+    }
+    oled.display();
+}
+
+void showText(const String &title, const String &body) {
+    oled.clearDisplay();
+    oled.setTextSize(1);
+    oled.setCursor(0, 0);
+    oled.println(title);
+    oled.println("----------------");
+    oled.println(body);
+    oled.display();
+}
+
 } // namespace Display

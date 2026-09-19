@@ -9,13 +9,17 @@
 #include "nrf24_tools.h"
 #include "subghz.h"
 #include "wardriving.h"
+#include "deauth.h"
+#include "beacon_spam.h"
+#include "evil_portal.h"
 
 #include <WebServer.h>
 #include <WiFi.h>
 #include <LittleFS.h>
+#include <vector>
 
 namespace {
-WebServer server(80);
+WebServer server(8080); // port 80 is reserved for EvilPortal's captive-portal page
 String g_lastAction = "booted";
 String g_lastCaptureFile = "";
 
@@ -144,6 +148,75 @@ void handleWardriveSnapshot() {
                 "{\"rows\":" + String(rows) + ",\"total\":" + String(Wardriving::rowCount()) + "}");
 }
 
+void handleDeauth() {
+    String bssid = server.arg("bssid");
+    String client = server.arg("client");
+    uint8_t channel = (uint8_t)server.arg("channel").toInt();
+    uint16_t frames = server.hasArg("frames") ? server.arg("frames").toInt() : 30;
+    bool ok = Deauth::send(bssid, client, channel, frames);
+    note(ok ? ("Deauth sent to " + bssid) : "Deauth blocked: safety switch off or bad BSSID");
+    server.send(200, "application/json", String("{\"ok\":") + (ok ? "true" : "false") + "}");
+}
+
+void handleBeaconStart() {
+    String ssidsArg = server.arg("ssids"); // comma-separated, user-supplied only
+    bool hop = server.arg("hop") != "false";
+    std::vector<String> ssids;
+    int start = 0;
+    while (start < (int)ssidsArg.length()) {
+        int comma = ssidsArg.indexOf(',', start);
+        if (comma < 0) comma = ssidsArg.length();
+        String s = ssidsArg.substring(start, comma);
+        if (s.length()) ssids.push_back(s);
+        start = comma + 1;
+    }
+    bool ok = BeaconSpam::start(ssids, hop);
+    note(ok ? ("Beacon spam started: " + String(ssids.size()) + " SSIDs")
+            : "Beacon spam blocked: safety switch off or no SSIDs given");
+    server.send(200, "application/json", String("{\"ok\":") + (ok ? "true" : "false") + "}");
+}
+
+void handleBeaconStop() {
+    BeaconSpam::stop();
+    note("Beacon spam stopped");
+    server.send(200, "application/json", "{\"ok\":true}");
+}
+
+void handleBeaconStatus() {
+    server.send(200, "application/json",
+                String("{\"active\":") + (BeaconSpam::active() ? "true" : "false") + "}");
+}
+
+void handlePortalStart() {
+    String ssid = server.arg("ssid");
+    uint32_t maxMs = server.hasArg("maxMs") ? server.arg("maxMs").toInt() : 600000;
+    bool ok = EvilPortal::start(ssid, maxMs);
+    note(ok ? ("Evil portal started as " + ssid)
+            : "Evil portal blocked: safety switch off or already running");
+    server.send(200, "application/json", String("{\"ok\":") + (ok ? "true" : "false") + "}");
+}
+
+void handlePortalStop() {
+    EvilPortal::stop();
+    note("Evil portal stopped");
+    server.send(200, "application/json", "{\"ok\":true}");
+}
+
+void handlePortalStatus() {
+    server.send(200, "application/json",
+                String("{\"active\":") + (EvilPortal::active() ? "true" : "false") + "}");
+}
+
+void handlePortalLog() {
+    if (!LittleFS.exists(EVILPORTAL_LOG_FILE)) {
+        server.send(404, "text/plain", "no submissions yet");
+        return;
+    }
+    File f = LittleFS.open(EVILPORTAL_LOG_FILE, FILE_READ);
+    server.streamFile(f, "text/csv");
+    f.close();
+}
+
 void handleWardriveLog() {
     if (!LittleFS.exists(WARDRIVE_LOG_FILE)) {
         server.send(404, "text/plain", "no log yet");
@@ -170,6 +243,14 @@ void begin() {
     server.on("/api/subghz/replay", HTTP_POST, handleSubReplay);
     server.on("/api/wardrive/snapshot", HTTP_POST, handleWardriveSnapshot);
     server.on("/api/wardrive/log", handleWardriveLog);
+    server.on("/api/wifi/deauth", HTTP_POST, handleDeauth);
+    server.on("/api/wifi/beacon/start", HTTP_POST, handleBeaconStart);
+    server.on("/api/wifi/beacon/stop", HTTP_POST, handleBeaconStop);
+    server.on("/api/wifi/beacon/status", handleBeaconStatus);
+    server.on("/api/portal/start", HTTP_POST, handlePortalStart);
+    server.on("/api/portal/stop", HTTP_POST, handlePortalStop);
+    server.on("/api/portal/status", handlePortalStatus);
+    server.on("/api/portal/log", handlePortalLog);
     server.begin();
 }
 

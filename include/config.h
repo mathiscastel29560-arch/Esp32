@@ -43,6 +43,12 @@
 #define PIN_BUZZER          38
 #define PIN_SAFETY_SWITCH   39   // slide switch: HIGH = TX/injection features armed
 
+// ---- Optional 4-button on-device menu (buttons to GND, INPUT_PULLUP) ----
+#define PIN_BTN_UP          1
+#define PIN_BTN_DOWN        2
+#define PIN_BTN_SELECT      40
+#define PIN_BTN_BACK        41
+
 // ---- Wi-Fi control-panel access point ----
 #define AP_SSID_PREFIX      "ESP32-Audit-"
 #define AP_PASSWORD         "auditctrl123"   // change before field use
@@ -52,3 +58,10 @@
 #define LOG_DIR             "/logs"
 #define WARDRIVE_LOG_FILE   "/logs/wardrive.csv"
 #define SUBGHZ_CAPTURE_DIR  "/logs/subghz"
+#define EVILPORTAL_LOG_FILE "/logs/portal_submissions.csv"
+
+// ---- Defaults for the on-device 4-button menu (typing free text with 4
+// buttons isn't practical, so these ship as compile-time defaults you can
+// change here; the web panel still takes arbitrary values). ----
+#define DEFAULT_BEACON_SSIDS "TEST-AP-1,TEST-AP-2"
+#define DEFAULT_PORTAL_SSID  "Free-WiFi-Test"

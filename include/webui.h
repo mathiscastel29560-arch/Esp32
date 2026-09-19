@@ -64,6 +64,32 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 </div>
 
 <div class="card">
+  <h2>&#9888; Deauth (ciblé, matériel autorisé uniquement)</h2>
+  <input id="deauthBssid" placeholder="BSSID AP">
+  <input id="deauthClient" placeholder="MAC client (vide = tous)">
+  <input id="deauthChannel" placeholder="canal" size="3" value="1">
+  <button class="warn" onclick="deauth()">Envoyer</button>
+  <div id="deauthOut"></div>
+</div>
+
+<div class="card">
+  <h2>&#9888; Beacon spam (SSID de test que tu fournis)</h2>
+  <input id="beaconSsids" placeholder="ssid1,ssid2,ssid3">
+  <button class="warn" onclick="beaconStart()">Démarrer</button>
+  <button onclick="beaconStop()">Arrêter</button>
+  <div id="beaconOut"></div>
+</div>
+
+<div class="card">
+  <h2>&#9888; Faux portail captif (labo/CTF, page générique)</h2>
+  <input id="portalSsid" placeholder="SSID du faux réseau">
+  <button class="warn" onclick="portalStart()">Démarrer</button>
+  <button onclick="portalStop()">Arrêter</button>
+  <a href="/api/portal/log" target="_blank"><button>Voir soumissions</button></a>
+  <div id="portalOut"></div>
+</div>
+
+<div class="card">
   <h2>Wardriving log</h2>
   <button onclick="wardriveSnapshot()">Capture snapshot now</button>
   <a href="/api/wardrive/log" target="_blank"><button>Download CSV</button></a>
@@ -134,6 +160,34 @@ async function subRecord() {
 async function subReplayLast() {
   const res = await j('/api/subghz/replay', {method: 'POST'});
   document.getElementById('subOut').textContent = res.ok ? 'replayed' : (res.reason || 'failed (is the safety switch armed?)');
+}
+
+async function deauth() {
+  const bssid = document.getElementById('deauthBssid').value;
+  const client = document.getElementById('deauthClient').value;
+  const channel = document.getElementById('deauthChannel').value || 1;
+  const res = await j(`/api/wifi/deauth?bssid=${encodeURIComponent(bssid)}&client=${encodeURIComponent(client)}&channel=${channel}`, {method: 'POST'});
+  document.getElementById('deauthOut').textContent = res.ok ? 'envoyé' : 'bloqué (interrupteur de sécurité désarmé ?)';
+}
+
+async function beaconStart() {
+  const ssids = document.getElementById('beaconSsids').value;
+  const res = await j(`/api/wifi/beacon/start?ssids=${encodeURIComponent(ssids)}`, {method: 'POST'});
+  document.getElementById('beaconOut').textContent = res.ok ? 'actif' : 'bloqué (interrupteur ? SSIDs vides ?)';
+}
+async function beaconStop() {
+  await j('/api/wifi/beacon/stop', {method: 'POST'});
+  document.getElementById('beaconOut').textContent = 'arrêté';
+}
+
+async function portalStart() {
+  const ssid = document.getElementById('portalSsid').value;
+  const res = await j(`/api/portal/start?ssid=${encodeURIComponent(ssid)}`, {method: 'POST'});
+  document.getElementById('portalOut').textContent = res.ok ? 'actif — le panneau reprendra son SSID normal à l\'arrêt' : 'bloqué (interrupteur de sécurité désarmé ?)';
+}
+async function portalStop() {
+  await j('/api/portal/stop', {method: 'POST'});
+  document.getElementById('portalOut').textContent = 'arrêté';
 }
 
 async function wardriveSnapshot() {

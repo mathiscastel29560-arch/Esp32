@@ -15,6 +15,10 @@
 #include "subghz.h"
 #include "wardriving.h"
 #include "web_ctrl.h"
+#include "beacon_spam.h"
+#include "evil_portal.h"
+#include "buttons.h"
+#include "menu.h"
 
 namespace {
 String apSsid;
@@ -47,6 +51,7 @@ void setup() {
     SubGhz::begin();
     Wardriving::begin();
     WebCtrl::begin();
+    Menu::begin();
 
     Display::splash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
     Buzzer::chirpOk();
@@ -56,9 +61,12 @@ void setup() {
 void loop() {
     GpsModule::poll();
     WebCtrl::loop();
+    BeaconSpam::loop();
+    EvilPortal::loop();
+    Menu::loop();
 
     uint32_t now = millis();
-    if (now - lastDisplayUpdate > 1000) {
+    if (!Menu::isActive() && now - lastDisplayUpdate > 1000) {
         lastDisplayUpdate = now;
         Display::update(WebCtrl::lastAction());
     }
