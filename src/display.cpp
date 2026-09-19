@@ -3,6 +3,7 @@
 #include "rtc_clock.h"
 #include "gps_module.h"
 #include "safety_switch.h"
+#include "mascot.h"
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -10,6 +11,30 @@
 
 namespace {
 Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &SPI, PIN_OLED_DC, PIN_OLED_RST, PIN_OLED_CS);
+
+// Shark "swim-by" cameo on the idle status screen: mostly off, occasionally
+// crosses the bottom row. INT16_MIN means "not currently swimming".
+int16_t g_sharkX = INT16_MIN;
+uint16_t g_ticksUntilSwim = 20; // ~20 status refreshes (~20s) between cameos
+
+bool advanceSharkAnimation() {
+    if (g_sharkX == INT16_MIN) {
+        if (g_ticksUntilSwim > 0) {
+            g_ticksUntilSwim--;
+            return false;
+        }
+        g_sharkX = -(int16_t)Mascot::WIDTH;
+    }
+
+    oled.drawBitmap(g_sharkX, OLED_HEIGHT - Mascot::HEIGHT, Mascot::SHARK_BITMAP,
+                     Mascot::WIDTH, Mascot::HEIGHT, SSD1306_WHITE);
+    g_sharkX += 16;
+    if (g_sharkX > OLED_WIDTH) {
+        g_sharkX = INT16_MIN;
+        g_ticksUntilSwim = 20;
+    }
+    return true;
+}
 }
 
 namespace Display {
@@ -23,8 +48,10 @@ void begin() {
 
 void splash(const String &line1, const String &line2) {
     oled.clearDisplay();
+    oled.drawBitmap((OLED_WIDTH - Mascot::WIDTH) / 2, 0, Mascot::SHARK_BITMAP,
+                     Mascot::WIDTH, Mascot::HEIGHT, SSD1306_WHITE);
     oled.setTextSize(1);
-    oled.setCursor(0, 0);
+    oled.setCursor(0, Mascot::HEIGHT + 2);
     oled.println(line1);
     oled.println(line2);
     oled.display();
@@ -52,8 +79,11 @@ void update(const String &lastAction) {
     oled.println(SafetySwitch::isArmed() ? "ARMED" : "SAFE");
 
     oled.println("----------------");
-    // last action line, truncated to fit 21 chars at text size 1 on a 128px panel
-    oled.println(lastAction.substring(0, 21));
+
+    if (!advanceSharkAnimation()) {
+        // last action line, truncated to fit 21 chars at text size 1 on a 128px panel
+        oled.println(lastAction.substring(0, 21));
+    }
 
     oled.display();
 }
