@@ -1,0 +1,65 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <WiFi.h>
+#include <LittleFS.h>
+
+#include "config.h"
+#include "rtc_clock.h"
+#include "gps_module.h"
+#include "display.h"
+#include "buzzer.h"
+#include "safety_switch.h"
+#include "wifi_tools.h"
+#include "ble_tools.h"
+#include "nrf24_tools.h"
+#include "subghz.h"
+#include "wardriving.h"
+#include "web_ctrl.h"
+
+namespace {
+String apSsid;
+uint32_t lastDisplayUpdate = 0;
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    LittleFS.begin(true); // format on first boot if no filesystem is found
+
+    SafetySwitch::begin();
+    Buzzer::begin();
+
+    // Shared SPI bus for the OLED, CC1101 and NRF24L01 (each has its own CS).
+    SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
+
+    Display::begin();
+    bool rtcOk = RtcClock::begin();
+    GpsModule::begin();
+
+    uint64_t chipId = ESP.getEfuseMac();
+    char suffix[5];
+    snprintf(suffix, sizeof(suffix), "%04X", (uint16_t)(chipId & 0xFFFF));
+    apSsid = String(AP_SSID_PREFIX) + suffix;
+
+    WifiTools::begin(apSsid, AP_PASSWORD);
+    BleTools::begin();
+    Nrf24Tools::begin();
+    SubGhz::begin();
+    Wardriving::begin();
+    WebCtrl::begin();
+
+    Display::splash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
+    Buzzer::chirpOk();
+    delay(1500);
+}
+
+void loop() {
+    GpsModule::poll();
+    WebCtrl::loop();
+
+    uint32_t now = millis();
+    if (now - lastDisplayUpdate > 1000) {
+        lastDisplayUpdate = now;
+        Display::update(WebCtrl::lastAction());
+    }
+}
