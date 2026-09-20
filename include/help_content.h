@@ -96,12 +96,15 @@ static const Topic TOPICS[] = {
      "de maintenir RETOUR au moment\n"
      "d'appuyer sur OK.\n"
      "Sans ca: 'Blocked: hold BACK'."},
-    {"Dual-boot / Boot into Bruce",
-     "Redemarre sur Bruce, si flashe\n"
-     "sur ota_1 (voir bruce-board/).\n"
-     "Un simple cycle d'alimentation\n"
-     "revient sur ce firmware.\n"
-     "Si jamais flashe: 'Bruce not\n"
+    {"Dual-boot / Boot ESP32-DIV",
+     "Redemarre sur ESP32-DIV, si\n"
+     "flashe sur ota_1.\n"
+     "Attention: contrairement a ce\n"
+     "firmware, ESP32-DIV (build\n"
+     "d'origine) ne revient pas tout\n"
+     "seul sur un plantage -- recup\n"
+     "manuelle si besoin (voir README).\n"
+     "Si jamais flashe: 'ESP32-DIV not\n"
      "flashed to ota_1'."},
 };
 

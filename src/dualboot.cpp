@@ -14,14 +14,14 @@ void markValid() {
     }
 }
 
-bool bootIntoBruce() {
-    const esp_partition_t *bruce =
+bool bootIntoEsp32Div() {
+    const esp_partition_t *ota1 =
         esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_OTA_1, nullptr);
-    if (!bruce) return false;
+    if (!ota1) return false;
 
-    if (esp_ota_set_boot_partition(bruce) != ESP_OK) return false;
+    if (esp_ota_set_boot_partition(ota1) != ESP_OK) return false;
 
-    Serial.println("Rebooting into Bruce (ota_1)...");
+    Serial.println("Rebooting into ESP32-DIV (ota_1)...");
     delay(200); // let the serial line flush before the reset
     esp_restart();
     return true; // unreachable

@@ -105,7 +105,7 @@ pio device monitor       # logs série (115200 bauds)
 
 La compilation a été vérifiée sur cet environnement (`pio run` → succès,
 ~42% des 3MB réservés à `ota_0` utilisés, ~17.7% de la RAM). Depuis le
-passage à la table de partitions dual-boot (voir "Dual-boot avec Bruce"
+passage à la table de partitions dual-boot (voir "Dual-boot avec ESP32-DIV"
 plus bas), l'app n'a plus toute la flash 16MB pour elle — juste les 3MB
 d'`ota_0` — d'où le pourcentage plus élevé qu'avant malgré une taille de
 binaire inchangée.
@@ -212,70 +212,92 @@ dernière action effectuée.
   vraie télécommande (5s d'écoute) — fiable, quel que soit le protocole.
 - **Rejouer** : renvoie la dernière capture apprise.
 
-## Dual-boot avec Bruce
+## Dual-boot avec ESP32-DIV
 
-Ce firmware peut cohabiter sur la même puce avec une build officielle de
-[Bruce](https://github.com/pr3y/Bruce), non modifiée, grâce au mécanisme
-de rollback OTA d'ESP-IDF :
+Ce firmware peut cohabiter sur la même puce avec un second firmware
+autonome, grâce au mécanisme de rollback OTA d'ESP-IDF. Le slot `ota_1`
+héberge actuellement [ESP32-DIV](https://github.com/cifertech/esp32-div)
+(binaire précompilé officiel, non modifié) :
 
 - `partitions_16mb.csv` réserve deux slots d'application, `ota_0` (ce
-  firmware) et `ota_1` (Bruce), plus `auditfs` (LittleFS de ce firmware —
-  logs, wardriving, captures sub-GHz) et `spiffs` (système de fichiers
-  propre à Bruce). Les deux firmwares ne doivent jamais monter la même
-  partition de données.
+  firmware) et `ota_1` (ESP32-DIV), plus `auditfs` (LittleFS de ce
+  firmware — logs, wardriving, captures sub-GHz) et `spiffs` (système de
+  fichiers propre à ce qui tourne sur `ota_1`). Les deux firmwares ne
+  doivent jamais monter la même partition de données.
 - Le bootloader ESP-IDF utilisé par Arduino-ESP32 a le rollback d'app
   activé par défaut (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`). Ce
   firmware confirme chaque boot réussi via `DualBoot::markValid()`
-  (`src/dualboot.cpp`, appelée en toute fin de `setup()`). Bruce, lui,
-  n'appelle jamais cette fonction — c'est un build officiel, non modifié.
-- Résultat : depuis le menu, "Boot into Bruce" bascule sur `ota_1` et
-  redémarre. Un simple cycle d'alimentation pendant que Bruce tourne
-  suffit à revenir sur ce firmware — le bootloader considère le boot Bruce
-  comme jamais confirmé et repointe automatiquement sur `ota_0`. Aucune
-  combinaison de boutons, aucune modification du code de Bruce.
-- Piège découvert en testant sur du vrai matériel : le cœur Arduino-ESP32
-  lui-même confirme automatiquement chaque boot comme valide
-  (`initArduino()`, avant même que `setup()` tourne), ce qui désamorçait
-  le filet de sécurité avant que Bruce ait la moindre chance de planter.
-  `bruce-board/esp32-audit-dualboot/interface.cpp` neutralise ça en
-  surchargeant le symbole faible `verifyRollbackLater()` (mécanisme prévu
-  par Arduino-ESP32 pour ça, pas une modification du code de Bruce) — le
-  slot `ota_1` reste donc "à confirmer" tant que Bruce tourne.
+  (`src/dualboot.cpp`, appelée en toute fin de `setup()`).
+- Depuis le menu, "Boot ESP32-DIV" bascule sur `ota_1` et redémarre.
+  **Important** : contrairement à Bruce (voir plus bas), ESP32-DIV est
+  flashé ici depuis son binaire précompilé d'origine, sans le correctif
+  `verifyRollbackLater()` décrit ci-dessous — son build confirme donc son
+  propre boot comme valide dès `initArduino()`, avant que son code n'ait
+  la moindre chance de planter. Le filet de sécurité "un cycle
+  d'alimentation suffit à revenir sur ce firmware" **ne s'applique donc
+  pas** à ce binaire : en cas de plantage/blocage sur ESP32-DIV, récupère
+  manuellement en effaçant la partition `otadata` :
+  ```bash
+  esptool.py --chip esp32s3 erase_region 0xE000 0x2000
+  ```
+  (efface seulement les 2KB de sélection OTA — le bootloader retombe sur
+  `ota_0` au boot suivant ; ne touche ni au bootloader, ni à la table de
+  partitions, ni à `ota_0`/`ota_1` eux-mêmes.)
 
 ### Mise en place (une fois)
 
 1. Flashe ce firmware normalement (`pio run -t upload` depuis la racine du
    projet) — ça écrit le bootloader, la table de partitions et `ota_0`.
-2. Construis et flashe Bruce sur `ota_1` avec le profil de carte fourni
-   dans [`bruce-board/`](./bruce-board/), qui reprend le brochage exact de
-   `HARDWARE.md` (SPI partagé TFT/CC1101/NRF24, boutons, IR, ADC batterie —
-   pas le DS3231 ni le GPS, Bruce n'a pas de driver DS3231) :
+2. Récupère et flashe le binaire précompilé ESP32-DIV (variante `v2`,
+   pour ESP32-S3) directement sur `ota_1`, sans rien construire :
 
    ```bash
-   git clone https://github.com/pr3y/Bruce.git
-   ./bruce-board/flash_bruce.sh /path/to/Bruce [/dev/ttyUSB0]
+   git clone --depth 1 https://github.com/cifertech/esp32-div
+   python3 -m esptool --chip esp32s3 --baud 460800 write-flash 0x310000 \
+     "esp32-div/Pre-compiled Bin/ESP32-DIV-v2-v1.7.2.bin"
    ```
 
-   Le script copie le profil de carte dans le checkout Bruce, compile
-   l'environnement `esp32-audit-dualboot`, et flashe **uniquement**
-   `firmware.bin` à l'offset `0x310000` (`ota_1`) — il ne touche jamais au
-   bootloader, à la table de partitions ni à `ota_0`.
-
-Le profil de carte a été vérifié en compilant Bruce (branche `dev`) en
-entier avec `pio run -e esp32-audit-dualboot` sur cet environnement :
-succès, image de ~3.64MB — confortable dans les 4.5MB réservés à `ota_1`.
+   Ça écrit uniquement l'image applicative à l'offset `0x310000` (`ota_1`)
+   — ça ne touche jamais au bootloader, à la table de partitions ni à
+   `ota_0`. Testé sur ce matériel : démarre sans planter.
 
 ### Limites connues
 
-- Pas de RTC ni de GPS côté Bruce (aucun driver DS3231 dans Bruce ; le
-  NEO-6M est câblé mais inutilisé côté Bruce sauf si tu ajoutes un module
-  GPS toi-même côté Bruce).
-- Pas de carte SD câblée sur cette carte (`SDCARD_CS=-1` dans le profil) —
-  Bruce utilisera son `spiffs` (~6.4MB) pour scripts/captures.
-- Les deux firmwares partagent le même bus SPI (TFT + CC1101 + NRF24) et
-  le même bus I2C — pas de conflit puisqu'un seul firmware tourne à la
-  fois, mais les deux doivent s'accorder sur qui a quel CS (déjà fait dans
-  le profil de carte).
+- ESP32-DIV attend un écran tactile TFT (SPI, piloté par TFT_eSPI) comme
+  interface principale — plus de 2800 appels de dessin directs répartis
+  dans tout son code, aucun mode texte/OLED. Tant que le TFT n'est pas
+  câblé, l'écran OLED de ce projet reste figé sur sa dernière image (il ne
+  reçoit plus rien une fois qu'on a basculé sur `ota_1`) : le firmware
+  démarre bien, mais rien n'est visible sans le TFT.
+- Ses boutons physiques passent par un expandeur I2C PCF8574 optionnel
+  (le tactile XPT2046 est l'entrée principale) — pas les mêmes broches que
+  nos boutons GPIO directs ; non câblé pour l'instant.
+- Comme mentionné plus haut, pas de filet de sécurité rollback tant que ce
+  binaire reste un build d'origine, non modifié.
+
+### Alternative : Bruce (testé, écarté)
+
+Le profil de carte pour dual-booter avec [Bruce](https://github.com/pr3y/Bruce)
+existe toujours dans [`bruce-board/`](./bruce-board/) et reste utilisable
+(brochage exact de `HARDWARE.md`, correctif `verifyRollbackLater()` inclus
+dans `bruce-board/esp32-audit-dualboot/interface.cpp` pour que le filet de
+sécurité fonctionne réellement avec Bruce — piège découvert en testant sur
+du vrai matériel : sans ce correctif, `initArduino()` confirme le boot
+avant même que Bruce ait pu planter). Écarté comme choix par défaut après
+un crash reproductible et non corrigible depuis l'extérieur : panique
+`StoreProhibited` très tôt au démarrage, dans le driver Wi-Fi propriétaire
+et fermé d'Espressif (`libnet80211.a`) — confirmé identique sur la branche
+`dev` de Bruce et sur son tag stable `v1.16.1`.
+
+```bash
+git clone https://github.com/pr3y/Bruce.git
+./bruce-board/flash_bruce.sh /path/to/Bruce [/dev/ttyUSB0]
+```
+
+Pas de RTC ni de GPS côté Bruce (aucun driver DS3231 ; le NEO-6M est câblé
+mais inutilisé sauf ajout d'un module GPS côté Bruce). Pas de carte SD
+câblée sur cette carte (`SDCARD_CS=-1` dans le profil) — Bruce utilise son
+`spiffs` (~6.4MB) pour scripts/captures.
 
 ## Structure du projet
 
@@ -291,7 +313,7 @@ src/             un module par domaine :
                  web_ctrl, mascot, dualboot, main.cpp
                  (+ src/ui/: ui, oled_ui, widgets — écran TFT et/ou OLED)
 partitions_16mb.csv   table de partitions dual-boot (ota_0/ota_1 + auditfs/spiffs)
-bruce-board/     profil de carte Bruce + script de flash (voir "Dual-boot avec Bruce")
+bruce-board/     profil de carte Bruce (alternative, écartée) + script de flash — voir "Dual-boot avec ESP32-DIV"
 ```
 
 ## Pistes d'évolution

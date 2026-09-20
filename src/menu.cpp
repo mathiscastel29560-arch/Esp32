@@ -103,7 +103,7 @@ std::vector<String> mainMenuItems() {
         String("BLE Spam Watch: ") + (BleSpamDetector::active() ? "STOP" : "start"),
         "BLE Spam: Check Alert",
         "TX arm status (hold BACK)",
-        "Boot into Bruce",
+        "Boot ESP32-DIV",
         "Carte GPS",
         "Aide",
     };
@@ -236,10 +236,10 @@ void runMainAction(int idx) {
             showResult("TX arm (hold BACK)", TxArm::isArmed() ? "Currently HELD - TX allowed" : "Not held - TX blocked", MAIN);
             break;
         }
-        case 15: { // Boot into Bruce
-            bool go = Ui::confirm("Boot into Bruce", "Reboot into Bruce now? Power-cycle to come back.");
+        case 15: { // Boot ESP32-DIV
+            bool go = Ui::confirm("Boot ESP32-DIV", "Reboot into ESP32-DIV now? Power-cycle to come back.");
             if (go) {
-                if (!DualBoot::bootIntoBruce()) showResult("Boot into Bruce", "Bruce not flashed to ota_1", MAIN);
+                if (!DualBoot::bootIntoEsp32Div()) showResult("Boot ESP32-DIV", "ESP32-DIV not flashed to ota_1", MAIN);
                 // on success this never returns -- the device restarts
             } else {
                 g_state = MAIN;
