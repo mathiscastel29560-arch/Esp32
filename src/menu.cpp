@@ -21,6 +21,9 @@
 #include "ssl_strip.h"
 #include "ir_bruteforce.h"
 #include "ble_relay.h"
+#include "exploit_tracker.h"
+#include "audio_effects.h"
+#include "funny_payloads.h"
 
 enum MenuState {
     MAIN_MENU,
@@ -28,7 +31,8 @@ enum MenuState {
     WIFI_AP_ACTION,
     BADUSB_MENU,
     BADUSB_OS_SELECT,
-    OFFENSIVE_TOOLS_MENU
+    OFFENSIVE_TOOLS_MENU,
+    CHAOS_MODE_SCREEN
 };
 
 MenuState g_state = MAIN_MENU;
@@ -36,6 +40,7 @@ int g_apActionSel = 0;
 int g_badUsbOsSel = 0;
 int g_badUsbActionSel = 0;
 int g_offensiveToolSel = 0;
+bool g_chaosActive = false;
 
 struct APInfo {
     String bssid;
@@ -100,7 +105,23 @@ void runBadUsbAction(int osIdx) {
                   result.message + "\n" +
                   "Keystrokes: " + String(result.keystrokes);
     String title = "Bad USB [" + osName + "]";
+    ExploitTracker::recordBadUSB(result.keystrokes);
+    AudioEffects::playSuccessBeep();
     showResult(title.c_str(), body, WIFI_RESULTS);
+}
+
+void runChaosMode() {
+    g_chaosActive = true;
+    auto result = FunnyPayloads::launchChaosMode();
+
+    String body = "Outils executes: " + String(result.toolsExecuted) + "/11\n\n";
+    body += "Resultats:\n" + result.summary;
+    body += "\n\nDifficulte trolling: LEVEL 9000!";
+
+    ExploitTracker::displayAchievement(ExploitTracker::CHAOS_MODE_ACTIVATED);
+    AudioEffects::playAchievementUnlock();
+
+    showResult("MODE CHAOS", body, WIFI_RESULTS);
 }
 
 void runOffensiveTool(int toolIdx) {
@@ -115,6 +136,8 @@ void runOffensiveTool(int toolIdx) {
                    "Frequency: " + String(result.frequency) + " MHz\n" +
                    "Duration: " + String(result.duration) + " ms\n" +
                    "Error: " + result.error;
+            ExploitTracker::incrementExploit(result.success);
+            if (result.success) AudioEffects::playExploitAlert();
             break;
         }
         case 1: { // IR Learning
@@ -208,7 +231,10 @@ void runOffensiveTool(int toolIdx) {
 void menuLoop() {
     switch (g_state) {
         case MAIN_MENU: {
-            std::vector<String> mainItems = {"WiFi Tools", "Bad USB", "RFID", "Offensive Tools", "Settings"};
+            std::vector<String> mainItems = {
+                "WiFi Tools", "Bad USB", "RFID", "Offensive Tools",
+                "MODE CHAOS!!!", "Statistics", "Settings"
+            };
             // Main menu navigation
             break;
         }
@@ -229,6 +255,10 @@ void menuLoop() {
                 "SSL Strip", "IR Bruteforce", "BLE Relay", "Back"
             };
             // Offensive tools menu - calls runOffensiveTool(selection)
+            break;
+        }
+        case CHAOS_MODE_SCREEN: {
+            // Chaos mode active - shows live exploit execution
             break;
         }
         default:
