@@ -291,7 +291,6 @@ void loop() {
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
             if (dnPress) g_selection = (g_selection + 1) % items.size();
             if (okPress) {
-                g_selection = 0;
                 switch (g_selection) {
                     case 0: g_state = WIFI_SUBMENU; break;
                     case 1: g_state = BLE_SUBMENU; break;
@@ -300,6 +299,7 @@ void loop() {
                     case 4: g_state = SYSTEM_SUBMENU; break;
                     case 5: g_state = HELP_SUBMENU; break;
                 }
+                g_selection = 0;
             }
             drawSimpleMenu(items, g_selection, "MAIN");
             break;
@@ -373,8 +373,10 @@ void loop() {
                     g_state = MAIN_MENU;
                     g_selection = 5;
                 } else {
-                    // Find matching help topic
-                    String cat = items[g_selection];
+                    // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
+                    String menuItem = items[g_selection];
+                    int spaceIdx = menuItem.indexOf(' ');
+                    String cat = menuItem.substring(spaceIdx + 1);
                     for (size_t i = 0; i < HelpContent::TOPIC_COUNT; i++) {
                         if (String(HelpContent::TOPICS[i].category) == cat) {
                             showResult(HelpContent::TOPICS[i].title,
