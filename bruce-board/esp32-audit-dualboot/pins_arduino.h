@@ -28,6 +28,14 @@ static const uint8_t SCL = SYS_I2C_SCL;
 #define GPS_SERIAL_RX 18
 #define GPS_SERIAL_TX 17
 
+// BadUSB-over-CH9329: no such chip wired on this board. Bruce's ducky
+// typer code references BAD_RX/BAD_TX unconditionally, so these just
+// need to be *some* valid, otherwise-idle pins -- reusing the GPS UART
+// (Bruce has no GPS driver, so it's unused here) rather than claiming
+// new GPIOs for hardware that doesn't exist.
+#define BAD_RX GPS_SERIAL_RX
+#define BAD_TX GPS_SERIAL_TX
+
 // Shared SPI bus: TFT + CC1101 + NRF24L01 (separate CS per device)
 #define SPI_SCK_PIN 12
 #define SPI_MOSI_PIN 11
