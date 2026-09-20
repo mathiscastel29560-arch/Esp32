@@ -30,8 +30,8 @@ mkdir -p "$BRUCE_DIR/boards/esp32-audit-dualboot" "$BRUCE_DIR/boards/_boards_jso
 cp "$SCRIPT_DIR/esp32-audit-dualboot/esp32-audit-dualboot.ini" "$BRUCE_DIR/boards/esp32-audit-dualboot/"
 cp "$SCRIPT_DIR/esp32-audit-dualboot/pins_arduino.h" "$BRUCE_DIR/boards/esp32-audit-dualboot/"
 cp "$SCRIPT_DIR/esp32-audit-dualboot/interface.cpp" "$BRUCE_DIR/boards/esp32-audit-dualboot/"
+cp "$SCRIPT_DIR/esp32-audit-dualboot/partitions_ota1_check.csv" "$BRUCE_DIR/boards/esp32-audit-dualboot/"
 cp "$SCRIPT_DIR/_boards_json/esp32-audit-dualboot.json" "$BRUCE_DIR/boards/_boards_json/"
-cp "$SCRIPT_DIR/../partitions_16mb.csv" "$BRUCE_DIR/partitions_16mb.csv"
 
 echo "==> Building Bruce for esp32-audit-dualboot"
 ( cd "$BRUCE_DIR" && pio run -e esp32-audit-dualboot )

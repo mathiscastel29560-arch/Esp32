@@ -1,0 +1,18 @@
+# Same offsets/sizes as ../../partitions_16mb.csv (the table actually
+# flashed to the device, once, by the audit firmware's own upload) --
+# just with ota_1 listed before ota_0. PlatformIO's checkprogsize step
+# always checks the built .bin against the FIRST "app" row it finds in
+# whatever partitions CSV the env points at, with no way to tell it
+# "this build targets ota_1"; since Bruce is always built for ota_1 here,
+# this reordered copy makes that check compare against the right size
+# (4.5MB) instead of ota_0's 3MB. Never flashed -- flash_bruce.sh only
+# extracts the resulting firmware.bin and writes it to the real,
+# already-flashed partition table at the fixed 0x310000 offset.
+# Name,     Type, SubType,   Offset,     Size
+nvs,        data, nvs,       0x9000,     0x5000
+otadata,    data, ota,       0xE000,     0x2000
+ota_1,      app,  ota_1,     0x310000,   0x480000
+ota_0,      app,  ota_0,     0x10000,    0x300000
+auditfs,    data, spiffs,    0x790000,   0x200000
+spiffs,     data, spiffs,    0x990000,   0x660000
+coredump,   data, coredump,  0xFF0000,   0x10000
