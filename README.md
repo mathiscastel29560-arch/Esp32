@@ -104,9 +104,11 @@ pio device monitor       # logs série (115200 bauds)
 ```
 
 La compilation a été vérifiée sur cet environnement (`pio run` → succès,
-~19% de la flash 16MB utilisée, ~17.5% de la RAM — NimBLE-Arduino est
-nettement plus léger que la pile Bluedroid utilisée dans une itération
-précédente).
+~42% des 3MB réservés à `ota_0` utilisés, ~17.7% de la RAM). Depuis le
+passage à la table de partitions dual-boot (voir "Dual-boot avec Bruce"
+plus bas), l'app n'a plus toute la flash 16MB pour elle — juste les 3MB
+d'`ota_0` — d'où le pourcentage plus élevé qu'avant malgré une taille de
+binaire inchangée.
 
 Note écran : `tft.setRotation(1)` est utilisé pour l'affichage en paysage
 320x240. Si l'image sort à l'envers, change juste ça en `setRotation(3)`
@@ -216,6 +218,10 @@ de rollback OTA d'ESP-IDF :
    l'environnement `esp32-audit-dualboot`, et flashe **uniquement**
    `firmware.bin` à l'offset `0x310000` (`ota_1`) — il ne touche jamais au
    bootloader, à la table de partitions ni à `ota_0`.
+
+Le profil de carte a été vérifié en compilant Bruce (branche `dev`) en
+entier avec `pio run -e esp32-audit-dualboot` sur cet environnement :
+succès, image de ~3.64MB — confortable dans les 4.5MB réservés à `ota_1`.
 
 ### Limites connues
 
