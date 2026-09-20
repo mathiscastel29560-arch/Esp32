@@ -57,7 +57,6 @@ std::vector<String> mainMenuItems() {
         "[W] WiFi Tools",
         "[B] BLE Tools",
         "[R] RF/2.4GHz",
-        "[I] IR & Sensors",
         "[S] System",
         "[?] Help",
     };
@@ -296,8 +295,7 @@ void loop() {
                     case 1: g_state = BLE_SUBMENU; break;
                     case 2: g_state = RF_SUBMENU; break;
                     case 3: g_state = SYSTEM_SUBMENU; break;
-                    case 4: g_state = SYSTEM_SUBMENU; break;
-                    case 5: g_state = HELP_SUBMENU; break;
+                    case 4: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -356,7 +354,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 4;
+                    g_selection = 3;
                 } else {
                     runSystemAction(g_selection);
                 }
@@ -371,7 +369,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 5;
+                    g_selection = 4;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
