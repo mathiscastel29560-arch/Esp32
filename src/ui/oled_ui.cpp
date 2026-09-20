@@ -1,7 +1,8 @@
 #include "ui/oled_ui.h"
+#include "ui/theme.h"
 #include "display.h"
 #include "config.h"
-#include "mascot.h"
+#include "skull.h"
 #include "france_outline.h"
 #include <Adafruit_SSD1306.h>
 
@@ -56,25 +57,38 @@ namespace OledUi {
 
 void showSplash(const String &title, const String &subtitle) {
     Adafruit_SSD1306 &d = oled();
-    d.clearDisplay();
-    d.setTextSize(1);
-    d.setTextColor(SSD1306_WHITE);
 
-    // Same 32x16 shark bitmap the TFT splash uses (see mascot.h), drawn at
-    // native size -- plenty small for even a 128x32 module.
-    d.drawBitmap((OLED_WIDTH - Mascot::WIDTH) / 2, 0, Mascot::SHARK_BITMAP, Mascot::WIDTH,
-                 Mascot::HEIGHT, SSD1306_WHITE);
+    // Same skull bitmap and rotation math as the TFT splash (see skull.h)
+    // -- spins in place for Theme::SPLASH_DURATION_MS, just plotted with
+    // single-pixel drawPixel() calls instead of a TFT sprite.
+    constexpr float ROTATIONS_PER_SEC = 1.5f;
+    // 128x64 (ROWS>4): skull up top, title/subtitle below it. 128x32: no
+    // room left for text once a 24px skull fits, so just center it.
+    int16_t skullCx = OLED_WIDTH / 2;
+    int16_t skullCy = ROWS > 4 ? (Skull::HEIGHT / 2) + 2 : OLED_HEIGHT / 2;
 
-    if (ROWS > 2) {
-        d.setCursor(0, Mascot::HEIGHT);
-        d.print(clip(title, COLS));
+    uint32_t start = millis();
+    while (millis() - start < Theme::SPLASH_DURATION_MS) {
+        float elapsedSec = (millis() - start) / 1000.0f;
+        float angle = elapsedSec * ROTATIONS_PER_SEC * 2.0f * PI;
+
+        d.clearDisplay();
+        d.setTextSize(1);
+        d.setTextColor(SSD1306_WHITE);
+
+        Skull::drawRotated(skullCx, skullCy, angle, 1,
+                            [&](int16_t x, int16_t y) { d.drawPixel(x, y, SSD1306_WHITE); });
+
+        if (ROWS > 4) {
+            d.setCursor(0, Skull::HEIGHT + 4);
+            d.print(clip(title, COLS));
+            if (ROWS > 5) {
+                d.setCursor(0, Skull::HEIGHT + 12);
+                d.print(clip(subtitle, COLS));
+            }
+        }
+        d.display();
     }
-    if (ROWS > 3) {
-        d.setCursor(0, Mascot::HEIGHT + 8);
-        d.print(clip(subtitle, COLS));
-    }
-    d.display();
-    delay(800); // shorter than the TFT's animated splash -- there's nothing to animate here
 }
 
 void showHome(const Ui::StatusInfo &status, const String &lastAction) {

@@ -310,7 +310,7 @@ src/             un module par domaine :
                  buttons, menu, wifi_tools, deauth, beacon_spam,
                  evil_portal, ble_tools, ble_gatt_audit, ble_spam_detector,
                  ble_fuzzer, nrf24_tools, subghz, ir_tools, wardriving,
-                 web_ctrl, mascot, dualboot, main.cpp
+                 web_ctrl, mascot, skull, dualboot, main.cpp
                  (+ src/ui/: ui, oled_ui, widgets — écran TFT et/ou OLED)
 partitions_16mb.csv   table de partitions dual-boot (ota_0/ota_1 + auditfs/spiffs)
 bruce-board/     profil de carte Bruce (alternative, écartée) + script de flash — voir "Dual-boot avec ESP32-DIV"

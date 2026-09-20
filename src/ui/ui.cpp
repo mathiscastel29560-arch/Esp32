@@ -4,6 +4,7 @@
 #include "ui/oled_ui.h"
 #include "display.h"
 #include "mascot.h"
+#include "skull.h"
 #include "buttons.h"
 #include "france_outline.h"
 #include <TFT_eSPI.h>
@@ -194,17 +195,19 @@ void showSplash(const String &title, const String &subtitle) {
     ensureCanvas();
     if (!g_displayOk) return;
 
+    constexpr float ROTATIONS_PER_SEC = 1.5f; // ~2 full spins over the 4s splash
     uint32_t start = millis();
     while (millis() - start < Theme::SPLASH_DURATION_MS) {
-        float t = (float)(millis() - start) / Theme::SPLASH_DURATION_MS;
-        float ease = 1.0f - (1.0f - t) * (1.0f - t);
-        uint8_t scale = 1 + (uint8_t)(ease * 2.0f);
+        float elapsedSec = (millis() - start) / 1000.0f;
+        float angle = elapsedSec * ROTATIONS_PER_SEC * 2.0f * PI;
 
         canvas.fillSprite(Theme::COLOR_BG);
 
-        int16_t mw = Mascot::WIDTH * scale;
-        int16_t mh = Mascot::HEIGHT * scale;
-        drawMascot((canvas.width() - mw) / 2, canvas.height() / 2 - mh - 10, scale, Theme::COLOR_ACCENT);
+        int16_t skullCx = canvas.width() / 2;
+        int16_t skullCy = canvas.height() / 2 - 30;
+        Skull::drawRotated(skullCx, skullCy, angle, 3, [&](int16_t x, int16_t y) {
+            canvas.drawPixel(x, y, Theme::COLOR_ACCENT);
+        });
 
         canvas.loadFont(FONT_TITLE);
         canvas.setTextDatum(MC_DATUM);

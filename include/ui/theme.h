@@ -49,6 +49,6 @@ constexpr uint8_t ROW_H = 32;
 // ---- Animation timings (ms) ----
 constexpr uint16_t ANIM_SELECTION_MS = 120; // sliding highlight between rows
 constexpr uint16_t ANIM_TRANSITION_MS = 220; // screen-to-screen slide/fade
-constexpr uint16_t SPLASH_DURATION_MS = 1500;
+constexpr uint16_t SPLASH_DURATION_MS = 4000;
 
 } // namespace Theme
