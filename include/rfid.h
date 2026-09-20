@@ -2,6 +2,16 @@
 #include <Arduino.h>
 #include <vector>
 
+// PN532 NFC/RFID Module Integration
+// Hardware: Hilacini PN532 V3 (2-piece kit)
+// Mode: SPI (shared bus with TFT)
+// Pins: CLK=12, MOSI=11, MISO=13, CS=8, RST=7
+//
+// When hardware arrives, add to platformio.ini:
+//   lib_deps =
+//     adafruit/Adafruit PN532
+// Then uncomment #include <Adafruit_PN532.h> in rfid.cpp
+
 namespace RFID {
 
 struct TagData {

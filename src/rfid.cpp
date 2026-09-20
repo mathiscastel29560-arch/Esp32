@@ -5,19 +5,37 @@
 
 namespace {
 
-// Stub implementation - attendant le vrai module RC522
-// En production, utiliser une vraie lib RFID (MFRC522.h, etc)
+// Stub implementation - attendant le vrai module PN532
+// En production, utiliser PN532 library (Adafruit_PN532 ou adafruit/PN532)
+//
+// Installation: PlatformIO lib search "PN532"
+// Deux options populaires:
+//   1. Adafruit_PN532 (meilleure docs)
+//   2. elechouse/PN532 (plus bas niveau)
+//
+// Pin config (SPI mode):
+//   PN532 CLK  -> ESP32 GPIO 12 (shared with TFT)
+//   PN532 MOSI -> ESP32 GPIO 11 (shared with TFT)
+//   PN532 MISO -> ESP32 GPIO 13 (shared with TFT)
+//   PN532 SS   -> ESP32 GPIO 8  (separate CS for RFID)
+//   PN532 RST  -> ESP32 GPIO 7  (reset line)
+
+// Stub: sera remplacé par Adafruit_PN532 ou elechouse::PN532
+// #include <Adafruit_PN532.h>
+// Adafruit_PN532 nfc(8, 7);  // (CS pin, RST pin) for SPI mode
 
 volatile uint32_t g_lastScanTime = 0;
 RFID::TagData g_lastScannedTag;
 
-// Simule un scan en attendant une vraie tag
-// En production : utiliser MFRC522 library ou similaire
+// Simule un scan en attendant le vrai hardware PN532
+// En production : utiliser PN532 driver réel
 void simulateScan() {
-    // Placeholder - vrai code utiliserait RC522 driver
-    // mfrc522.PCD_Init();
-    // mfrc522.PICC_IsNewCardPresent();
-    // mfrc522.PICC_ReadCardSerial();
+    // TODO: Remplacer par:
+    // nfc.begin();
+    // if (nfc.getFirmwareVersion()) { ... }
+    // uint8_t uid[7];
+    // uint8_t uidLen;
+    // if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLen)) { ... }
 }
 
 String byteArrayToHex(const uint8_t *data, size_t len) {
