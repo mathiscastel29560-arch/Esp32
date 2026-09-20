@@ -10,6 +10,7 @@
 #include "beacon_spam.h"
 #include "evil_portal.h"
 #include "ir_tools.h"
+#include "badusb.h"
 
 WebServer server(8080);
 String g_lastAction = "booted";
@@ -72,6 +73,24 @@ void handleSubRssi() {
     server.send(200, "application/json", "{}");
 }
 
+void handleBadUsb() {
+    String osStr = server.arg("os");
+    uint16_t count = server.hasArg("count") ? server.arg("count").toInt() : 15000;
+    uint16_t delay_ms = server.hasArg("delay") ? server.arg("delay").toInt() : 100;
+
+    BadUSB::OSType osType = BadUSB::OS_WINDOWS;
+    if (osStr == "linux") osType = BadUSB::OS_LINUX;
+    else if (osStr == "macos") osType = BadUSB::OS_MACOS;
+
+    auto result = BadUSB::openWindowsSpam(osType, count, delay_ms);
+
+    note("Bad USB: " + result.message);
+    server.send(200, "application/json",
+                "{\"status\":\"" + result.status + "\","
+                "\"message\":\"" + jsonEscape(result.message) + "\","
+                "\"keystrokes\":" + String(result.keystrokes) + "}");
+}
+
 void handleStatus() {
     server.send(200, "application/json", "{}");
 }
@@ -90,6 +109,7 @@ void begin() {
     server.on("/api/ble/scan", handleBleScan);
     server.on("/api/nrf24/scan", handleNrfScan);
     server.on("/api/subghz/rssi", handleSubRssi);
+    server.on("/api/badusb/inject", HTTP_POST, handleBadUsb);
     server.begin();
 }
 

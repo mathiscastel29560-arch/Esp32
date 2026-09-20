@@ -36,6 +36,18 @@ const char WEBUI_HTML[] = R"===(
   <h2>Beacon spam</h2>
 </div>
 
+<div class="card" style="background:#ffe6e6;border-color:#ff0000;">
+  <h2 style="color:#cc0000;">Bad USB - Injection HID</h2>
+  <p style="font-size:11px;color:#cc0000;">Ouvre 15k fenêtres lentement (100ms délai) pour eviter antivirus. Usage legal + audit secu uniquement.</p>
+  <select id="osSelect" style="padding:8px;margin:5px 0;width:150px;">
+    <option value="windows">Windows CMD</option>
+    <option value="linux">Linux Terminal</option>
+    <option value="macos">macOS Terminal</option>
+  </select>
+  <button onclick="badUsbInject()" style="background:#cc0000;">Injecter Payload (15k)</button>
+  <div id="badUsbOut"></div>
+</div>
+
 <script>
 function j(url, opts) {
   return fetch(url, opts).then(r => r.json());
@@ -63,6 +75,17 @@ async function handshakeCapture() {
 async function beaconStart() {
   const ssids = document.getElementById('beaconSsids').value;
   const res = await j('/api/wifi/beacon/start?ssids=' + encodeURIComponent(ssids), {method: 'POST'});
+}
+
+async function badUsbInject() {
+  const os = document.getElementById('osSelect').value;
+  document.getElementById('badUsbOut').textContent = 'injection en cours (15000 fenetres lentement)...';
+  const res = await j('/api/badusb/inject?os=' + os, {method: 'POST'});
+  if (res.status == 'success') {
+    document.getElementById('badUsbOut').textContent = res.message + ' | Keystrokes: ' + res.keystrokes;
+  } else {
+    document.getElementById('badUsbOut').textContent = 'erreur: ' + res.message;
+  }
 }
 </script>
 

@@ -17,6 +17,15 @@ static const Topic TOPICS[] = {
      "handshakes -- cassage hors\n"
      "ligne (hashcat/aircrack) sur\n"
      "un ordinateur, pas ici."},
+    {"Bad USB - Injection HID",
+     "Injection HID lente (100ms\n"
+     "delai) pour eviter antivirus.\n"
+     "Ouvre 15000 fenetres CMD/\n"
+     "Terminal/Bash sur cible USB.\n"
+     "Windows/Linux/macOS support.\n"
+     "USAGE LEGAL ET AUDIT SECU\n"
+     "UNIQUEMENT - Vos appareils\n"
+     "personnels ou authorization."},
     {"Scan BLE",
      "Liste les appareils Bluetooth LE\n"
      "a portee (5s d'ecoute).\n"},
