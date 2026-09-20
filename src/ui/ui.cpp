@@ -11,6 +11,16 @@ TFT_eSPI &tft = Display::raw();
 TFT_eSprite canvas(&tft);         // current frame, always mirrors what's on screen after a push
 TFT_eSprite prevSnapshot(&tft);   // last frame, only used while a transition plays
 bool canvasReady = false;
+bool g_displayOk = false; // false = no screen / sprite alloc failed: every draw call below no-ops
+
+// Full-frame pushes are the slow part (a 320x240x16bpp push is tens of ms
+// over SPI). menu.cpp calls showList()/showDetail() every single
+// Menu::loop() iteration with no throttling of its own, so without a cap
+// here a busy screen redraws as fast as the main loop spins — easily
+// enough to starve WiFi/BLE housekeeping and trip the task watchdog.
+// Screen-change transitions always draw immediately regardless.
+constexpr uint32_t MIN_FRAME_INTERVAL_MS = 33; // ~30fps ceiling
+uint32_t g_lastFrameMs = 0;
 
 // Selection-highlight slide animation state (shared by every list screen —
 // reset whenever the screen identity changes, see enterScreen()).
@@ -32,9 +42,13 @@ constexpr uint8_t SHARK_SCALE = 2;
 
 void ensureCanvas() {
     if (canvasReady) return;
-    canvas.setColorDepth(16);
-    canvas.createSprite(tft.width(), tft.height()); // auto-allocates in PSRAM (see Sprite.cpp)
     canvasReady = true;
+    canvas.setColorDepth(16);
+    void *buf = canvas.createSprite(tft.width(), tft.height()); // auto-allocates in PSRAM (see Sprite.cpp)
+    g_displayOk = (buf != nullptr);
+    if (!g_displayOk) {
+        Serial.println("[ui] display/sprite not available — running headless, UI calls are no-ops");
+    }
 }
 
 void ensureSnapshot() {
@@ -171,6 +185,7 @@ void begin() {
 
 void showSplash(const String &title, const String &subtitle) {
     ensureCanvas();
+    if (!g_displayOk) return;
 
     uint32_t start = millis();
     while (millis() - start < Theme::SPLASH_DURATION_MS) {
@@ -203,6 +218,7 @@ void showSplash(const String &title, const String &subtitle) {
 
 void showHome(const StatusInfo &status, const String &lastAction) {
     ensureCanvas();
+    if (!g_displayOk) return;
     bool screenChanged = enterScreen("__home__");
 
     canvas.fillSprite(Theme::COLOR_BG);
@@ -238,7 +254,15 @@ void showHome(const StatusInfo &status, const String &lastAction) {
 void showList(const StatusInfo &status, const String &title, const std::vector<ListItem> &items,
               int selectedIndex, bool scanning) {
     ensureCanvas();
+    if (!g_displayOk) return;
     bool screenChanged = enterScreen(title);
+
+    // Throttle: skip repaints of an unchanged screen faster than ~30fps so
+    // an unthrottled caller (menu.cpp redraws every loop() iteration)
+    // can't hog the CPU/SPI bus and starve WiFi/BLE or the watchdog.
+    if (!screenChanged && millis() - g_lastFrameMs < MIN_FRAME_INTERVAL_MS) return;
+    g_lastFrameMs = millis();
+
     updateSelectionAnim(selectedIndex, screenChanged);
     int highlightY = currentHighlightY(selectedIndex);
 
@@ -282,7 +306,11 @@ void showList(const StatusInfo &status, const String &title, const std::vector<S
 void showDetail(const StatusInfo &status, const String &title, const std::vector<DetailRow> &rows,
                  const std::vector<Badge> &badges) {
     ensureCanvas();
+    if (!g_displayOk) return;
     bool screenChanged = enterScreen(title);
+
+    if (!screenChanged && millis() - g_lastFrameMs < MIN_FRAME_INTERVAL_MS) return;
+    g_lastFrameMs = millis();
 
     canvas.fillSprite(Theme::COLOR_BG);
     drawStatusBar(status);
@@ -337,19 +365,24 @@ void showTextBlock(const StatusInfo &status, const String &title, const String &
 
 bool confirm(const String &title, const String &message) {
     ensureCanvas();
-    enterScreen("__confirm__" + title); // always treated as a fresh screen: no lingering slide state
+    if (g_displayOk) {
+        enterScreen("__confirm__" + title); // always a fresh screen: no lingering slide state
 
-    canvas.fillSprite(Theme::COLOR_BG);
-    canvas.loadFont(FONT_BODY);
-    canvas.setTextDatum(MC_DATUM);
-    canvas.setTextColor(Theme::COLOR_WARN, Theme::COLOR_BG);
-    canvas.drawString(title, canvas.width() / 2, canvas.height() / 2 - 40);
-    canvas.setTextColor(Theme::COLOR_TEXT, Theme::COLOR_BG);
-    canvas.drawString(message, canvas.width() / 2, canvas.height() / 2 - 10);
-    canvas.setTextColor(Theme::COLOR_TEXT_DIM, Theme::COLOR_BG);
-    canvas.drawString("OK = confirmer   RETOUR = annuler", canvas.width() / 2, canvas.height() / 2 + 30);
-    canvas.unloadFont();
-    canvas.pushSprite(0, 0);
+        canvas.fillSprite(Theme::COLOR_BG);
+        canvas.loadFont(FONT_BODY);
+        canvas.setTextDatum(MC_DATUM);
+        canvas.setTextColor(Theme::COLOR_WARN, Theme::COLOR_BG);
+        canvas.drawString(title, canvas.width() / 2, canvas.height() / 2 - 40);
+        canvas.setTextColor(Theme::COLOR_TEXT, Theme::COLOR_BG);
+        canvas.drawString(message, canvas.width() / 2, canvas.height() / 2 - 10);
+        canvas.setTextColor(Theme::COLOR_TEXT_DIM, Theme::COLOR_BG);
+        canvas.drawString("OK = confirmer   RETOUR = annuler", canvas.width() / 2, canvas.height() / 2 + 30);
+        canvas.unloadFont();
+        canvas.pushSprite(0, 0);
+    }
+    // No screen to show the prompt on: still block on the buttons below
+    // rather than silently defaulting to yes/no, since Buttons:: doesn't
+    // need the display to work.
 
     while (true) {
         Buttons::Button btn = Buttons::poll();
