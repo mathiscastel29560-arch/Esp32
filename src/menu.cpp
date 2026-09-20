@@ -19,6 +19,7 @@
 #include "gps_module.h"
 #include "battery.h"
 #include "dualboot.h"
+#include "help_content.h"
 #include "ui/ui.h"
 
 #include <vector>
@@ -33,6 +34,8 @@ enum State {
     BLE_RESULTS,
     BLE_DEVICE_ACTION,
     RESULT_MSG,
+    HELP_TOPICS,
+    HELP_DETAIL,
 };
 
 State g_state = HOME;
@@ -42,6 +45,7 @@ int g_wifiSel = 0;
 int g_apActionSel = 0;
 int g_bleSel = 0;
 int g_bleActionSel = 0;
+int g_helpSel = 0;
 std::vector<WifiTools::ApInfo> g_wifiResults;
 std::vector<BleTools::BleDevice> g_bleResults;
 SubGhz::Capture g_lastCapture;
@@ -99,6 +103,7 @@ std::vector<String> mainMenuItems() {
         "BLE Spam: Check Alert",
         "TX arm status (hold BACK)",
         "Boot into Bruce",
+        "Aide",
     };
 }
 
@@ -237,6 +242,11 @@ void runMainAction(int idx) {
             } else {
                 g_state = MAIN;
             }
+            break;
+        }
+        case 16: { // Aide
+            g_helpSel = 0;
+            g_state = HELP_TOPICS;
             break;
         }
     }
@@ -418,6 +428,26 @@ void loop() {
         case RESULT_MSG:
             Ui::showTextBlock(currentStatus(), g_resultTitle, g_resultBody);
             if (backTapped || btn == Buttons::SELECT) g_state = g_resultReturnTo;
+            break;
+
+        case HELP_TOPICS: {
+            if (btn == Buttons::UP)
+                g_helpSel = (g_helpSel + HelpContent::TOPIC_COUNT - 1) % HelpContent::TOPIC_COUNT;
+            else if (btn == Buttons::DOWN) g_helpSel = (g_helpSel + 1) % HelpContent::TOPIC_COUNT;
+            else if (btn == Buttons::SELECT) g_state = HELP_DETAIL;
+            else if (backTapped) g_state = MAIN;
+            if (g_state == HELP_TOPICS) {
+                std::vector<String> titles;
+                for (size_t i = 0; i < HelpContent::TOPIC_COUNT; i++) titles.push_back(HelpContent::TOPICS[i].title);
+                Ui::showList(currentStatus(), "Aide", titles, g_helpSel);
+            }
+            break;
+        }
+
+        case HELP_DETAIL:
+            Ui::showTextBlock(currentStatus(), HelpContent::TOPICS[g_helpSel].title,
+                               HelpContent::TOPICS[g_helpSel].body);
+            if (backTapped || btn == Buttons::SELECT) g_state = HELP_TOPICS;
             break;
 
         case HOME:

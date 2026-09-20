@@ -1,6 +1,7 @@
 #include "ui/oled_ui.h"
 #include "display.h"
 #include "config.h"
+#include "mascot.h"
 #include <Adafruit_SSD1306.h>
 
 // Default Adafruit_GFX font at textSize(1): 6px wide x 8px tall per
@@ -57,9 +58,20 @@ void showSplash(const String &title, const String &subtitle) {
     d.clearDisplay();
     d.setTextSize(1);
     d.setTextColor(SSD1306_WHITE);
-    d.setCursor(0, 0);
-    d.println(clip(title, COLS));
-    d.println(clip(subtitle, COLS));
+
+    // Same 32x16 shark bitmap the TFT splash uses (see mascot.h), drawn at
+    // native size -- plenty small for even a 128x32 module.
+    d.drawBitmap((OLED_WIDTH - Mascot::WIDTH) / 2, 0, Mascot::SHARK_BITMAP, Mascot::WIDTH,
+                 Mascot::HEIGHT, SSD1306_WHITE);
+
+    if (ROWS > 2) {
+        d.setCursor(0, Mascot::HEIGHT);
+        d.print(clip(title, COLS));
+    }
+    if (ROWS > 3) {
+        d.setCursor(0, Mascot::HEIGHT + 8);
+        d.print(clip(subtitle, COLS));
+    }
     d.display();
     delay(800); // shorter than the TFT's animated splash -- there's nothing to animate here
 }
