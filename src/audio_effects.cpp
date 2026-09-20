@@ -1,4 +1,5 @@
 #include "audio_effects.h"
+#include "config.h"
 
 namespace AudioEffects {
 
@@ -8,6 +9,10 @@ void initAudio() {
 }
 
 void playSound(SoundType type) {
+    #if !ENABLE_AUDIO_EFFECTS
+    return;
+    #endif
+
     switch (type) {
         case SUCCESS_BEEP:
             playSuccessBeep();

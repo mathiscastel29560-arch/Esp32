@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <vector>
 #include "config.h"
+#include <cstddef>
 #include "nrf24_tools.h"
 #include "subghz.h"
 #include "deauth.h"
@@ -110,6 +111,7 @@ void runBadUsbAction(int osIdx) {
     showResult(title.c_str(), body, WIFI_RESULTS);
 }
 
+#if ENABLE_CHAOS_MODE
 void runChaosMode() {
     g_chaosActive = true;
     auto result = FunnyPayloads::launchChaosMode();
@@ -123,6 +125,7 @@ void runChaosMode() {
 
     showResult("MODE CHAOS", body, WIFI_RESULTS);
 }
+#endif
 
 void runOffensiveTool(int toolIdx) {
     String title;
@@ -231,10 +234,17 @@ void runOffensiveTool(int toolIdx) {
 void menuLoop() {
     switch (g_state) {
         case MAIN_MENU: {
+            #if ENABLE_CHAOS_MODE
             std::vector<String> mainItems = {
                 "WiFi Tools", "Bad USB", "RFID", "Offensive Tools",
                 "MODE CHAOS!!!", "Statistics", "Settings"
             };
+            #else
+            std::vector<String> mainItems = {
+                "WiFi Tools", "Bad USB", "RFID", "Offensive Tools",
+                "Statistics", "Settings"
+            };
+            #endif
             // Main menu navigation
             break;
         }
