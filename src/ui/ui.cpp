@@ -5,6 +5,7 @@
 #include "display.h"
 #include "mascot.h"
 #include "buttons.h"
+#include "france_outline.h"
 #include <TFT_eSPI.h>
 
 namespace {
@@ -412,6 +413,52 @@ bool confirm(const String &title, const String &message) {
         if (btn == Buttons::BACK) return false;
         delay(10);
     }
+}
+
+void showGpsMap(const StatusInfo &status, bool hasFix, double lat, double lon) {
+    if (Display::kind() == Display::ScreenKind::OLED) {
+        OledUi::showGpsMap(status, hasFix, lat, lon);
+        return;
+    }
+    ensureCanvas();
+    if (!g_displayOk) return;
+    bool screenChanged = enterScreen("__gpsmap__");
+
+    if (!screenChanged && millis() - g_lastFrameMs < MIN_FRAME_INTERVAL_MS) return;
+    g_lastFrameMs = millis();
+
+    canvas.fillSprite(Theme::COLOR_BG);
+    drawStatusBar(status);
+
+    int16_t mapX = Theme::SPACE_1;
+    int16_t mapY = Theme::STATUS_BAR_H + Theme::SPACE_1;
+    int16_t mapW = canvas.width() - 2 * Theme::SPACE_1;
+    int16_t mapH = canvas.height() - mapY - Theme::SPACE_1;
+
+    int16_t px, py, prevX, prevY;
+    FranceOutline::project(FranceOutline::POINTS[0].lon, FranceOutline::POINTS[0].lat, mapX, mapY, mapW,
+                            mapH, prevX, prevY);
+    for (size_t i = 1; i <= FranceOutline::POINT_COUNT; i++) {
+        const auto &p = FranceOutline::POINTS[i % FranceOutline::POINT_COUNT];
+        FranceOutline::project(p.lon, p.lat, mapX, mapY, mapW, mapH, px, py);
+        canvas.drawLine(prevX, prevY, px, py, Theme::COLOR_TEXT_DIM);
+        prevX = px;
+        prevY = py;
+    }
+
+    if (hasFix) {
+        FranceOutline::project((float)lon, (float)lat, mapX, mapY, mapW, mapH, px, py);
+        canvas.fillCircle(px, py, 4, Theme::COLOR_DANGER);
+        canvas.drawCircle(px, py, 7, Theme::COLOR_DANGER);
+    } else {
+        canvas.loadFont(FONT_BODY);
+        canvas.setTextDatum(MC_DATUM);
+        canvas.setTextColor(Theme::COLOR_TEXT_DIM, Theme::COLOR_BG);
+        canvas.drawString("Pas de fix GPS", canvas.width() / 2, mapY + mapH / 2);
+        canvas.unloadFont();
+    }
+
+    presentFrame(screenChanged);
 }
 
 } // namespace Ui

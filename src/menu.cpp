@@ -36,6 +36,7 @@ enum State {
     RESULT_MSG,
     HELP_TOPICS,
     HELP_DETAIL,
+    GPS_MAP,
 };
 
 State g_state = HOME;
@@ -103,6 +104,7 @@ std::vector<String> mainMenuItems() {
         "BLE Spam: Check Alert",
         "TX arm status (hold BACK)",
         "Boot into Bruce",
+        "Carte GPS",
         "Aide",
     };
 }
@@ -244,7 +246,11 @@ void runMainAction(int idx) {
             }
             break;
         }
-        case 16: { // Aide
+        case 16: { // Carte GPS
+            g_state = GPS_MAP;
+            break;
+        }
+        case 17: { // Aide
             g_helpSel = 0;
             g_state = HELP_TOPICS;
             break;
@@ -448,6 +454,11 @@ void loop() {
             Ui::showTextBlock(currentStatus(), HelpContent::TOPICS[g_helpSel].title,
                                HelpContent::TOPICS[g_helpSel].body);
             if (backTapped || btn == Buttons::SELECT) g_state = HELP_TOPICS;
+            break;
+
+        case GPS_MAP:
+            Ui::showGpsMap(currentStatus(), GpsModule::hasFix(), GpsModule::latitude(), GpsModule::longitude());
+            if (backTapped) g_state = MAIN;
             break;
 
         case HOME:

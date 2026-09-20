@@ -84,6 +84,12 @@ static const Topic TOPICS[] = {
      "position GPS + reseaux vus.\n"
      "Fichier: logs/wardrive.csv\n"
      "(accessible via le panneau web)."},
+    {"Carte GPS",
+     "Contour simplifie de la France\n"
+     "avec un point a ta position GPS,\n"
+     "mis a jour en continu.\n"
+     "Sans fix: 'Pas de fix GPS' a la\n"
+     "place du point."},
     {"Verrou TX (RETOUR)",
      "Les actions radio actives (deauth,\n"
      "spam, replay sub-GHz...) exigent\n"

@@ -20,4 +20,6 @@ void showDetail(const Ui::StatusInfo &status, const String &title,
 // polling loop so it stays shared between backends.
 void confirm(const String &title, const String &message);
 
+void showGpsMap(const Ui::StatusInfo &status, bool hasFix, double lat, double lon);
+
 } // namespace OledUi

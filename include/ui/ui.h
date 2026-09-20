@@ -78,4 +78,10 @@ void showTextBlock(const StatusInfo &status, const String &title, const String &
 // automatically.
 bool confirm(const String &title, const String &message);
 
+// Rough outline map of mainland France (see france_outline.h) with a
+// marker at the current GPS fix, if any. Call every frame the screen is
+// showing, same as showList/showDetail -- lat/lon are ignored (a "no
+// fix yet" message is shown instead) when hasFix is false.
+void showGpsMap(const StatusInfo &status, bool hasFix, double lat, double lon);
+
 } // namespace Ui

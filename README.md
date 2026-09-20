@@ -174,7 +174,10 @@ pour un module 128x64 (`OLED_WIDTH`/`OLED_HEIGHT` dans `config.h` — passe à
   `DEFAULT_PORTAL_SSID`, à éditer puisque taper du texte libre avec 4
   boutons n'est pas réaliste), IR (toggle TV / apprendre / rejouer),
   surveillance BLE-spam (démarrer/arrêter/vérifier), snapshot wardriving,
-  et l'état du verrou TX.
+  l'état du verrou TX, une carte GPS (contour simplifié de la France avec
+  ta position en direct, `include/france_outline.h`), et une aide
+  intégrée (un sujet par fonction : ce que ça fait, comment s'en servir,
+  comment lire le résultat).
 - Le panneau web reste utilisable en parallèle pour tout ce qui demande de
   taper du texte (BSSID/adresse BLE précise, SSID personnalisés, etc.).
 

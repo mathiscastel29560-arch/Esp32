@@ -2,6 +2,7 @@
 #include "display.h"
 #include "config.h"
 #include "mascot.h"
+#include "france_outline.h"
 #include <Adafruit_SSD1306.h>
 
 // Default Adafruit_GFX font at textSize(1): 6px wide x 8px tall per
@@ -163,6 +164,37 @@ void confirm(const String &title, const String &message) {
     if (ROWS > 3) {
         d.setCursor(0, (ROWS - 1) * 8);
         d.print(clip("SEL=OK  RET=annuler", COLS));
+    }
+    d.display();
+}
+
+void showGpsMap(const Ui::StatusInfo &status, bool hasFix, double lat, double lon) {
+    Adafruit_SSD1306 &d = oled();
+    d.clearDisplay();
+    d.setTextSize(1);
+    d.setTextColor(SSD1306_WHITE);
+    drawStatusBar(status);
+
+    constexpr int16_t mapY = 8; // row 0 is the status bar; map takes the rest
+    int16_t mapH = OLED_HEIGHT - mapY;
+
+    int16_t px, py, prevX, prevY;
+    FranceOutline::project(FranceOutline::POINTS[0].lon, FranceOutline::POINTS[0].lat, 0, mapY, OLED_WIDTH,
+                            mapH, prevX, prevY);
+    for (size_t i = 1; i <= FranceOutline::POINT_COUNT; i++) {
+        const auto &p = FranceOutline::POINTS[i % FranceOutline::POINT_COUNT];
+        FranceOutline::project(p.lon, p.lat, 0, mapY, OLED_WIDTH, mapH, px, py);
+        d.drawLine(prevX, prevY, px, py, SSD1306_WHITE);
+        prevX = px;
+        prevY = py;
+    }
+
+    if (hasFix) {
+        FranceOutline::project((float)lon, (float)lat, 0, mapY, OLED_WIDTH, mapH, px, py);
+        d.fillCircle(px, py, 2, SSD1306_WHITE);
+    } else if (ROWS > 3) {
+        d.setCursor(0, (ROWS - 1) * 8);
+        d.print(clip("Pas de fix GPS", COLS));
     }
     d.display();
 }
