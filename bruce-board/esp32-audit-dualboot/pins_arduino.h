@@ -75,10 +75,12 @@ static const uint8_t SCK = SPI_SCK_PIN;
 // by core/utils.cpp's getBattery() via ANALOG_BAT_PIN, see esp32-audit-dualboot.ini
 #define ANALOG_BAT_PIN 7
 
-// FONT SIZE
-#define FP 1
-#define FM 2
-#define FG 3
+// FONT SIZE: not overridden -- Bruce's own include/precompiler_flags.h
+// already falls back to FP=1/FM=2/FG=3 via #ifndef when a board doesn't
+// define them, and defining them here as plain integer macros pollutes
+// every later use of the identifier "FP" -- including FastLED's own
+// `using FP = fl::s16x16;` fixed-point type alias, which src/core/led_
+// control.cpp pulls in unconditionally for every board.
 
 // TFT_eSPI display: ILI9341 2.8" (same panel our own firmware drives)
 #define HAS_SCREEN 1
