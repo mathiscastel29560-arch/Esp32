@@ -26,6 +26,9 @@
 #include "audio_effects.h"
 #include "funny_payloads.h"
 #include "settings.h"
+#include "default_creds_scanner.h"
+#include "wifi_bruteforce.h"
+#include "nfc_emulation.h"
 
 enum MenuState {
     MAIN_MENU,
@@ -263,7 +266,43 @@ void runOffensiveTool(int toolIdx) {
                    "Error: " + result.error;
             break;
         }
-        case 11: // Back
+        case 11: { // Default Credentials Scanner
+            auto result = DefaultCredScanner::scanDefaultCredentials(60000);
+            title = "Default Creds Scanner";
+            body = String(result.found ? "Vulnerabilities found!" : "No defaults found") + "\n" +
+                   "Devices scanned: " + String(result.devicesScanned) + "\n" +
+                   "Credentials tested: " + String(result.credentialsAttempted) + "\n" +
+                   "Vulnerable: " + result.vulnerableDevices;
+            ExploitTracker::incrementExploit(result.found);
+            if (result.found) AudioEffects::playExploitAlert();
+            break;
+        }
+        case 12: { // WiFi Password Brute-Force
+            auto result = WiFiBruteforce::bruteForce("TARGET_SSID", 60000);
+            title = "WiFi Brute-Force";
+            body = String(result.passwordFound ? "Password found!" : "Not in wordlist") + "\n" +
+                   "Target: " + result.targetSSID + "\n" +
+                   "Attempts: " + String(result.attemptsCount) + "\n" +
+                   "Duration: " + String(result.durationMs) + "ms";
+            if (result.passwordFound) {
+                body += "\nPassword: " + result.foundPassword;
+            }
+            ExploitTracker::incrementExploit(result.passwordFound);
+            if (result.passwordFound) AudioEffects::playExploitAlert();
+            break;
+        }
+        case 13: { // NFC Emulation
+            auto testCards = NFCEmulation::getTestCards();
+            auto result = NFCEmulation::emulateCard(testCards[0], 30000);
+            title = "NFC Emulation";
+            body = String(result.success ? "Emulation active" : "Failed") + "\n" +
+                   "Card: " + testCards[0].friendlyName + "\n" +
+                   "Read count: " + String(result.readCount) + "\n" +
+                   "Duration: " + String(result.emulationDurationMs) + "ms";
+            ExploitTracker::incrementExploit(result.success && result.readCount > 0);
+            break;
+        }
+        case 14: // Back
             g_state = WIFI_RESULTS;
             return;
     }
@@ -299,7 +338,9 @@ void menuLoop() {
             std::vector<String> offensiveTools = {
                 "Sub-GHz Replay", "IR Learning", "BLE Jamming", "WiFi KRACK",
                 "Mifare Bruteforce", "BLE Fingerprint", "DNS Spoof", "ARP Spoof",
-                "SSL Strip", "IR Bruteforce", "BLE Relay", "Back"
+                "SSL Strip", "IR Bruteforce", "BLE Relay",
+                "Default Creds Scanner", "WiFi Brute-Force", "NFC Emulation",
+                "Back"
             };
             // Offensive tools menu - calls runOffensiveTool(selection)
             break;
