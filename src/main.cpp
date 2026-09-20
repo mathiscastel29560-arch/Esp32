@@ -23,6 +23,7 @@
 #include "battery.h"
 #include "ble_spam_detector.h"
 #include "custom_module.h"
+#include "dualboot.h"
 #include "ui/ui.h"
 
 namespace {
@@ -64,6 +65,12 @@ void setup() {
 
     Ui::showSplash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
     Buzzer::chirpOk();
+
+    // Everything above came up without hanging or crashing -- tell the
+    // bootloader this boot is good, so app rollback never reverts us
+    // (see dualboot.h). Deliberately last: if something above hangs, this
+    // never runs, and a subsequent reset correctly falls back.
+    DualBoot::markValid();
 }
 
 void loop() {

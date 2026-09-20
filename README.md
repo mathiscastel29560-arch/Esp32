@@ -176,6 +176,59 @@ dernière action effectuée.
   vraie télécommande (5s d'écoute) — fiable, quel que soit le protocole.
 - **Rejouer** : renvoie la dernière capture apprise.
 
+## Dual-boot avec Bruce
+
+Ce firmware peut cohabiter sur la même puce avec une build officielle de
+[Bruce](https://github.com/pr3y/Bruce), non modifiée, grâce au mécanisme
+de rollback OTA d'ESP-IDF :
+
+- `partitions_16mb.csv` réserve deux slots d'application, `ota_0` (ce
+  firmware) et `ota_1` (Bruce), plus `auditfs` (LittleFS de ce firmware —
+  logs, wardriving, captures sub-GHz) et `spiffs` (système de fichiers
+  propre à Bruce). Les deux firmwares ne doivent jamais monter la même
+  partition de données.
+- Le bootloader ESP-IDF utilisé par Arduino-ESP32 a le rollback d'app
+  activé par défaut (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`). Ce
+  firmware confirme chaque boot réussi via `DualBoot::markValid()`
+  (`src/dualboot.cpp`, appelée en toute fin de `setup()`). Bruce, lui,
+  n'appelle jamais cette fonction — c'est un build officiel, non modifié.
+- Résultat : depuis le menu, "Boot into Bruce" bascule sur `ota_1` et
+  redémarre. Un simple cycle d'alimentation pendant que Bruce tourne
+  suffit à revenir sur ce firmware — le bootloader considère le boot Bruce
+  comme jamais confirmé et repointe automatiquement sur `ota_0`. Aucune
+  combinaison de boutons, aucune modification du code de Bruce.
+
+### Mise en place (une fois)
+
+1. Flashe ce firmware normalement (`pio run -t upload` depuis la racine du
+   projet) — ça écrit le bootloader, la table de partitions et `ota_0`.
+2. Construis et flashe Bruce sur `ota_1` avec le profil de carte fourni
+   dans [`bruce-board/`](./bruce-board/), qui reprend le brochage exact de
+   `HARDWARE.md` (SPI partagé TFT/CC1101/NRF24, boutons, IR, ADC batterie —
+   pas le DS3231 ni le GPS, Bruce n'a pas de driver DS3231) :
+
+   ```bash
+   git clone https://github.com/pr3y/Bruce.git
+   ./bruce-board/flash_bruce.sh /path/to/Bruce [/dev/ttyUSB0]
+   ```
+
+   Le script copie le profil de carte dans le checkout Bruce, compile
+   l'environnement `esp32-audit-dualboot`, et flashe **uniquement**
+   `firmware.bin` à l'offset `0x310000` (`ota_1`) — il ne touche jamais au
+   bootloader, à la table de partitions ni à `ota_0`.
+
+### Limites connues
+
+- Pas de RTC ni de GPS côté Bruce (aucun driver DS3231 dans Bruce ; le
+  NEO-6M est câblé mais inutilisé côté Bruce sauf si tu ajoutes un module
+  GPS toi-même côté Bruce).
+- Pas de carte SD câblée sur cette carte (`SDCARD_CS=-1` dans le profil) —
+  Bruce utilisera son `spiffs` (~6.4MB) pour scripts/captures.
+- Les deux firmwares partagent le même bus SPI (TFT + CC1101 + NRF24) et
+  le même bus I2C — pas de conflit puisqu'un seul firmware tourne à la
+  fois, mais les deux doivent s'accorder sur qui a quel CS (déjà fait dans
+  le profil de carte).
+
 ## Structure du projet
 
 ```
@@ -187,8 +240,9 @@ src/             un module par domaine :
                  buttons, menu, wifi_tools, deauth, beacon_spam,
                  evil_portal, ble_tools, ble_gatt_audit, ble_spam_detector,
                  ble_fuzzer, nrf24_tools, subghz, ir_tools, wardriving,
-                 web_ctrl, mascot, main.cpp
-partitions_16mb.csv   table de partitions (app + LittleFS pour les logs)
+                 web_ctrl, mascot, dualboot, main.cpp
+partitions_16mb.csv   table de partitions dual-boot (ota_0/ota_1 + auditfs/spiffs)
+bruce-board/     profil de carte Bruce + script de flash (voir "Dual-boot avec Bruce")
 ```
 
 ## Pistes d'évolution
