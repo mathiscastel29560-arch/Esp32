@@ -23,6 +23,7 @@
 #include "battery.h"
 #include "ble_spam_detector.h"
 #include "custom_module.h"
+#include "ui/ui.h"
 
 namespace {
 String apSsid;
@@ -41,6 +42,7 @@ void setup() {
     SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
 
     Display::begin();
+    Ui::begin();
     bool rtcOk = RtcClock::begin();
     GpsModule::begin();
 
@@ -60,9 +62,8 @@ void setup() {
     Menu::begin();
     CustomModule::begin();
 
-    Display::splash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
+    Ui::showSplash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
     Buzzer::chirpOk();
-    delay(1500);
 }
 
 void loop() {

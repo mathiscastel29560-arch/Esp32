@@ -5,6 +5,7 @@
 #include "tx_arm.h"
 #include "battery.h"
 #include "mascot.h"
+#include "ui/theme.h"
 #include <TFT_eSPI.h>
 #include <WiFi.h>
 
@@ -56,9 +57,11 @@ bool advanceSharkAnimation() {
 
 namespace Display {
 
+TFT_eSPI &raw() { return tft; }
+
 void begin() {
     tft.init();
-    tft.setRotation(1); // landscape 320x240; use 3 instead if the image is upside down
+    tft.setRotation(Theme::ROTATION); // single source of truth for orientation, see ui/theme.h
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     splash("ESP32 Audit Tool", "booting...");
@@ -126,7 +129,7 @@ void showList(const String &title, const std::vector<String> &items, int selecte
 
     for (int i = start; i < (int)items.size() && i < start + visibleRows; i++) {
         tft.print(i == selectedIndex ? "> " : "  ");
-        tft.println(items[i].substring(0, 50));
+        tft.println(items[i].substring(0, 36)); // fits the 240px-wide portrait screen at size(1)
     }
 }
 

@@ -15,6 +15,10 @@
 #include "ble_gatt_audit.h"
 #include "ble_fuzzer.h"
 #include "ble_spam_detector.h"
+#include "rtc_clock.h"
+#include "gps_module.h"
+#include "battery.h"
+#include "ui/ui.h"
 
 #include <vector>
 
@@ -328,7 +332,14 @@ void loop() {
             else if (btn == Buttons::DOWN) g_mainSel = (g_mainSel + 1) % items.size();
             else if (btn == Buttons::SELECT) runMainAction(g_mainSel);
             else if (backTapped) g_state = HOME;
-            if (g_state == MAIN) Display::showList("Main Menu", items, g_mainSel);
+            if (g_state == MAIN) {
+                Ui::StatusInfo status;
+                status.time = RtcClock::isoTimestamp();
+                status.gpsFix = GpsModule::hasFix();
+                status.battPercent = Battery::percent();
+                status.radioActive = BeaconSpam::active() || EvilPortal::active() || BleSpamDetector::active();
+                Ui::showMainMenu(status, "Main Menu", items, g_mainSel);
+            }
             break;
 
         case WIFI_RESULTS: {
