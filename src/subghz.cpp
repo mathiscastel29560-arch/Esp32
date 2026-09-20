@@ -1,207 +1,112 @@
 #include "subghz.h"
+#include "config.h"
 #include "tx_arm.h"
+#include <RadioLib.h>
+#include <LittleFS.h>
+
+namespace {
+Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);
+CC1101 radio(&cc1101Module);
+
+constexpr size_t MAX_PULSES = 1024;
+volatile uint16_t g_pulseBuf[MAX_PULSES];
+volatile size_t g_pulseCount = 0;
+volatile uint32_t g_lastEdgeUs = 0;
+volatile bool g_capturing = false;
+
+void IRAM_ATTR onEdge() {
+    uint32_t now = micros();
+    uint32_t dt = now - g_lastEdgeUs;
+    g_lastEdgeUs = now;
+    if (!g_capturing) return;
+    if (g_pulseCount < MAX_PULSES) {
+        g_pulseBuf[g_pulseCount++] = (dt > 0xFFFF) ? 0xFFFF : (uint16_t)dt;
+    }
+}
+}
 
 namespace SubGhz {
 
-static bool scanning = false;
-
-ScanResult scanFrequencies(uint16_t timeoutMs) {
-    ScanResult result{false, 0, 0, 0, ""};
-
-    if (!TxArm::isArmed()) {
-        result.error = "TX arming required";
-        return result;
-    }
-
-    scanning = true;
-
-    Serial.println("Sub-GHz Frequency Scan started");
-    Serial.println("Scanning 433 MHz and 868 MHz bands");
-    Serial.println("Timeout: " + String(timeoutMs) + "ms");
-
-    unsigned long startTime = millis();
-    uint8_t devicesFound = 0;
-    uint8_t activeChannels = 0;
-
-    // Scan 433 MHz band
-    for (uint16_t freq = 433000; freq < 435000 && scanning && TxArm::isArmed(); freq += 100) {
-        if (millis() - startTime > timeoutMs) break;
-
-        if (random(100) < 12) {
-            devicesFound++;
-            activeChannels++;
-            Serial.println("  [" + String(freq / 1000.0) + " MHz] Signal detected - RSSI: " +
-                          String(random(-95, -25)) + " dBm");
-        }
-
-        delay(8);
-    }
-
-    // Scan 868 MHz band
-    for (uint16_t freq = 868000; freq < 870000 && scanning && TxArm::isArmed(); freq += 100) {
-        if (millis() - startTime > timeoutMs) break;
-
-        if (random(100) < 10) {
-            devicesFound++;
-            activeChannels++;
-            Serial.println("  [" + String(freq / 1000.0) + " MHz] Signal detected - RSSI: " +
-                          String(random(-90, -20)) + " dBm");
-        }
-
-        delay(8);
-    }
-
-    scanning = false;
-
-    result.success = true;
-    result.devicesFound = devicesFound;
-    result.activeChannels = activeChannels;
-    result.durationMs = millis() - startTime;
-
-    Serial.println("Scan complete: " + String(devicesFound) + " devices found on " +
-                   String(activeChannels) + " active channels");
-
-    return result;
+void begin() {
+    radio.begin(CC1101_FREQ_MHZ);
+    radio.setOOK(true);
+    radio.receiveDirectAsync(); // GDO0 becomes the raw demodulated bitstream
 }
 
-DemodResult analyzeModulation(uint16_t frequencyMHz, uint16_t timeoutMs) {
-    DemodResult result{false, 0, "", -127, 0, ""};
-
-    if (!TxArm::isArmed()) {
-        result.error = "TX arming required";
-        return result;
-    }
-
-    Serial.println("Modulation Analysis started");
-    Serial.println("Frequency: " + String(frequencyMHz) + " MHz");
-    Serial.println("Analyzing FSK/OOK modulation...");
-
-    unsigned long startTime = millis();
-    uint8_t signalsDetected = 0;
-    int16_t strongestRSSI = -127;
-    uint32_t bitrate = 0;
-
-    while (millis() - startTime < timeoutMs && TxArm::isArmed()) {
-        int16_t rssi = random(-95, -20);
-        if (rssi > strongestRSSI) {
-            strongestRSSI = rssi;
-        }
-
-        if (random(100) < 25) {
-            signalsDetected++;
-            bitrate = random(1200, 10000);
-            String modType = (random(100) < 50) ? "FSK" : "OOK";
-            Serial.println("  Signal #" + String(signalsDetected) + " - Modulation: " + modType +
-                          ", Bitrate: " + String(bitrate) + " bps, RSSI: " + String(rssi) + " dBm");
-        }
-
-        delay(20);
-    }
-
-    result.success = true;
-    result.signalsDetected = signalsDetected;
-    result.modulationType = (random(100) < 50) ? "FSK" : "OOK";
-    result.strongestRSSI = strongestRSSI;
-    result.bitrate = bitrate;
-
-    Serial.println("Modulation analysis complete: " + String(signalsDetected) +
-                   " signals detected, strongest RSSI: " + String(strongestRSSI) + " dBm");
-
-    return result;
+int8_t rssiAt(float freqMHz) {
+    radio.setFrequency(freqMHz);
+    radio.receiveDirectAsync();
+    delay(5);
+    return (int8_t)radio.getRSSI();
 }
 
-ZigbeeResult scanZigbee(uint16_t timeoutMs) {
-    ZigbeeResult result{false, 0, 0, 0, 0, ""};
+Capture record(float freqMHz, uint32_t timeoutMs) {
+    Capture cap;
+    cap.freqMHz = freqMHz;
 
-    if (!TxArm::isArmed()) {
-        result.error = "TX arming required";
-        return result;
+    radio.setFrequency(freqMHz);
+    radio.receiveDirectAsync();
+
+    g_pulseCount = 0;
+    g_lastEdgeUs = micros();
+    g_capturing = true;
+    pinMode(PIN_CC1101_GDO0, INPUT);
+    attachInterrupt(digitalPinToInterrupt(PIN_CC1101_GDO0), onEdge, CHANGE);
+
+    uint32_t start = millis();
+    while (millis() - start < timeoutMs && g_pulseCount < MAX_PULSES) {
+        delay(1);
     }
 
-    scanning = true;
+    detachInterrupt(digitalPinToInterrupt(PIN_CC1101_GDO0));
+    g_capturing = false;
 
-    Serial.println("Zigbee Scan started");
-    Serial.println("Scanning 802.15.4 channels (11-26) on 2.4 GHz");
-
-    unsigned long startTime = millis();
-    uint8_t devicesFound = 0;
-    uint8_t channelsUsed = 0;
-    uint16_t panIds = 0;
-
-    // Scan Zigbee channels 11-26 on 2.4 GHz
-    for (uint8_t channel = 11; channel <= 26 && scanning && TxArm::isArmed(); channel++) {
-        if (millis() - startTime > timeoutMs) break;
-
-        if (random(100) < 18) {
-            devicesFound++;
-            channelsUsed++;
-            uint16_t panId = random(0x1000, 0x9999);
-            panIds += panId;
-            Serial.println("  [CH " + String(channel) + "] Zigbee device found - PAN ID: 0x" +
-                          String(panId, HEX) + ", RSSI: " + String(random(-80, -35)) + " dBm");
-        }
-
-        delay(15);
-    }
-
-    scanning = false;
-
-    result.success = true;
-    result.devicesFound = devicesFound;
-    result.panIds = panIds;
-    result.channelsUsed = channelsUsed;
-    result.durationMs = millis() - startTime;
-
-    Serial.println("Zigbee scan complete: " + String(devicesFound) + " devices found on " +
-                   String(channelsUsed) + " channels");
-
-    return result;
+    cap.pulsesUs.assign((const uint16_t *)g_pulseBuf, (const uint16_t *)g_pulseBuf + g_pulseCount);
+    return cap;
 }
 
-ScanResult scanISO14443A(uint16_t timeoutMs) {
-    ScanResult result{false, 0, 0, 0, ""};
+bool replay(const Capture &capture) {
+    if (!TxArm::isArmed()) return false;
+    if (capture.pulsesUs.empty()) return false;
 
-    if (!TxArm::isArmed()) {
-        result.error = "TX arming required";
-        return result;
+    radio.setFrequency(capture.freqMHz);
+    radio.transmitDirectAsync(); // GDO0 becomes the direct modulator input
+    pinMode(PIN_CC1101_GDO0, OUTPUT);
+
+    bool level = HIGH;
+    for (uint16_t d : capture.pulsesUs) {
+        digitalWrite(PIN_CC1101_GDO0, level);
+        delayMicroseconds(d);
+        level = !level;
     }
+    digitalWrite(PIN_CC1101_GDO0, LOW);
 
-    scanning = true;
-
-    Serial.println("ISO14443A RFID Scan started");
-    Serial.println("Scanning for NFC/RFID Type 2 tags");
-
-    unsigned long startTime = millis();
-    uint8_t tagsFound = 0;
-    uint8_t activeFields = 0;
-
-    while (millis() - startTime < timeoutMs && scanning && TxArm::isArmed()) {
-        if (random(100) < 22) {
-            tagsFound++;
-            activeFields++;
-            String uid = String(random(0x10000000, 0x99999999), HEX);
-            Serial.println("  Tag #" + String(tagsFound) + " - UID: " + uid +
-                          ", Type: MIFARE Classic, Signal: " + String(random(-75, -20)) + " dBm");
-        }
-
-        delay(25);
-    }
-
-    scanning = false;
-
-    result.success = true;
-    result.devicesFound = tagsFound;
-    result.activeChannels = activeFields;
-    result.durationMs = millis() - startTime;
-
-    Serial.println("ISO14443A scan complete: " + String(tagsFound) + " tags found");
-
-    return result;
+    radio.packetMode();
+    radio.receiveDirectAsync();
+    return true;
 }
 
-void stop() {
-    scanning = false;
-    Serial.println("Sub-GHz tools stopped");
+bool saveCapture(const Capture &capture, const String &filePath) {
+    if (!LittleFS.exists(SUBGHZ_CAPTURE_DIR)) LittleFS.mkdir(SUBGHZ_CAPTURE_DIR);
+    File f = LittleFS.open(filePath, FILE_WRITE);
+    if (!f) return false;
+    f.println(capture.freqMHz, 3);
+    for (uint16_t d : capture.pulsesUs) f.printf("%u\n", d);
+    f.close();
+    return true;
+}
+
+Capture loadCapture(const String &filePath) {
+    Capture cap;
+    File f = LittleFS.open(filePath, FILE_READ);
+    if (!f) return cap;
+    cap.freqMHz = f.readStringUntil('\n').toFloat();
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        if (line.length()) cap.pulsesUs.push_back((uint16_t)line.toInt());
+    }
+    f.close();
+    return cap;
 }
 
 } // namespace SubGhz

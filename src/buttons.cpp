@@ -11,7 +11,7 @@ struct BtnState {
 BtnState btns[4] = {
     {PIN_BTN_UP, HIGH, 0},
     {PIN_BTN_DOWN, HIGH, 0},
-    {PIN_BTN_OK, HIGH, 0},
+    {PIN_BTN_SELECT, HIGH, 0},
     {PIN_BTN_BACK, HIGH, 0},
 };
 

@@ -1,46 +1,33 @@
 #pragma once
 #include <Arduino.h>
+#include <vector>
 
+// CC1101 sub-GHz (record/replay) for testing your own fixed-code remotes
+// (garage doors, gate openers, doorbells, sensors, etc.) that you are
+// authorized to test. Replay is gated by the hardware safety switch.
 namespace SubGhz {
 
-struct ScanResult {
-    bool success;
-    uint8_t devicesFound;
-    uint8_t activeChannels;
-    uint16_t durationMs;
-    String error;
+struct Capture {
+    float freqMHz = 433.92f;
+    std::vector<uint16_t> pulsesUs; // alternating mark/space durations, starts with a mark
 };
 
-struct DemodResult {
-    bool success;
-    uint8_t signalsDetected;
-    String modulationType;
-    int16_t strongestRSSI;
-    uint32_t bitrate;
-    String error;
-};
+void begin();
 
-struct ZigbeeResult {
-    bool success;
-    uint8_t devicesFound;
-    uint16_t panIds;
-    uint8_t channelsUsed;
-    uint16_t durationMs;
-    String error;
-};
+// Tunes to freqMHz and returns the instantaneous RSSI in dBm — used to
+// sweep a band and find where a remote is transmitting.
+int8_t rssiAt(float freqMHz);
 
-// Scan for Sub-GHz RF signals (433/868 MHz)
-ScanResult scanFrequencies(uint16_t timeoutMs = 30000);
+// Listens on freqMHz for up to timeoutMs waiting for OOK/ASK pulses (e.g.
+// press the remote you're testing). Returns whatever was captured, which
+// may be empty if nothing was seen.
+Capture record(float freqMHz, uint32_t timeoutMs);
 
-// Detect and analyze FSK/OOK modulated signals
-DemodResult analyzeModulation(uint16_t frequencyMHz = 433, uint16_t timeoutMs = 20000);
+// Re-transmits a previously recorded capture. Returns false without doing
+// anything if the hardware safety switch is off.
+bool replay(const Capture &capture);
 
-// Scan for Zigbee devices on 802.15.4 channels (2.4 GHz)
-ZigbeeResult scanZigbee(uint16_t timeoutMs = 30000);
-
-// ISO14443A RFID tag detection
-ScanResult scanISO14443A(uint16_t timeoutMs = 15000);
-
-void stop();
+bool saveCapture(const Capture &capture, const String &filePath);
+Capture loadCapture(const String &filePath);
 
 } // namespace SubGhz

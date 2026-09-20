@@ -1,0 +1,18 @@
+# Name,     Type, SubType,   Offset,     Size
+# Dual-boot layout: ota_0 = this firmware, ota_1 = Bruce (flashed
+# separately, see README.md "Dual-boot with Bruce"). otadata lets the
+# ESP-IDF OTA rollback mechanism switch between them: this firmware calls
+# esp_ota_mark_app_valid_cancel_rollback() every boot, Bruce never does,
+# so any reset while Bruce is running reverts the boot partition back to
+# ota_0 automatically. auditfs is this firmware's own LittleFS (logs,
+# wardriving CSV, sub-GHz captures); spiffs is Bruce's own filesystem —
+# both firmwares must NOT be pointed at the same partition label, or
+# LittleFS::begin()/Bruce's own FS mount will silently share (and
+# corrupt) one filesystem instead of keeping separate storage.
+nvs,        data, nvs,       0x9000,     0x5000
+otadata,    data, ota,       0xE000,     0x2000
+ota_0,      app,  ota_0,     0x10000,    0x300000
+ota_1,      app,  ota_1,     0x310000,   0x480000
+auditfs,    data, spiffs,    0x790000,   0x200000
+spiffs,     data, spiffs,    0x990000,   0x660000
+coredump,   data, coredump,  0xFF0000,   0x10000

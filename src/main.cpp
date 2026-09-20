@@ -1,82 +1,97 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include <LittleFS.h>
+
 #include "config.h"
-#include "display.h"
-#include "buttons.h"
-#include "buzzer.h"
-#include "battery.h"
-#include "tx_arm.h"
 #include "rtc_clock.h"
 #include "gps_module.h"
-#include "exploit_tracker.h"
-#include "audio_effects.h"
-#include "settings.h"
-#include <WiFi.h>
+#include "display.h"
+#include "buzzer.h"
+#include "tx_arm.h"
+#include "wifi_tools.h"
+#include "ble_tools.h"
+#include "nrf24_tools.h"
+#include "subghz.h"
+#include "wardriving.h"
+#include "web_ctrl.h"
+#include "beacon_spam.h"
+#include "evil_portal.h"
+#include "buttons.h"
+#include "menu.h"
+#include "ir_tools.h"
+#include "battery.h"
+#include "ble_spam_detector.h"
+#include "custom_module.h"
+#include "dualboot.h"
+#include "ui/ui.h"
+
+namespace {
+String apSsid;
+uint32_t lastDisplayUpdate = 0;
+}
 
 void setup() {
     Serial.begin(115200);
-    delay(500);
 
-    Serial.println("\n\n=== ESP32-S3 Offensive Security Platform ===");
-    Serial.println("Booting...\n");
+    LittleFS.begin(true); // format on first boot if no filesystem is found
 
-    // Initialize LittleFS for settings & logs
-    if (!LittleFS.begin()) {
-        Serial.println("ERROR: LittleFS mount failed");
-        while (1) delay(1000);
-    }
-    Serial.println("LittleFS mounted");
-
-    // Load Settings from JSON
-    Settings::loadSettings();
-    Serial.println("Settings loaded");
-
-    // Initialize Display
-    Display::begin();
-    Serial.println("Display initialized");
-
-    // Initialize Hardware
-    // Buttons::begin();
-    // Serial.println("Buttons initialized");
-
-    // Buzzer::begin();
-    Serial.println("Buzzer initialized");
-
+    Buzzer::begin();
     Battery::begin();
-    Serial.println("Battery monitor initialized");
 
-    // TxArm::begin();
-    Serial.println("TX Arm system initialized");
+    // Display::begin() auto-detects which screen is wired (TFT or OLED,
+    // see display.h) and itself calls SPI.begin() for the shared TFT/
+    // CC1101/NRF24L01 bus exactly once, in whichever order is safe for
+    // the screen it finds -- doing it here unconditionally, before
+    // Display::begin() runs, was a redundant second SPI.begin() call on
+    // the same global SPI object and the likely cause of a boot crash
+    // when no TFT was physically attached.
+    Display::begin();
+    Ui::begin();
+    bool rtcOk = RtcClock::begin();
+    GpsModule::begin();
 
-    // Initialize Clock & GPS
-    RtcClock::begin();
-    Serial.println("RTC clock initialized");
+    uint64_t chipId = ESP.getEfuseMac();
+    char suffix[5];
+    snprintf(suffix, sizeof(suffix), "%04X", (uint16_t)(chipId & 0xFFFF));
+    apSsid = String(AP_SSID_PREFIX) + suffix;
 
-    // GpsModule::begin();
-    Serial.println("GPS module initialized");
+    WifiTools::begin(apSsid, AP_PASSWORD);
+    BleTools::begin();
+    BleSpamDetector::begin();
+    Nrf24Tools::begin();
+    SubGhz::begin();
+    IrTools::begin();
+    Wardriving::begin();
+    WebCtrl::begin();
+    Menu::begin();
+    CustomModule::begin();
 
-    // Initialize Exploit Tracking
-    // ExploitTracker::begin();
-    Serial.println("Exploit tracker initialized");
+    Ui::showSplash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
+    Buzzer::chirpOk();
 
-    // Initialize Audio Effects
-    // AudioEffects::begin();
-    Serial.println("Audio effects initialized");
-
-    // Initialize WiFi
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    Serial.println("WiFi initialized (station mode)");
-
-    // Play startup sound
-    Buzzer::beep(200, 100);
-
-    Serial.println("\nAll systems ready!");
-    Serial.println("Platform booted successfully\n");
+    // Everything above came up without hanging or crashing -- tell the
+    // bootloader this boot is good, so app rollback never reverts us
+    // (see dualboot.h). Deliberately last: if something above hangs, this
+    // never runs, and a subsequent reset correctly falls back.
+    DualBoot::markValid();
 }
 
 void loop() {
-    // Keep web server running
-    yield();
-    delay(10);
+    GpsModule::poll();
+    WebCtrl::loop();
+    BeaconSpam::loop();
+    EvilPortal::loop();
+    Menu::loop();
+    CustomModule::loop();
+
+    uint32_t now = millis();
+    if (!Menu::isActive() && now - lastDisplayUpdate > 1000) {
+        lastDisplayUpdate = now;
+        Ui::StatusInfo status;
+        status.time = RtcClock::isoTimestamp();
+        status.gpsFix = GpsModule::hasFix();
+        status.battPercent = Battery::percent();
+        status.radioActive = BeaconSpam::active() || EvilPortal::active() || BleSpamDetector::active();
+        Ui::showHome(status, WebCtrl::lastAction());
+    }
 }

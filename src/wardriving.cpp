@@ -1,66 +1,58 @@
 #include "wardriving.h"
+#include "config.h"
+#include "rtc_clock.h"
 #include "gps_module.h"
-#include <WiFi.h>
+#include "wifi_tools.h"
+#include "ble_tools.h"
 #include <LittleFS.h>
-#include <time.h>
+
+namespace {
+size_t g_rowCount = 0;
+
+void ensureLog() {
+    if (!LittleFS.exists(LOG_DIR)) LittleFS.mkdir(LOG_DIR);
+    if (!LittleFS.exists(WARDRIVE_LOG_FILE)) {
+        File f = LittleFS.open(WARDRIVE_LOG_FILE, FILE_WRITE);
+        if (f) {
+            f.println("timestamp,gps,type,identifier,name_or_ssid,rssi,extra");
+            f.close();
+        }
+    }
+}
+
+void appendRow(const String &type, const String &identifier, const String &nameOrSsid,
+               int rssi, const String &extra) {
+    File f = LittleFS.open(WARDRIVE_LOG_FILE, FILE_APPEND);
+    if (!f) return;
+    f.printf("%s,%s,%s,%s,%s,%d,%s\n",
+             RtcClock::isoTimestamp().c_str(), GpsModule::fixString().c_str(),
+             type.c_str(), identifier.c_str(), nameOrSsid.c_str(), rssi, extra.c_str());
+    f.close();
+    g_rowCount++;
+}
+}
 
 namespace Wardriving {
 
-static File wardrivingLog;
-static bool logging = false;
-
-void start() {
-    if (!LittleFS.exists("/logs")) {
-        LittleFS.mkdir("/logs");
-    }
-
-    wardrivingLog = LittleFS.open("/logs/wardriving.csv", "a");
-    if (!wardrivingLog) {
-        Serial.println("Failed to open wardriving log");
-        return;
-    }
-
-    wardrivingLog.println("timestamp,ssid,bssid,channel,rssi,encryption,lat,lon");
-    logging = true;
-    Serial.println("Wardriving started - logging to /logs/wardriving.csv");
+void begin() {
+    ensureLog();
 }
 
-void snapshot() {
-    if (!logging) return;
+size_t captureSnapshot(uint32_t bleScanSeconds) {
+    size_t before = g_rowCount;
 
-    int networks = WiFi.scanNetworks(false, false, false);
-
-    for (int i = 0; i < networks; i++) {
-        String line = String(time(nullptr)) + ",";
-        line += WiFi.SSID(i) + ",";
-        line += WiFi.BSSIDstr(i) + ",";
-        line += String(WiFi.channel(i)) + ",";
-        line += String(WiFi.RSSI(i)) + ",";
-
-        uint8_t auth = WiFi.encryptionType(i);
-        if (auth == WIFI_AUTH_OPEN) line += "OPEN";
-        else if (auth == WIFI_AUTH_WEP) line += "WEP";
-        else if (auth == WIFI_AUTH_WPA_PSK) line += "WPA";
-        else if (auth == WIFI_AUTH_WPA2_PSK) line += "WPA2";
-        else if (auth == WIFI_AUTH_WPA_WPA2_PSK) line += "WPA/WPA2";
-        else line += "OTHER";
-
-        line += ",";
-        line += String(GpsModule::latitude(), 6) + ",";
-        line += String(GpsModule::longitude(), 6);
-
-        wardrivingLog.println(line);
+    for (auto &ap : WifiTools::scan()) {
+        String extra = "ch=" + String(ap.channel) + ";enc=" + ap.enc;
+        appendRow("WIFI", ap.bssid, ap.ssid, ap.rssi, extra);
     }
 
-    wardrivingLog.flush();
+    for (auto &dev : BleTools::scan(bleScanSeconds)) {
+        appendRow("BLE", dev.address, dev.name, dev.rssi, "");
+    }
+
+    return g_rowCount - before;
 }
 
-void stop() {
-    if (logging) {
-        wardrivingLog.close();
-        logging = false;
-        Serial.println("Wardriving stopped");
-    }
-}
+size_t rowCount() { return g_rowCount; }
 
 } // namespace Wardriving
