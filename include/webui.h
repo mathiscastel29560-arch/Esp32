@@ -36,6 +36,27 @@ const char WEBUI_HTML[] = R"===(
   <h2>Beacon spam</h2>
 </div>
 
+<div class="card" style="background:#ffe6e6;border-color:#ff0000;">
+  <h2 style="color:#cc0000;">Bad USB - Injection HID</h2>
+  <p style="font-size:11px;color:#cc0000;">Ouvre 15k fenêtres lentement (100ms délai) pour eviter antivirus. Usage legal + audit secu uniquement.</p>
+  <select id="osSelect" style="padding:8px;margin:5px 0;width:150px;">
+    <option value="windows">Windows CMD</option>
+    <option value="linux">Linux Terminal</option>
+    <option value="macos">macOS Terminal</option>
+  </select>
+  <button onclick="badUsbInject()" style="background:#cc0000;">Injecter Payload (15k)</button>
+  <div id="badUsbOut"></div>
+</div>
+
+<div class="card" style="background:#e6f3ff;border-color:#0066cc;">
+  <h2 style="color:#0066cc;">RFID Scan & Clone (ISO14443A)</h2>
+  <p style="font-size:11px;color:#0066cc;">Scan: attend 5s une tag. Clone: copie données source vers nouvelle tag.</p>
+  <button onclick="rfidScan()">Scan Tag (5s)</button>
+  <button onclick="rfidClone()" style="background:#0066cc;">Clone (source->target)</button>
+  <button onclick="rfidListClones()">List Clones</button>
+  <div id="rfidOut"></div>
+</div>
+
 <script>
 function j(url, opts) {
   return fetch(url, opts).then(r => r.json());
@@ -63,6 +84,47 @@ async function handshakeCapture() {
 async function beaconStart() {
   const ssids = document.getElementById('beaconSsids').value;
   const res = await j('/api/wifi/beacon/start?ssids=' + encodeURIComponent(ssids), {method: 'POST'});
+}
+
+async function badUsbInject() {
+  const os = document.getElementById('osSelect').value;
+  document.getElementById('badUsbOut').textContent = 'injection en cours (15000 fenetres lentement)...';
+  const res = await j('/api/badusb/inject?os=' + os, {method: 'POST'});
+  if (res.status == 'success') {
+    document.getElementById('badUsbOut').textContent = res.message + ' | Keystrokes: ' + res.keystrokes;
+  } else {
+    document.getElementById('badUsbOut').textContent = 'erreur: ' + res.message;
+  }
+}
+
+async function rfidScan() {
+  document.getElementById('rfidOut').textContent = 'scan en cours (5s)...';
+  const res = await j('/api/rfid/scan', {method: 'POST'});
+  if (res.found) {
+    document.getElementById('rfidOut').textContent = 'UID: ' + res.uid + ' | Type: ' + res.type + ' | Capacity: ' + res.capacity + ' bytes';
+  } else {
+    document.getElementById('rfidOut').textContent = 'aucune tag trouvee (timeout 5s)';
+  }
+}
+
+async function rfidClone() {
+  document.getElementById('rfidOut').textContent = 'clone en cours...';
+  const res = await j('/api/rfid/clone', {method: 'POST'});
+  if (res.success) {
+    document.getElementById('rfidOut').textContent = 'Clone OK: ' + res.sourceUid + ' -> ' + res.targetUid + ' (' + res.bytesWritten + ' bytes)';
+  } else {
+    document.getElementById('rfidOut').textContent = 'erreur clone: ' + res.error;
+  }
+}
+
+async function rfidListClones() {
+  document.getElementById('rfidOut').textContent = 'chargement...';
+  const res = await j('/api/rfid/list', {method: 'GET'});
+  if (res.clones && res.clones.length > 0) {
+    document.getElementById('rfidOut').textContent = res.clones.length + ' clones: ' + res.clones.join(', ');
+  } else {
+    document.getElementById('rfidOut').textContent = 'aucun clone sauvegarde';
+  }
 }
 </script>
 
