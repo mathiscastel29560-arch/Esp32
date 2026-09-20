@@ -10,6 +10,17 @@
 #include "wardriving.h"
 #include "badusb.h"
 #include "rfid.h"
+#include "subghz_replay.h"
+#include "ir_learning.h"
+#include "ble_jamming.h"
+#include "wifi_krack.h"
+#include "mifare_bruteforce.h"
+#include "ble_fingerprint.h"
+#include "dns_spoof.h"
+#include "arp_spoof.h"
+#include "ssl_strip.h"
+#include "ir_bruteforce.h"
+#include "ble_relay.h"
 
 enum MenuState {
     WIFI_RESULTS,
