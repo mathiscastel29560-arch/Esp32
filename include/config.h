@@ -8,6 +8,8 @@
 #define HANDSHAKE_CAPTURE_DIR "/logs/handshakes"
 
 // ---- Fun Features Toggle ----
-#define ENABLE_AUDIO_EFFECTS  1   // Enable beep patterns and sound alerts
-#define ENABLE_ACHIEVEMENTS   1   // Track exploits and unlock achievements
-#define ENABLE_CHAOS_MODE     1   // Enable "launch all tools" chaos mode option
+// NOTE: These are now runtime configurable via Settings menu
+// Default values are set in settings.cpp (all true/1 by default)
+// Changes persist in LittleFS at /config/settings.json
+// See: include/settings.h and src/settings.cpp
+// Usage: Check Settings::g_config.audioEffects, etc. in runtime code

@@ -2,6 +2,7 @@
 #include "exploit_tracker.h"
 #include "audio_effects.h"
 #include "config.h"
+#include "settings.h"
 #include "subghz_replay.h"
 #include "ir_learning.h"
 #include "ble_jamming.h"
@@ -75,9 +76,9 @@ String getFunnyBLEMessage() {
 }
 
 ChaosResult launchChaosMode() {
-    #if !ENABLE_CHAOS_MODE
-    return {false, 0, "Chaos mode disabled in config"};
-    #endif
+    if (!Settings::g_config.chaosMode) {
+        return {false, 0, "Chaos mode disabled in config"};
+    }
 
     AudioEffects::playChaosMode();
     ExploitTracker::unlockAchievement(ExploitTracker::CHAOS_MODE_ACTIVATED);

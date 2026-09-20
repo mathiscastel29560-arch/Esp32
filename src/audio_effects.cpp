@@ -1,5 +1,6 @@
 #include "audio_effects.h"
 #include "config.h"
+#include "settings.h"
 
 namespace AudioEffects {
 
@@ -9,9 +10,9 @@ void initAudio() {
 }
 
 void playSound(SoundType type) {
-    #if !ENABLE_AUDIO_EFFECTS
-    return;
-    #endif
+    if (!Settings::g_config.audioEffects) {
+        return;
+    }
 
     switch (type) {
         case SUCCESS_BEEP:

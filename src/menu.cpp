@@ -25,6 +25,7 @@
 #include "exploit_tracker.h"
 #include "audio_effects.h"
 #include "funny_payloads.h"
+#include "settings.h"
 
 enum MenuState {
     MAIN_MENU,
@@ -33,7 +34,8 @@ enum MenuState {
     BADUSB_MENU,
     BADUSB_OS_SELECT,
     OFFENSIVE_TOOLS_MENU,
-    CHAOS_MODE_SCREEN
+    CHAOS_MODE_SCREEN,
+    SETTINGS_MENU
 };
 
 MenuState g_state = MAIN_MENU;
@@ -41,6 +43,7 @@ int g_apActionSel = 0;
 int g_badUsbOsSel = 0;
 int g_badUsbActionSel = 0;
 int g_offensiveToolSel = 0;
+int g_settingsSel = 0;
 bool g_chaosActive = false;
 
 struct APInfo {
@@ -111,8 +114,12 @@ void runBadUsbAction(int osIdx) {
     showResult(title.c_str(), body, WIFI_RESULTS);
 }
 
-#if ENABLE_CHAOS_MODE
 void runChaosMode() {
+    if (!Settings::g_config.chaosMode) {
+        showResult("Chaos Mode", "Chaos mode is disabled.\nEnable it in Settings.", WIFI_RESULTS);
+        return;
+    }
+
     g_chaosActive = true;
     auto result = FunnyPayloads::launchChaosMode();
 
@@ -125,7 +132,40 @@ void runChaosMode() {
 
     showResult("MODE CHAOS", body, WIFI_RESULTS);
 }
-#endif
+
+void runSettingsMenu(int settingIdx) {
+    switch (settingIdx) {
+        case 0: { // Toggle Audio Effects
+            Settings::toggleAudioEffects();
+            String status = Settings::g_config.audioEffects ? "ENABLED" : "DISABLED";
+            showResult("Audio Effects", status, SETTINGS_MENU);
+            break;
+        }
+        case 1: { // Toggle Achievements
+            Settings::toggleAchievements();
+            String status = Settings::g_config.achievements ? "ENABLED" : "DISABLED";
+            showResult("Achievements", status, SETTINGS_MENU);
+            break;
+        }
+        case 2: { // Toggle Chaos Mode
+            Settings::toggleChaosMode();
+            String status = Settings::g_config.chaosMode ? "ENABLED" : "DISABLED";
+            showResult("Chaos Mode", status, SETTINGS_MENU);
+            break;
+        }
+        case 3: { // Show current settings
+            String body = "Audio Effects: " + String(Settings::g_config.audioEffects ? "ON" : "OFF") + "\n";
+            body += "Achievements: " + String(Settings::g_config.achievements ? "ON" : "OFF") + "\n";
+            body += "Chaos Mode: " + String(Settings::g_config.chaosMode ? "ON" : "OFF") + "\n\n";
+            body += "Saved in LittleFS";
+            showResult("Current Settings", body, SETTINGS_MENU);
+            break;
+        }
+        case 4: // Back
+            g_state = MAIN_MENU;
+            return;
+    }
+}
 
 void runOffensiveTool(int toolIdx) {
     String title;
@@ -234,17 +274,14 @@ void runOffensiveTool(int toolIdx) {
 void menuLoop() {
     switch (g_state) {
         case MAIN_MENU: {
-            #if ENABLE_CHAOS_MODE
             std::vector<String> mainItems = {
-                "WiFi Tools", "Bad USB", "RFID", "Offensive Tools",
-                "MODE CHAOS!!!", "Statistics", "Settings"
+                "WiFi Tools", "Bad USB", "RFID", "Offensive Tools"
             };
-            #else
-            std::vector<String> mainItems = {
-                "WiFi Tools", "Bad USB", "RFID", "Offensive Tools",
-                "Statistics", "Settings"
-            };
-            #endif
+            if (Settings::g_config.chaosMode) {
+                mainItems.push_back("MODE CHAOS!!!");
+            }
+            mainItems.push_back("Statistics");
+            mainItems.push_back("Settings");
             // Main menu navigation
             break;
         }
@@ -269,6 +306,17 @@ void menuLoop() {
         }
         case CHAOS_MODE_SCREEN: {
             // Chaos mode active - shows live exploit execution
+            break;
+        }
+        case SETTINGS_MENU: {
+            std::vector<String> settingsItems = {
+                "Toggle Audio Effects",
+                "Toggle Achievements",
+                "Toggle Chaos Mode",
+                "View Current Settings",
+                "Back"
+            };
+            // Settings menu - calls runSettingsMenu(selection)
             break;
         }
         default:
