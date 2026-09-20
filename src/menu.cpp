@@ -8,14 +8,34 @@
 #include "beacon_spam.h"
 #include "evil_portal.h"
 #include "wardriving.h"
+#include "badusb.h"
+#include "rfid.h"
+#include "subghz_replay.h"
+#include "ir_learning.h"
+#include "ble_jamming.h"
+#include "wifi_krack.h"
+#include "mifare_bruteforce.h"
+#include "ble_fingerprint.h"
+#include "dns_spoof.h"
+#include "arp_spoof.h"
+#include "ssl_strip.h"
+#include "ir_bruteforce.h"
+#include "ble_relay.h"
 
 enum MenuState {
+    MAIN_MENU,
     WIFI_RESULTS,
-    WIFI_AP_ACTION
+    WIFI_AP_ACTION,
+    BADUSB_MENU,
+    BADUSB_OS_SELECT,
+    OFFENSIVE_TOOLS_MENU
 };
 
-MenuState g_state = WIFI_RESULTS;
+MenuState g_state = MAIN_MENU;
 int g_apActionSel = 0;
+int g_badUsbOsSel = 0;
+int g_badUsbActionSel = 0;
+int g_offensiveToolSel = 0;
 
 struct APInfo {
     String bssid;
@@ -54,11 +74,161 @@ void runApAction(int idx) {
     }
 }
 
+void runBadUsbAction(int osIdx) {
+    BadUSB::OSType osType;
+    String osName;
+
+    switch (osIdx) {
+        case 0:
+            osType = BadUSB::OS_WINDOWS;
+            osName = "Windows";
+            break;
+        case 1:
+            osType = BadUSB::OS_LINUX;
+            osName = "Linux";
+            break;
+        case 2:
+            osType = BadUSB::OS_MACOS;
+            osName = "macOS";
+            break;
+        default:
+            return;
+    }
+
+    auto result = BadUSB::openWindowsSpam(osType, 15000, 100);
+    String body = "Status: " + result.status + "\n" +
+                  result.message + "\n" +
+                  "Keystrokes: " + String(result.keystrokes);
+    String title = "Bad USB [" + osName + "]";
+    showResult(title.c_str(), body, WIFI_RESULTS);
+}
+
+void runOffensiveTool(int toolIdx) {
+    String title;
+    String body;
+
+    switch (toolIdx) {
+        case 0: { // SubGhz Replay
+            auto result = SubGhzReplay::capture(433);
+            title = "Sub-GHz Capture";
+            body = String(result.success ? "Success" : "Failed") + "\n" +
+                   "Frequency: " + String(result.frequency) + " MHz\n" +
+                   "Duration: " + String(result.duration) + " ms\n" +
+                   "Error: " + result.error;
+            break;
+        }
+        case 1: { // IR Learning
+            auto result = IRLearning::learn("REMOTE", 30000);
+            title = "IR Learning";
+            body = String(result.success ? "Code captured" : "Failed") + "\n" +
+                   "Code: " + result.code + "\n" +
+                   "Duration: " + String(result.durationMs) + " ms";
+            break;
+        }
+        case 2: { // BLE Jamming
+            auto result = BLEJamming::startJamming(10000);
+            title = "BLE Jamming";
+            body = String(result.success ? "Jamming active" : "Failed") + "\n" +
+                   "Duration: " + String(result.durationMs) + " ms\n" +
+                   "Message: " + result.message;
+            break;
+        }
+        case 3: { // WiFi KRACK
+            auto result = WiFiKrack::exploitKrack("TARGET_SSID", 60000);
+            title = "WiFi KRACK";
+            body = String(result.success ? "Exploit attempted" : "Failed") + "\n" +
+                   "Duration: " + String(result.durationMs) + " ms\n" +
+                   "Error: " + result.error;
+            break;
+        }
+        case 4: { // Mifare Bruteforce
+            auto result = MifareBruteforce::bruteForceKeys(0, 60000);
+            title = "Mifare Bruteforce";
+            body = String(result.found ? "Key found!" : "No key found") + "\n" +
+                   "Attempts: " + String(result.attemptsCount) + "\n" +
+                   "Key: " + result.keyFound;
+            break;
+        }
+        case 5: { // BLE Fingerprint
+            auto result = BLEFingerprint::scan(30000);
+            title = "BLE Fingerprint";
+            body = "Devices found: " + String(result.devicesFound) + "\n" +
+                   "Duration: " + String(result.durationMs) + " ms\n" +
+                   "Error: " + result.error;
+            break;
+        }
+        case 6: { // DNS Spoof
+            auto result = DNSSpoof::startSpoof("example.com", "192.168.1.100", 60000);
+            title = "DNS Spoof";
+            body = String(result.success ? "Spoofing active" : "Failed") + "\n" +
+                   "Target: " + result.targetDomain + "\n" +
+                   "Error: " + result.error;
+            break;
+        }
+        case 7: { // ARP Spoof
+            auto result = ARPSpoof::startSpoof("192.168.1.1", "192.168.1.100", 60000);
+            title = "ARP Spoof";
+            body = String(result.success ? "Spoofing active" : "Failed") + "\n" +
+                   "Packets: " + String(result.packetsSent) + "\n" +
+                   "Error: " + result.error;
+            break;
+        }
+        case 8: { // SSL Strip
+            auto result = SSLStrip::startMitm(60000);
+            title = "SSL Strip";
+            body = String(result.success ? "MITM active" : "Failed") + "\n" +
+                   "Duration: " + String(result.durationMs) + " ms\n" +
+                   "Error: " + result.error;
+            break;
+        }
+        case 9: { // IR Bruteforce
+            auto result = IRBruteforce::bruteForce("TV", 30000);
+            title = "IR Bruteforce";
+            body = String(result.success ? "Code found!" : "Failed") + "\n" +
+                   "Attempts: " + String(result.attemptsCount) + "\n" +
+                   "Code: " + result.codeFound;
+            break;
+        }
+        case 10: { // BLE Relay
+            auto result = BLERelay::startRelay(60000);
+            title = "BLE Relay";
+            body = String(result.success ? "Relay active" : "Failed") + "\n" +
+                   "Duration: " + String(result.durationMs) + " ms\n" +
+                   "Error: " + result.error;
+            break;
+        }
+        case 11: // Back
+            g_state = WIFI_RESULTS;
+            return;
+    }
+
+    showResult(title.c_str(), body, WIFI_RESULTS);
+}
+
 void menuLoop() {
     switch (g_state) {
+        case MAIN_MENU: {
+            std::vector<String> mainItems = {"WiFi Tools", "Bad USB", "RFID", "Offensive Tools", "Settings"};
+            // Main menu navigation
+            break;
+        }
         case WIFI_AP_ACTION: {
             std::vector<String> actions = {"Deauth this AP", "Sniff clients", "Capture Handshake", "Back"};
-            // menu logic here
+            // WiFi AP action menu
+            break;
+        }
+        case BADUSB_OS_SELECT: {
+            std::vector<String> osOptions = {"Windows (15k cmd)", "Linux (15k terminal)", "macOS (15k Terminal)", "Back"};
+            // OS selection menu - runs selected OS variant
+            break;
+        }
+        case OFFENSIVE_TOOLS_MENU: {
+            std::vector<String> offensiveTools = {
+                "Sub-GHz Replay", "IR Learning", "BLE Jamming", "WiFi KRACK",
+                "Mifare Bruteforce", "BLE Fingerprint", "DNS Spoof", "ARP Spoof",
+                "SSL Strip", "IR Bruteforce", "BLE Relay", "Back"
+            };
+            // Offensive tools menu - calls runOffensiveTool(selection)
             break;
         }
         default:
