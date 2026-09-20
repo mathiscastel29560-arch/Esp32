@@ -22,6 +22,7 @@
 #include "ir_tools.h"
 #include "battery.h"
 #include "ble_spam_detector.h"
+#include "custom_module.h"
 
 namespace {
 String apSsid;
@@ -57,6 +58,7 @@ void setup() {
     Wardriving::begin();
     WebCtrl::begin();
     Menu::begin();
+    CustomModule::begin();
 
     Display::splash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
     Buzzer::chirpOk();
@@ -69,6 +71,7 @@ void loop() {
     BeaconSpam::loop();
     EvilPortal::loop();
     Menu::loop();
+    CustomModule::loop();
 
     uint32_t now = millis();
     if (!Menu::isActive() && now - lastDisplayUpdate > 1000) {
