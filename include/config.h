@@ -17,17 +17,17 @@
 #define PIN_GPS_TX          18   // ESP32 TX -> GPS RX
 #define GPS_BAUD            9600
 
-// ---- Shared SPI bus: OLED + CC1101 + NRF24L01 (separate CS/aux per device) ----
+// ---- Shared SPI bus: TFT + CC1101 + NRF24L01 (separate CS/aux per device) ----
 #define PIN_SPI_SCK         12
 #define PIN_SPI_MISO        13
 #define PIN_SPI_MOSI        11
 
-// SSD1306 OLED (SPI mode)
-#define PIN_OLED_CS         10
-#define PIN_OLED_DC         14
-#define PIN_OLED_RST        21
-#define OLED_WIDTH          128
-#define OLED_HEIGHT         64   // change to 32 if your 1" panel is 128x32
+// ILI9341 2.8" TFT, 240x320 panel, driven in landscape (320x240)
+#define PIN_TFT_CS          10
+#define PIN_TFT_DC          14
+#define PIN_TFT_RST         21
+#define TFT_WIDTH           320
+#define TFT_HEIGHT          240
 
 // CC1101 sub-GHz transceiver
 #define PIN_CC1101_CS       15
@@ -41,13 +41,25 @@
 
 // ---- Misc I/O ----
 #define PIN_BUZZER          38
-#define PIN_SAFETY_SWITCH   39   // slide switch: HIGH = TX/injection features armed
+
+// IR receiver demodulator (e.g. TSOP38238/VS1838B, 3-pin VCC/GND/OUT) and
+// IR LED transmitter (through a transistor driver stage)
+#define PIN_IR_RX           39   // freed up now that the slide switch is no longer a GPIO (see below)
+#define PIN_IR_TX           42
 
 // ---- Optional 4-button on-device menu (buttons to GND, INPUT_PULLUP) ----
 #define PIN_BTN_UP          1
 #define PIN_BTN_DOWN        2
 #define PIN_BTN_SELECT      40
 #define PIN_BTN_BACK        41
+
+// NOTE: the slide switch is now the device's power switch. It is wired
+// in series with the battery (between battery+ and the regulator/VBAT
+// input), NOT to a GPIO — there is nothing for the firmware to read: when
+// it's off, the board has no power at all. See README for the wiring
+// diagram. TX-capable actions (deauth, beacon spam, evil portal, sub-GHz
+// replay) are now gated by physically holding the BACK button at the
+// moment the action fires (see tx_arm.h) instead.
 
 // ---- Wi-Fi control-panel access point ----
 #define AP_SSID_PREFIX      "ESP32-Audit-"

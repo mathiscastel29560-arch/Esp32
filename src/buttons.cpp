@@ -39,4 +39,9 @@ Button poll() {
     return NONE;
 }
 
+bool isHeld(Button b) {
+    if (b == NONE) return false;
+    return digitalRead(btns[b - 1].pin) == LOW;
+}
+
 } // namespace Buttons

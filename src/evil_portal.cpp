@@ -1,6 +1,6 @@
 #include "evil_portal.h"
 #include "config.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include "rtc_clock.h"
 #include "gps_module.h"
 
@@ -69,7 +69,7 @@ void handleSubmit() {
 namespace EvilPortal {
 
 bool start(const String &fakeSsid, uint32_t maxDurationMs) {
-    if (!SafetySwitch::isArmed()) return false;
+    if (!TxArm::isArmed()) return false;
     if (g_active) return false;
 
     ensureLogFile();

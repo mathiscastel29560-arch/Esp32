@@ -3,7 +3,7 @@
 #include "config.h"
 #include "rtc_clock.h"
 #include "gps_module.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
 #include "nrf24_tools.h"
@@ -12,6 +12,7 @@
 #include "deauth.h"
 #include "beacon_spam.h"
 #include "evil_portal.h"
+#include "ir_tools.h"
 
 #include <WebServer.h>
 #include <WiFi.h>
@@ -22,6 +23,8 @@ namespace {
 WebServer server(8080); // port 80 is reserved for EvilPortal's captive-portal page
 String g_lastAction = "booted";
 String g_lastCaptureFile = "";
+IrTools::IrCapture g_lastIrCapture;
+bool g_haveIrCapture = false;
 
 String jsonEscape(const String &in) {
     String out;
@@ -48,7 +51,7 @@ void handleStatus() {
     json += "\"gpsFix\":" + String(GpsModule::hasFix() ? "true" : "false") + ",";
     json += "\"sats\":" + String(GpsModule::satellites()) + ",";
     json += "\"apClients\":" + String(WiFi.softAPgetStationNum()) + ",";
-    json += "\"safetyArmed\":" + String(SafetySwitch::isArmed() ? "true" : "false");
+    json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false");
     json += "}";
     server.send(200, "application/json", json);
 }
@@ -136,7 +139,7 @@ void handleSubReplay() {
     }
     auto cap = SubGhz::loadCapture(g_lastCaptureFile);
     bool ok = SubGhz::replay(cap);
-    note(ok ? "Replayed sub-GHz capture" : "Replay blocked: safety switch off");
+    note(ok ? "Replayed sub-GHz capture" : "Replay blocked: hold BACK to confirm");
     server.send(200, "application/json",
                 String("{\"ok\":") + (ok ? "true" : "false") + "}");
 }
@@ -154,7 +157,7 @@ void handleDeauth() {
     uint8_t channel = (uint8_t)server.arg("channel").toInt();
     uint16_t frames = server.hasArg("frames") ? server.arg("frames").toInt() : 30;
     bool ok = Deauth::send(bssid, client, channel, frames);
-    note(ok ? ("Deauth sent to " + bssid) : "Deauth blocked: safety switch off or bad BSSID");
+    note(ok ? ("Deauth sent to " + bssid) : "Deauth blocked: hold BACK to confirm, or bad BSSID");
     server.send(200, "application/json", String("{\"ok\":") + (ok ? "true" : "false") + "}");
 }
 
@@ -172,7 +175,7 @@ void handleBeaconStart() {
     }
     bool ok = BeaconSpam::start(ssids, hop);
     note(ok ? ("Beacon spam started: " + String(ssids.size()) + " SSIDs")
-            : "Beacon spam blocked: safety switch off or no SSIDs given");
+            : "Beacon spam blocked: hold BACK to confirm, or no SSIDs given");
     server.send(200, "application/json", String("{\"ok\":") + (ok ? "true" : "false") + "}");
 }
 
@@ -192,7 +195,7 @@ void handlePortalStart() {
     uint32_t maxMs = server.hasArg("maxMs") ? server.arg("maxMs").toInt() : 600000;
     bool ok = EvilPortal::start(ssid, maxMs);
     note(ok ? ("Evil portal started as " + ssid)
-            : "Evil portal blocked: safety switch off or already running");
+            : "Evil portal blocked: hold BACK to confirm, or already running");
     server.send(200, "application/json", String("{\"ok\":") + (ok ? "true" : "false") + "}");
 }
 
@@ -215,6 +218,33 @@ void handlePortalLog() {
     File f = LittleFS.open(EVILPORTAL_LOG_FILE, FILE_READ);
     server.streamFile(f, "text/csv");
     f.close();
+}
+
+void handleIrPower() {
+    IrTools::sendUniversalPowerToggle();
+    note("IR: sent TV power-toggle codes");
+    server.send(200, "application/json", "{\"ok\":true}");
+}
+
+void handleIrLearn() {
+    uint32_t ms = server.hasArg("ms") ? server.arg("ms").toInt() : 5000;
+    g_lastIrCapture = IrTools::learn(ms);
+    g_haveIrCapture = !g_lastIrCapture.rawUs.empty();
+    note(g_haveIrCapture ? ("IR learn: " + String(g_lastIrCapture.rawUs.size()) + " pulses")
+                          : "IR learn: nothing received");
+    server.send(200, "application/json",
+                String("{\"ok\":") + (g_haveIrCapture ? "true" : "false") +
+                    ",\"pulses\":" + String(g_lastIrCapture.rawUs.size()) + "}");
+}
+
+void handleIrReplay() {
+    if (!g_haveIrCapture) {
+        server.send(200, "application/json", "{\"ok\":false,\"reason\":\"no capture yet\"}");
+        return;
+    }
+    IrTools::replay(g_lastIrCapture);
+    note("IR: replayed learned capture");
+    server.send(200, "application/json", "{\"ok\":true}");
 }
 
 void handleWardriveLog() {
@@ -251,6 +281,9 @@ void begin() {
     server.on("/api/portal/stop", HTTP_POST, handlePortalStop);
     server.on("/api/portal/status", handlePortalStatus);
     server.on("/api/portal/log", handlePortalLog);
+    server.on("/api/ir/power", HTTP_POST, handleIrPower);
+    server.on("/api/ir/learn", HTTP_POST, handleIrLearn);
+    server.on("/api/ir/replay", HTTP_POST, handleIrReplay);
     server.begin();
 }
 

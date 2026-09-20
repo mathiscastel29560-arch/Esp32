@@ -1,6 +1,6 @@
 #include "subghz.h"
 #include "config.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <LittleFS.h>
 
@@ -73,7 +73,7 @@ Capture record(float freqMHz, uint32_t timeoutMs) {
 }
 
 bool replay(const Capture &capture) {
-    if (!SafetySwitch::isArmed()) return false;
+    if (!TxArm::isArmed()) return false;
     if (capture.pulsesUs.empty()) return false;
 
     ELECHOUSE_cc1101.setMHZ(capture.freqMHz);

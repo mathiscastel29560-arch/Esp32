@@ -2,34 +2,51 @@
 #include "config.h"
 #include "rtc_clock.h"
 #include "gps_module.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include "mascot.h"
 #include <SPI.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <Adafruit_ILI9341.h>
 #include <WiFi.h>
 
 namespace {
-Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &SPI, PIN_OLED_DC, PIN_OLED_RST, PIN_OLED_CS);
+Adafruit_ILI9341 tft(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST); // uses the shared SPI bus set up in main.cpp
 
 // Shark "swim-by" cameo on the idle status screen: mostly off, occasionally
 // crosses the bottom row. INT16_MIN means "not currently swimming".
 int16_t g_sharkX = INT16_MIN;
 uint16_t g_ticksUntilSwim = 20; // ~20 status refreshes (~20s) between cameos
+constexpr uint8_t SHARK_SCALE = 2;
+
+// Adafruit_GFX's drawBitmap has no scale factor, so this draws each set bit
+// as an NxN block. Fine for a tiny 32x16 mascot; not meant for big images.
+void drawBitmapScaled(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h,
+                       uint8_t scale, uint16_t color) {
+    uint8_t bytesPerRow = (w + 7) / 8;
+    for (uint8_t row = 0; row < h; row++) {
+        for (uint8_t col = 0; col < w; col++) {
+            uint8_t b = pgm_read_byte(&bitmap[row * bytesPerRow + col / 8]);
+            if (b & (0x80 >> (col % 8))) {
+                tft.fillRect(x + col * scale, y + row * scale, scale, scale, color);
+            }
+        }
+    }
+}
 
 bool advanceSharkAnimation() {
+    const int16_t sharkW = Mascot::WIDTH * SHARK_SCALE;
     if (g_sharkX == INT16_MIN) {
         if (g_ticksUntilSwim > 0) {
             g_ticksUntilSwim--;
             return false;
         }
-        g_sharkX = -(int16_t)Mascot::WIDTH;
+        g_sharkX = -sharkW;
     }
 
-    oled.drawBitmap(g_sharkX, OLED_HEIGHT - Mascot::HEIGHT, Mascot::SHARK_BITMAP,
-                     Mascot::WIDTH, Mascot::HEIGHT, SSD1306_WHITE);
-    g_sharkX += 16;
-    if (g_sharkX > OLED_WIDTH) {
+    drawBitmapScaled(g_sharkX, TFT_HEIGHT - Mascot::HEIGHT * SHARK_SCALE, Mascot::SHARK_BITMAP,
+                      Mascot::WIDTH, Mascot::HEIGHT, SHARK_SCALE, ILI9341_WHITE);
+    g_sharkX += 24;
+    if (g_sharkX > TFT_WIDTH) {
         g_sharkX = INT16_MIN;
         g_ticksUntilSwim = 20;
     }
@@ -40,62 +57,61 @@ bool advanceSharkAnimation() {
 namespace Display {
 
 void begin() {
-    oled.begin(SSD1306_SWITCHCAPVCC);
-    oled.setTextColor(SSD1306_WHITE);
-    oled.cp437(true);
+    tft.begin();
+    tft.setRotation(1); // landscape 320x240; use 3 instead if the image is upside down
+    tft.fillScreen(ILI9341_BLACK);
+    tft.setTextColor(ILI9341_WHITE);
     splash("ESP32 Audit Tool", "booting...");
 }
 
 void splash(const String &line1, const String &line2) {
-    oled.clearDisplay();
-    oled.drawBitmap((OLED_WIDTH - Mascot::WIDTH) / 2, 0, Mascot::SHARK_BITMAP,
-                     Mascot::WIDTH, Mascot::HEIGHT, SSD1306_WHITE);
-    oled.setTextSize(1);
-    oled.setCursor(0, Mascot::HEIGHT + 2);
-    oled.println(line1);
-    oled.println(line2);
-    oled.display();
+    tft.fillScreen(ILI9341_BLACK);
+    drawBitmapScaled((TFT_WIDTH - Mascot::WIDTH * 3) / 2, 10, Mascot::SHARK_BITMAP,
+                      Mascot::WIDTH, Mascot::HEIGHT, 3, ILI9341_WHITE);
+    tft.setTextSize(2);
+    tft.setCursor(0, Mascot::HEIGHT * 3 + 20);
+    tft.println(line1);
+    tft.println(line2);
 }
 
 void update(const String &lastAction) {
-    oled.clearDisplay();
-    oled.setTextSize(1);
-    oled.setCursor(0, 0);
+    tft.fillScreen(ILI9341_BLACK);
+    tft.setTextSize(2);
+    tft.setCursor(0, 0);
 
-    oled.println(RtcClock::isoTimestamp());
+    tft.println(RtcClock::isoTimestamp());
 
-    oled.print("GPS: ");
+    tft.print("GPS: ");
     if (GpsModule::hasFix()) {
-        oled.print("FIX sats=");
-        oled.println(GpsModule::satellites());
+        tft.print("FIX sats=");
+        tft.println(GpsModule::satellites());
     } else {
-        oled.println("no fix");
+        tft.println("no fix");
     }
 
-    oled.print("AP clients: ");
-    oled.println(WiFi.softAPgetStationNum());
+    tft.print("AP clients: ");
+    tft.println(WiFi.softAPgetStationNum());
 
-    oled.print("TX safety: ");
-    oled.println(SafetySwitch::isArmed() ? "ARMED" : "SAFE");
+    tft.print("TX arm (BACK): ");
+    tft.println(TxArm::isArmed() ? "HELD" : "off");
 
-    oled.println("----------------");
+    tft.println("--------------------------------");
 
     if (!advanceSharkAnimation()) {
-        // last action line, truncated to fit 21 chars at text size 1 on a 128px panel
-        oled.println(lastAction.substring(0, 21));
+        tft.setTextSize(1);
+        tft.println(lastAction);
     }
-
-    oled.display();
 }
 
 void showList(const String &title, const std::vector<String> &items, int selectedIndex) {
-    oled.clearDisplay();
-    oled.setTextSize(1);
-    oled.setCursor(0, 0);
-    oled.println(title);
-    oled.println("----------------");
+    tft.fillScreen(ILI9341_BLACK);
+    tft.setTextSize(2);
+    tft.setCursor(0, 0);
+    tft.println(title);
+    tft.println("--------------------------------");
 
-    const int visibleRows = 5;
+    tft.setTextSize(1);
+    const int visibleRows = 20;
     int start = selectedIndex - visibleRows / 2;
     if (start < 0) start = 0;
     if ((int)items.size() > visibleRows && start > (int)items.size() - visibleRows) {
@@ -103,20 +119,19 @@ void showList(const String &title, const std::vector<String> &items, int selecte
     }
 
     for (int i = start; i < (int)items.size() && i < start + visibleRows; i++) {
-        oled.print(i == selectedIndex ? "> " : "  ");
-        oled.println(items[i].substring(0, 19));
+        tft.print(i == selectedIndex ? "> " : "  ");
+        tft.println(items[i].substring(0, 50));
     }
-    oled.display();
 }
 
 void showText(const String &title, const String &body) {
-    oled.clearDisplay();
-    oled.setTextSize(1);
-    oled.setCursor(0, 0);
-    oled.println(title);
-    oled.println("----------------");
-    oled.println(body);
-    oled.display();
+    tft.fillScreen(ILI9341_BLACK);
+    tft.setTextSize(2);
+    tft.setCursor(0, 0);
+    tft.println(title);
+    tft.println("--------------------------------");
+    tft.setTextSize(1);
+    tft.println(body);
 }
 
 } // namespace Display

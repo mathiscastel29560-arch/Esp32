@@ -1,12 +1,12 @@
 #include "deauth.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include "mac_utils.h"
 #include <esp_wifi.h>
 
 namespace Deauth {
 
 bool send(const String &bssidStr, const String &clientStr, uint8_t channel, uint16_t frames) {
-    if (!SafetySwitch::isArmed()) return false;
+    if (!TxArm::isArmed()) return false;
 
     uint8_t bssid[6], client[6];
     if (!MacUtils::parse(bssidStr, bssid)) return false;

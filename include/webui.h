@@ -59,12 +59,14 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
   <span id="subRssiOut"></span><br>
   <input id="subTimeout" placeholder="record ms" value="8000" size="6">
   <button onclick="subRecord()">Record</button>
+  <p style="font-size:12px;color:#9ecbff">Maintiens le bouton RETOUR sur l'appareil au moment de cliquer "Replay".</p>
   <button onclick="subReplayLast()" class="warn">Replay last capture</button>
   <pre id="subOut"></pre>
 </div>
 
 <div class="card">
   <h2>&#9888; Deauth (ciblé, matériel autorisé uniquement)</h2>
+  <p style="font-size:12px;color:#9ecbff">Maintiens le bouton RETOUR sur l'appareil au moment de cliquer "Envoyer".</p>
   <input id="deauthBssid" placeholder="BSSID AP">
   <input id="deauthClient" placeholder="MAC client (vide = tous)">
   <input id="deauthChannel" placeholder="canal" size="3" value="1">
@@ -74,6 +76,7 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 
 <div class="card">
   <h2>&#9888; Beacon spam (SSID de test que tu fournis)</h2>
+  <p style="font-size:12px;color:#9ecbff">Maintiens le bouton RETOUR sur l'appareil au moment de cliquer "Démarrer".</p>
   <input id="beaconSsids" placeholder="ssid1,ssid2,ssid3">
   <button class="warn" onclick="beaconStart()">Démarrer</button>
   <button onclick="beaconStop()">Arrêter</button>
@@ -82,11 +85,20 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 
 <div class="card">
   <h2>&#9888; Faux portail captif (labo/CTF, page générique)</h2>
+  <p style="font-size:12px;color:#9ecbff">Maintiens le bouton RETOUR sur l'appareil au moment de cliquer "Démarrer".</p>
   <input id="portalSsid" placeholder="SSID du faux réseau">
   <button class="warn" onclick="portalStart()">Démarrer</button>
   <button onclick="portalStop()">Arrêter</button>
   <a href="/api/portal/log" target="_blank"><button>Voir soumissions</button></a>
   <div id="portalOut"></div>
+</div>
+
+<div class="card">
+  <h2>IR (TV power / apprentissage)</h2>
+  <button onclick="irPower()">Toggle TV power (codes courants)</button><br>
+  <button onclick="irLearn()">Apprendre (5s, appuie sur la télécommande)</button>
+  <button onclick="irReplay()">Rejouer appris</button>
+  <div id="irOut"></div>
 </div>
 
 <div class="card">
@@ -109,7 +121,7 @@ async function refreshStatus() {
       `<span class="badge">${s.time}</span>` +
       `<span class="badge">GPS: ${s.gpsFix ? ('fix, sats=' + s.sats) : 'no fix'}</span>` +
       `<span class="badge">AP clients: ${s.apClients}</span>` +
-      `<span class="badge ${s.safetyArmed ? 'armed' : 'safe'}">TX ${s.safetyArmed ? 'ARMED' : 'SAFE'}</span>`;
+      `<span class="badge ${s.safetyArmed ? 'armed' : 'safe'}">TX arm (BACK): ${s.safetyArmed ? 'HELD' : 'off'}</span>`;
   } catch (e) {}
 }
 setInterval(refreshStatus, 2000);
@@ -159,7 +171,7 @@ async function subRecord() {
 
 async function subReplayLast() {
   const res = await j('/api/subghz/replay', {method: 'POST'});
-  document.getElementById('subOut').textContent = res.ok ? 'replayed' : (res.reason || 'failed (is the safety switch armed?)');
+  document.getElementById('subOut').textContent = res.ok ? 'replayed' : (res.reason || 'failed (hold BACK on the device to confirm)');
 }
 
 async function deauth() {
@@ -188,6 +200,20 @@ async function portalStart() {
 async function portalStop() {
   await j('/api/portal/stop', {method: 'POST'});
   document.getElementById('portalOut').textContent = 'arrêté';
+}
+
+async function irPower() {
+  await j('/api/ir/power', {method: 'POST'});
+  document.getElementById('irOut').textContent = 'codes envoyés';
+}
+async function irLearn() {
+  document.getElementById('irOut').textContent = 'en écoute (5s)...';
+  const res = await j('/api/ir/learn?ms=5000', {method: 'POST'});
+  document.getElementById('irOut').textContent = res.ok ? `appris: ${res.pulses} impulsions` : 'rien reçu';
+}
+async function irReplay() {
+  const res = await j('/api/ir/replay', {method: 'POST'});
+  document.getElementById('irOut').textContent = res.ok ? 'rejoué' : (res.reason || 'échec');
 }
 
 async function wardriveSnapshot() {

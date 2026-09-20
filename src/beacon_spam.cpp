@@ -1,5 +1,5 @@
 #include "beacon_spam.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include <esp_wifi.h>
 
 namespace {
@@ -49,7 +49,7 @@ size_t buildBeaconFrame(uint8_t *buf, const String &ssid, const uint8_t mac[6], 
 namespace BeaconSpam {
 
 bool start(const std::vector<String> &ssids, bool hopChannels) {
-    if (!SafetySwitch::isArmed()) return false;
+    if (!TxArm::isArmed()) return false;
     if (ssids.empty()) return false;
 
     g_ssids = ssids;

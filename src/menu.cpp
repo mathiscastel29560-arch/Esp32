@@ -2,7 +2,7 @@
 #include "buttons.h"
 #include "display.h"
 #include "config.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
 #include "nrf24_tools.h"
@@ -11,6 +11,7 @@
 #include "beacon_spam.h"
 #include "evil_portal.h"
 #include "wardriving.h"
+#include "ir_tools.h"
 
 #include <vector>
 
@@ -32,7 +33,28 @@ int g_apActionSel = 0;
 std::vector<WifiTools::ApInfo> g_wifiResults;
 SubGhz::Capture g_lastCapture;
 bool g_haveCapture = false;
+IrTools::IrCapture g_lastIrCapture;
+bool g_haveIrCapture = false;
 String g_resultTitle, g_resultBody;
+
+// BACK is dual-purpose: a quick tap navigates back, but holding it is the
+// TX-arm signal (see tx_arm.h). We can't tell which until it's released,
+// so navigation only fires on release-if-it-was-short, computed here
+// instead of from Buttons::poll()'s press-edge.
+bool g_backHeld = false;
+uint32_t g_backHeldSince = 0;
+
+bool consumeBackTap() {
+    bool now = Buttons::isHeld(Buttons::BACK);
+    bool tapped = false;
+    if (now && !g_backHeld) {
+        g_backHeldSince = millis();
+    } else if (!now && g_backHeld) {
+        if (millis() - g_backHeldSince < 500) tapped = true;
+    }
+    g_backHeld = now;
+    return tapped;
+}
 
 std::vector<String> splitCsv(const String &s) {
     std::vector<String> out;
@@ -57,7 +79,10 @@ std::vector<String> mainMenuItems() {
         String("Beacon Spam: ") + (BeaconSpam::active() ? "STOP" : "start"),
         String("Evil Portal: ") + (EvilPortal::active() ? "STOP" : "start"),
         "Wardrive Snapshot",
-        "Safety switch status",
+        "IR: TV Power Toggle",
+        "IR: Learn",
+        "IR: Replay Last",
+        "TX arm status (hold BACK)",
     };
 }
 
@@ -110,7 +135,7 @@ void runMainAction(int idx) {
         case 5: { // Sub-GHz Replay Last
             bool ok = g_haveCapture && SubGhz::replay(g_lastCapture);
             showResult("Sub-GHz Replay",
-                       !g_haveCapture ? "No capture yet" : (ok ? "Replayed" : "Blocked: safety switch off"),
+                       !g_haveCapture ? "No capture yet" : (ok ? "Replayed" : "Blocked: hold BACK to confirm"),
                        MAIN);
             break;
         }
@@ -120,7 +145,7 @@ void runMainAction(int idx) {
                 showResult("Beacon Spam", "Stopped", MAIN);
             } else {
                 bool ok = BeaconSpam::start(splitCsv(DEFAULT_BEACON_SSIDS), true);
-                showResult("Beacon Spam", ok ? "Started (default test SSIDs)" : "Blocked: safety switch off", MAIN);
+                showResult("Beacon Spam", ok ? "Started (default test SSIDs)" : "Blocked: hold BACK to confirm", MAIN);
             }
             break;
         }
@@ -130,7 +155,7 @@ void runMainAction(int idx) {
                 showResult("Evil Portal", "Stopped", MAIN);
             } else {
                 bool ok = EvilPortal::start(DEFAULT_PORTAL_SSID);
-                showResult("Evil Portal", ok ? "Started as " DEFAULT_PORTAL_SSID : "Blocked: safety switch off", MAIN);
+                showResult("Evil Portal", ok ? "Started as " DEFAULT_PORTAL_SSID : "Blocked: hold BACK to confirm", MAIN);
             }
             break;
         }
@@ -139,8 +164,27 @@ void runMainAction(int idx) {
             showResult("Wardrive", String(rows) + " rows added", MAIN);
             break;
         }
-        case 9: { // Safety switch status
-            showResult("Safety switch", SafetySwitch::isArmed() ? "ARMED (TX allowed)" : "SAFE (TX blocked)", MAIN);
+        case 9: { // IR: TV Power Toggle
+            IrTools::sendUniversalPowerToggle();
+            showResult("IR Power Toggle", "Sent (best-effort code list)", MAIN);
+            break;
+        }
+        case 10: { // IR: Learn
+            g_lastIrCapture = IrTools::learn(5000);
+            g_haveIrCapture = !g_lastIrCapture.rawUs.empty();
+            showResult("IR Learn", g_haveIrCapture
+                           ? (String(g_lastIrCapture.rawUs.size()) + " pulses captured")
+                           : "Nothing received",
+                       MAIN);
+            break;
+        }
+        case 11: { // IR: Replay Last
+            if (g_haveIrCapture) IrTools::replay(g_lastIrCapture);
+            showResult("IR Replay", g_haveIrCapture ? "Sent" : "No capture yet", MAIN);
+            break;
+        }
+        case 12: { // TX arm status
+            showResult("TX arm (hold BACK)", TxArm::isArmed() ? "Currently HELD - TX allowed" : "Not held - TX blocked", MAIN);
             break;
         }
     }
@@ -151,7 +195,7 @@ void runApAction(int idx) {
     switch (idx) {
         case 0: { // Deauth this AP
             bool ok = Deauth::send(ap.bssid, "", ap.channel);
-            showResult("Deauth", ok ? ("Sent to " + ap.bssid) : "Blocked: safety switch off", WIFI_RESULTS);
+            showResult("Deauth", ok ? ("Sent to " + ap.bssid) : "Blocked: hold BACK to confirm", WIFI_RESULTS);
             break;
         }
         case 1: { // Sniff clients
@@ -179,10 +223,16 @@ void begin() {
 bool isActive() { return g_state != HOME; }
 
 void loop() {
+    // BACK is edge-triggered by poll() like the others, but it's also the
+    // TX-arm hold signal: consumeBackTap() only reports it as a navigation
+    // tap once released, and only if that hold was short. A long hold
+    // (arming a TX action with SELECT) never triggers "go back".
     Buttons::Button btn = Buttons::poll();
+    if (btn == Buttons::BACK) btn = Buttons::NONE; // ignore poll()'s press-edge for BACK
+    bool backTapped = consumeBackTap();
 
     if (g_state == HOME) {
-        if (btn != Buttons::NONE) {
+        if (btn != Buttons::NONE || backTapped) {
             g_state = MAIN;
             g_mainSel = 0;
         }
@@ -196,7 +246,7 @@ void loop() {
             if (btn == Buttons::UP) g_mainSel = (g_mainSel + items.size() - 1) % items.size();
             else if (btn == Buttons::DOWN) g_mainSel = (g_mainSel + 1) % items.size();
             else if (btn == Buttons::SELECT) runMainAction(g_mainSel);
-            else if (btn == Buttons::BACK) g_state = HOME;
+            else if (backTapped) g_state = HOME;
             if (g_state == MAIN) Display::showList("Main Menu", items, g_mainSel);
             break;
 
@@ -206,7 +256,7 @@ void loop() {
             if (btn == Buttons::UP) g_wifiSel = (g_wifiSel + g_wifiResults.size() - 1) % g_wifiResults.size();
             else if (btn == Buttons::DOWN) g_wifiSel = (g_wifiSel + 1) % g_wifiResults.size();
             else if (btn == Buttons::SELECT) { g_apActionSel = 0; g_state = WIFI_AP_ACTION; }
-            else if (btn == Buttons::BACK) g_state = MAIN;
+            else if (backTapped) g_state = MAIN;
             if (g_state == WIFI_RESULTS) Display::showList("Wi-Fi results", lines, g_wifiSel);
             break;
         }
@@ -215,15 +265,15 @@ void loop() {
             std::vector<String> actions = {"Deauth this AP", "Sniff clients", "Back"};
             if (btn == Buttons::UP) g_apActionSel = (g_apActionSel + actions.size() - 1) % actions.size();
             else if (btn == Buttons::DOWN) g_apActionSel = (g_apActionSel + 1) % actions.size();
-            else if (btn == Buttons::SELECT) runApAction(g_apActionSel);
-            else if (btn == Buttons::BACK) g_state = WIFI_RESULTS;
+            else if (btn == Buttons::SELECT) runApAction(g_apActionSel); // hold BACK while pressing SELECT to arm "Deauth this AP"
+            else if (backTapped) g_state = WIFI_RESULTS;
             if (g_state == WIFI_AP_ACTION) Display::showList(g_wifiResults[g_wifiSel].ssid, actions, g_apActionSel);
             break;
         }
 
         case RESULT_MSG:
             Display::showText(g_resultTitle, g_resultBody);
-            if (btn == Buttons::BACK || btn == Buttons::SELECT) g_state = g_resultReturnTo;
+            if (backTapped || btn == Buttons::SELECT) g_state = g_resultReturnTo;
             break;
 
         case HOME:

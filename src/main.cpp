@@ -8,7 +8,7 @@
 #include "gps_module.h"
 #include "display.h"
 #include "buzzer.h"
-#include "safety_switch.h"
+#include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
 #include "nrf24_tools.h"
@@ -19,6 +19,7 @@
 #include "evil_portal.h"
 #include "buttons.h"
 #include "menu.h"
+#include "ir_tools.h"
 
 namespace {
 String apSsid;
@@ -30,10 +31,9 @@ void setup() {
 
     LittleFS.begin(true); // format on first boot if no filesystem is found
 
-    SafetySwitch::begin();
     Buzzer::begin();
 
-    // Shared SPI bus for the OLED, CC1101 and NRF24L01 (each has its own CS).
+    // Shared SPI bus for the TFT, CC1101 and NRF24L01 (each has its own CS).
     SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
 
     Display::begin();
@@ -49,6 +49,7 @@ void setup() {
     BleTools::begin();
     Nrf24Tools::begin();
     SubGhz::begin();
+    IrTools::begin();
     Wardriving::begin();
     WebCtrl::begin();
     Menu::begin();
