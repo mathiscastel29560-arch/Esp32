@@ -54,9 +54,9 @@ StripResult startStripping(uint16_t timeoutMs) {
         logFile.close();
     }
 
-    result.success = true;
-    result.redirectsCount = redirectsCount;
-    result.credentialsLogged = credentialsLogged;
+    result.active = true;
+    result.httpsDowngraded = redirectsCount;
+    result.dataLogged = credentialsLogged;
     stripping = false;
 
     Serial.println("SSL stripping complete");

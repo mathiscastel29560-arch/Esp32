@@ -37,7 +37,7 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
     // Simulate jamming: send interference patterns on BLE channels
     while (millis() - startTime < durationMs && jamming && TxArm::isArmed()) {
         // Scan for BLE devices to jam
-        BLEScanResults results = *pBLEScan->start(1, false);
+        BLEScanResults results = pBLEScan->start(1, false);
         devicesAffected = results.getCount();
         jamPacketsSent += (devicesAffected > 0 ? 10 : 0);
 
@@ -49,10 +49,9 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
 
     result.success = true;
     result.durationMs = millis() - startTime;
-    result.devicesAffected = devicesAffected;
-    result.message = "Jamming complete - " + String(devicesAffected) + " devices affected";
+    result.powerLevel = powerLevel;
 
-    Serial.println(result.message);
+    Serial.println("Jamming complete - " + String(devicesAffected) + " devices affected");
 
     return result;
 }

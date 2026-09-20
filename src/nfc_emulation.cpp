@@ -1,4 +1,5 @@
 #include "nfc_emulation.h"
+#include <vector>
 
 namespace NFCEmulation {
 

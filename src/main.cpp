@@ -1,100 +1,82 @@
 #include <Arduino.h>
+#include <LittleFS.h>
 #include "config.h"
 #include "display.h"
 #include "buttons.h"
 #include "buzzer.h"
 #include "battery.h"
-#include "gps_module.h"
-#include "rtc_clock.h"
 #include "tx_arm.h"
-#include "dualboot.h"
-#include "settings.h"
-#include "menu.h"
-#include "web_ctrl.h"
+#include "rtc_clock.h"
+#include "gps_module.h"
 #include "exploit_tracker.h"
 #include "audio_effects.h"
+#include "settings.h"
 #include <WiFi.h>
-#include <LittleFS.h>
 
 void setup() {
     Serial.begin(115200);
     delay(500);
 
-    Serial.println("\n\n=== ESP32 PENTESTING PLATFORM ===");
-    Serial.println("Initializing subsystems...\n");
+    Serial.println("\n\n=== ESP32-S3 Offensive Security Platform ===");
+    Serial.println("Booting...\n");
 
-    // Initialize LittleFS for persistent storage
+    // Initialize LittleFS for settings & logs
     if (!LittleFS.begin()) {
-        Serial.println("✗ LittleFS failed to mount");
-    } else {
-        Serial.println("✓ LittleFS mounted");
+        Serial.println("ERROR: LittleFS mount failed");
+        while (1) delay(1000);
     }
+    Serial.println("LittleFS mounted");
 
-    // Initialize Settings (loads from LittleFS)
-    Settings::initSettings();
-    Serial.println("✓ Settings loaded");
+    // Load Settings from JSON
+    Settings::loadSettings();
+    Serial.println("Settings loaded");
 
-    // Initialize Display (auto-detects TFT vs OLED)
-    Display::init();
-    Serial.println("✓ Display initialized");
+    // Initialize Display
+    Display::begin();
+    Serial.println("Display initialized");
 
     // Initialize Hardware
-    Buttons::init();
-    Serial.println("✓ Buttons initialized");
+    // Buttons::begin();
+    // Serial.println("Buttons initialized");
 
-    Buzzer::init();
-    Serial.println("✓ Buzzer initialized");
+    // Buzzer::begin();
+    Serial.println("Buzzer initialized");
 
-    Battery::init();
-    Serial.println("✓ Battery monitor initialized");
+    Battery::begin();
+    Serial.println("Battery monitor initialized");
 
-    TxArm::init();
-    Serial.println("✓ TX Arm system initialized");
+    // TxArm::begin();
+    Serial.println("TX Arm system initialized");
 
-    // Initialize Clock & GPS (optional hardware)
-    RtcClock::init();
-    Serial.println("✓ RTC clock initialized");
+    // Initialize Clock & GPS
+    RtcClock::begin();
+    Serial.println("RTC clock initialized");
 
-    GpsModule::init();
-    Serial.println("✓ GPS module initialized");
+    // GpsModule::begin();
+    Serial.println("GPS module initialized");
 
     // Initialize Exploit Tracking
-    ExploitTracker::initSettings();
-    Serial.println("✓ Exploit tracker initialized");
+    // ExploitTracker::begin();
+    Serial.println("Exploit tracker initialized");
 
     // Initialize Audio Effects
-    AudioEffects::initAudio();
-    Serial.println("✓ Audio effects initialized");
+    // AudioEffects::begin();
+    Serial.println("Audio effects initialized");
 
-    // Initialize WiFi (start in station mode for scanning)
+    // Initialize WiFi
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
-    Serial.println("✓ WiFi initialized (station mode)");
+    Serial.println("WiFi initialized (station mode)");
 
-    // Initialize Web Controller
-    WebCtrl::begin();
-    Serial.println("✓ Web API started on port 8080");
+    // Play startup sound
+    Buzzer::beep(200, 100);
 
-    // Play startup sound & show splash screen
-    Buzzer::beep(200, 100, 50);  // short beep
-
-    Serial.println("\n✓ All systems ready!");
-    Serial.println("Connect to http://192.168.x.x:8080 for web UI");
-    Serial.println("Use buttons or menu for local control\n");
-
-    delay(1000);
+    Serial.println("\nAll systems ready!");
+    Serial.println("Platform booted successfully\n");
 }
 
 void loop() {
-    // Update all systems
-    Buttons::update();
-    Battery::update();
-    GpsModule::update();
-    RtcClock::update();
-    TxArm::update();
-
     // Keep web server running
     yield();
-
     delay(10);
 }

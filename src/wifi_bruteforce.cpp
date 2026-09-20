@@ -1,4 +1,5 @@
 #include "wifi_bruteforce.h"
+#include <vector>
 
 namespace WiFiBruteforce {
 

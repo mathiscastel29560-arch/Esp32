@@ -30,8 +30,8 @@ SpoofResult start(const String &domain, const String &spoofIP, uint16_t timeoutM
         delay(10);
     }
 
-    result.success = true;
-    result.interceptedCount = interceptCount;
+    result.active = true;
+    result.requestsIntercepted = interceptCount;
     stop();
 
     return result;

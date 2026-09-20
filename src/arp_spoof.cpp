@@ -63,7 +63,7 @@ SpoofResult startMITM(const String &targetIP, const String &gatewayIP, uint16_t 
         delay(100);
     }
 
-    result.success = true;
+    result.active = true;
     result.packetsSent = packetsSent;
     spoofing = false;
 

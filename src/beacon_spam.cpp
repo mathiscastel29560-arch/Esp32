@@ -1,7 +1,10 @@
 #include "beacon_spam.h"
 #include "tx_arm.h"
+#include <Arduino.h>
+#include <vector>
 #include <esp_wifi.h>
 #include <esp_wifi_types.h>
+#include <cstring>
 
 namespace BeaconSpam {
 

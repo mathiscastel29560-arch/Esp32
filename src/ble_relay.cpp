@@ -32,7 +32,7 @@ RelayResult startRelay(const String &targetMAC, uint16_t timeoutMs) {
     uint16_t extendedRange = 0;
 
     while (millis() - startTime < timeoutMs && relaying && TxArm::isArmed()) {
-        BLEScanResults results = *pBLEScan->start(2, false);
+        BLEScanResults results = pBLEScan->start(2, false);
 
         for (int i = 0; i < results.getCount(); i++) {
             BLEAdvertisedDevice device = results.getDevice(i);

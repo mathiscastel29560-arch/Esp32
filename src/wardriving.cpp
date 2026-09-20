@@ -46,8 +46,8 @@ void snapshot() {
         else line += "OTHER";
 
         line += ",";
-        line += String(GpsModule::getLatitude(), 6) + ",";
-        line += String(GpsModule::getLongitude(), 6);
+        line += String(GpsModule::latitude(), 6) + ",";
+        line += String(GpsModule::longitude(), 6);
 
         wardrivingLog.println(line);
     }

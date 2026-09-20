@@ -34,7 +34,7 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
     Serial.println("Channel: " + String(channel));
 
     wifi_promiscuous_filter_t filter = {
-        .filter_mask = WIFI_PROMIS_FILTER_ALL
+        .filter_mask = WIFI_PROMIS_FILTER_MASK_ALL
     };
     esp_wifi_set_promiscuous_filter(&filter);
     esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);

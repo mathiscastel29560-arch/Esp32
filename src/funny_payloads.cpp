@@ -95,7 +95,7 @@ ChaosResult launchChaosMode() {
     result.summary += "SubGHz: " + String(r1.success ? "OK" : "FAIL") + " | ";
 
     // 1: IR Learning
-    auto r2 = IRLearning::learn("REMOTE", 5000);
+    auto r2 = IRLearning::learn(5000);
     result.toolsExecuted++;
     result.summary += "IR: " + String(r2.success ? "OK" : "FAIL") + " | ";
 
@@ -105,7 +105,7 @@ ChaosResult launchChaosMode() {
     result.summary += "BLE: " + String(r3.success ? "OK" : "FAIL") + " | ";
 
     // 3: WiFi KRACK
-    auto r4 = WiFiKrack::exploitKrack("CHAOS", 5000);
+    auto r4 = WiFiKRACK::simulateKRACKattack("CHAOS_AP", 6, 5000);
     result.toolsExecuted++;
     result.summary += "KRACK: " + String(r4.success ? "OK" : "FAIL") + " | ";
 
@@ -117,22 +117,22 @@ ChaosResult launchChaosMode() {
     // 5: BLE Fingerprint
     auto r6 = BLEFingerprint::scan(5000);
     result.toolsExecuted++;
-    result.summary += "BLEFp: " + String(r6.devicesFound > 0 ? "OK" : "FAIL") + " | ";
+    result.summary += "BLEFp: " + String(r6.size() > 0 ? "OK" : "FAIL") + " | ";
 
     // 6: DNS Spoof
-    auto r7 = DNSSpoof::startSpoof("chaos.com", "1.2.3.4", 5000);
+    auto r7 = DNSSpoof::start("chaos.com", "1.2.3.4", 5000);
     result.toolsExecuted++;
-    result.summary += "DNS: " + String(r7.success ? "OK" : "FAIL") + " | ";
+    result.summary += "DNS: " + String(r7.active ? "OK" : "FAIL") + " | ";
 
     // 7: ARP Spoof
-    auto r8 = ARPSpoof::startSpoof("192.168.1.1", "192.168.1.100", 5000);
+    auto r8 = ARPSpoof::startMITM("192.168.1.1", "192.168.1.100", 5000);
     result.toolsExecuted++;
-    result.summary += "ARP: " + String(r8.success ? "OK" : "FAIL") + " | ";
+    result.summary += "ARP: " + String(r8.active ? "OK" : "FAIL") + " | ";
 
     // 8: SSL Strip
-    auto r9 = SSLStrip::startMitm(5000);
+    auto r9 = SSLStrip::startStripping(5000);
     result.toolsExecuted++;
-    result.summary += "SSL: " + String(r9.success ? "OK" : "FAIL") + " | ";
+    result.summary += "SSL: " + String(r9.active ? "OK" : "FAIL") + " | ";
 
     // 9: IR Bruteforce
     auto r10 = IRBruteforce::bruteForce("TV", 5000);
@@ -140,9 +140,9 @@ ChaosResult launchChaosMode() {
     result.summary += "IRBf: " + String(r10.success ? "OK" : "FAIL") + " | ";
 
     // 10: BLE Relay
-    auto r11 = BLERelay::startRelay(5000);
+    auto r11 = BLERelay::startRelay("00:11:22:33:44:55", 5000);
     result.toolsExecuted++;
-    result.summary += "Relay: " + String(r11.success ? "OK" : "FAIL");
+    result.summary += "Relay: " + String(r11.active ? "OK" : "FAIL");
 
     ExploitTracker::incrementExploit(result.success);
 
