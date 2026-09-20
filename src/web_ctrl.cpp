@@ -13,6 +13,10 @@
 #include "beacon_spam.h"
 #include "evil_portal.h"
 #include "ir_tools.h"
+#include "battery.h"
+#include "ble_gatt_audit.h"
+#include "ble_fuzzer.h"
+#include "ble_spam_detector.h"
 
 #include <WebServer.h>
 #include <WiFi.h>
@@ -51,6 +55,8 @@ void handleStatus() {
     json += "\"gpsFix\":" + String(GpsModule::hasFix() ? "true" : "false") + ",";
     json += "\"sats\":" + String(GpsModule::satellites()) + ",";
     json += "\"apClients\":" + String(WiFi.softAPgetStationNum()) + ",";
+    json += "\"battV\":" + String(Battery::voltage(), 2) + ",";
+    json += "\"battPct\":" + String(Battery::percent()) + ",";
     json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false");
     json += "}";
     server.send(200, "application/json", json);
@@ -94,11 +100,78 @@ void handleBleScan() {
         if (i) json += ",";
         auto &d = devices[i];
         json += "{\"address\":\"" + d.address + "\",\"name\":\"" + jsonEscape(d.name) +
-                "\",\"rssi\":" + String(d.rssi) + "}";
+                "\",\"rssi\":" + String(d.rssi) + ",\"manufacturer\":\"" +
+                jsonEscape(d.manufacturerName) + "\",\"random\":" +
+                (d.randomAddress ? "true" : "false") + "}";
     }
     json += "]";
     note("BLE scan: " + String(devices.size()) + " devices");
     server.send(200, "application/json", json);
+}
+
+void handleBleGattAudit() {
+    String address = server.arg("address");
+    auto rpt = BleGattAudit::audit(address);
+    String json = "{\"connected\":" + String(rpt.connected ? "true" : "false");
+    if (rpt.connected) {
+        int leaky = 0, weakWrite = 0;
+        for (auto &f : rpt.findings) {
+            if (f.readableWithoutPairing) leaky++;
+            if (f.writableWithoutAuth) weakWrite++;
+        }
+        json += ",\"chars\":" + String(rpt.findings.size());
+        json += ",\"readableWithoutPairing\":" + String(leaky);
+        json += ",\"writableWithoutAuth\":" + String(weakWrite);
+        json += ",\"bonded\":" + String(rpt.bonded ? "true" : "false");
+        json += ",\"authenticated\":" + String(rpt.authenticated ? "true" : "false");
+        json += ",\"deviceInfoLeaks\":[";
+        for (size_t i = 0; i < rpt.deviceInfoLeaks.size(); i++) {
+            if (i) json += ",";
+            json += "\"" + jsonEscape(rpt.deviceInfoLeaks[i]) + "\"";
+        }
+        json += "]";
+    }
+    json += "}";
+    note("BLE GATT audit: " + address);
+    server.send(200, "application/json", json);
+}
+
+void handleBleFuzz() {
+    String address = server.arg("address");
+    auto rpt = BleFuzzer::fuzz(address);
+    String json = "{\"connected\":" + String(rpt.connected ? "true" : "false");
+    if (rpt.connected) {
+        json += ",\"oversizedWritesAttempted\":" + String(rpt.oversizedWritesAttempted);
+        json += ",\"oversizedWritesAccepted\":" + String(rpt.oversizedWritesAccepted);
+        json += ",\"readOnlyWritesAttempted\":" + String(rpt.readOnlyWritesAttempted);
+        json += ",\"readOnlyWritesAccepted\":" + String(rpt.readOnlyWritesAccepted);
+        json += ",\"reconnectCyclesAttempted\":" + String(rpt.reconnectCyclesAttempted);
+        json += ",\"reconnectCyclesFailed\":" + String(rpt.reconnectCyclesFailed);
+        json += ",\"deviceUnresponsiveAtEnd\":" + String(rpt.deviceUnresponsiveAtEnd ? "true" : "false");
+    }
+    json += "}";
+    note("BLE fuzz: " + address);
+    server.send(200, "application/json", json);
+}
+
+void handleBleSpamStart() {
+    BleSpamDetector::start();
+    note("BLE spam watch started");
+    server.send(200, "application/json", "{\"ok\":true}");
+}
+
+void handleBleSpamStop() {
+    BleSpamDetector::stop();
+    note("BLE spam watch stopped");
+    server.send(200, "application/json", "{\"ok\":true}");
+}
+
+void handleBleSpamCheck() {
+    auto alert = BleSpamDetector::checkAlert();
+    server.send(200, "application/json",
+                "{\"active\":" + String(BleSpamDetector::active() ? "true" : "false") +
+                    ",\"type\":\"" + jsonEscape(alert.type) + "\",\"distinctMacs\":" +
+                    String(alert.distinctMacs) + ",\"strongestRssi\":" + String(alert.strongestRssi) + "}");
 }
 
 void handleNrfScan() {
@@ -284,6 +357,11 @@ void begin() {
     server.on("/api/ir/power", HTTP_POST, handleIrPower);
     server.on("/api/ir/learn", HTTP_POST, handleIrLearn);
     server.on("/api/ir/replay", HTTP_POST, handleIrReplay);
+    server.on("/api/ble/gatt-audit", HTTP_POST, handleBleGattAudit);
+    server.on("/api/ble/fuzz", HTTP_POST, handleBleFuzz);
+    server.on("/api/ble/spam/start", HTTP_POST, handleBleSpamStart);
+    server.on("/api/ble/spam/stop", HTTP_POST, handleBleSpamStop);
+    server.on("/api/ble/spam/check", handleBleSpamCheck);
     server.begin();
 }
 

@@ -12,6 +12,9 @@
 #include "evil_portal.h"
 #include "wardriving.h"
 #include "ir_tools.h"
+#include "ble_gatt_audit.h"
+#include "ble_fuzzer.h"
+#include "ble_spam_detector.h"
 
 #include <vector>
 
@@ -22,6 +25,8 @@ enum State {
     MAIN,
     WIFI_RESULTS,
     WIFI_AP_ACTION,
+    BLE_RESULTS,
+    BLE_DEVICE_ACTION,
     RESULT_MSG,
 };
 
@@ -30,7 +35,10 @@ State g_resultReturnTo = MAIN;
 int g_mainSel = 0;
 int g_wifiSel = 0;
 int g_apActionSel = 0;
+int g_bleSel = 0;
+int g_bleActionSel = 0;
 std::vector<WifiTools::ApInfo> g_wifiResults;
+std::vector<BleTools::BleDevice> g_bleResults;
 SubGhz::Capture g_lastCapture;
 bool g_haveCapture = false;
 IrTools::IrCapture g_lastIrCapture;
@@ -82,6 +90,8 @@ std::vector<String> mainMenuItems() {
         "IR: TV Power Toggle",
         "IR: Learn",
         "IR: Replay Last",
+        String("BLE Spam Watch: ") + (BleSpamDetector::active() ? "STOP" : "start"),
+        "BLE Spam: Check Alert",
         "TX arm status (hold BACK)",
     };
 }
@@ -103,13 +113,10 @@ void runMainAction(int idx) {
             break;
         }
         case 1: { // BLE Scan
-            auto devices = BleTools::scan(5);
-            String body;
-            for (size_t i = 0; i < devices.size() && i < 6; i++) {
-                body += devices[i].address + " " + String(devices[i].rssi) + "\n";
-            }
-            if (devices.empty()) body = "No devices found";
-            showResult("BLE Scan (" + String(devices.size()) + ")", body, MAIN);
+            g_bleResults = BleTools::scan(5);
+            g_bleSel = 0;
+            g_state = g_bleResults.empty() ? RESULT_MSG : BLE_RESULTS;
+            if (g_bleResults.empty()) showResult("BLE Scan", "No devices found", MAIN);
             break;
         }
         case 2: { // 2.4GHz Scan
@@ -183,10 +190,84 @@ void runMainAction(int idx) {
             showResult("IR Replay", g_haveIrCapture ? "Sent" : "No capture yet", MAIN);
             break;
         }
-        case 12: { // TX arm status
+        case 12: { // BLE Spam Watch toggle
+            if (BleSpamDetector::active()) {
+                BleSpamDetector::stop();
+                showResult("BLE Spam Watch", "Stopped", MAIN);
+            } else {
+                BleSpamDetector::start();
+                showResult("BLE Spam Watch", "Started (passive, background)", MAIN);
+            }
+            break;
+        }
+        case 13: { // BLE Spam: Check Alert
+            auto alert = BleSpamDetector::checkAlert();
+            showResult("BLE Spam Alert",
+                       alert.type.length()
+                           ? (alert.type + ": " + String(alert.distinctMacs) +
+                              " MACs, strongest " + String(alert.strongestRssi) + "dBm")
+                           : "Nothing over threshold",
+                       MAIN);
+            break;
+        }
+        case 14: { // TX arm status
             showResult("TX arm (hold BACK)", TxArm::isArmed() ? "Currently HELD - TX allowed" : "Not held - TX blocked", MAIN);
             break;
         }
+    }
+}
+
+void runBleDeviceAction(int idx) {
+    auto &dev = g_bleResults[g_bleSel];
+    switch (idx) {
+        case 0: { // GATT Audit
+            auto rpt = BleGattAudit::audit(dev.address);
+            String body;
+            if (!rpt.connected) {
+                body = "Could not connect";
+            } else {
+                int leaky = 0, weakWrite = 0;
+                for (auto &f : rpt.findings) {
+                    if (f.readableWithoutPairing) leaky++;
+                    if (f.writableWithoutAuth) weakWrite++;
+                }
+                body += "Chars: " + String(rpt.findings.size()) + "\n";
+                body += "Readable w/o pairing: " + String(leaky) + "\n";
+                body += "Writable w/o auth: " + String(weakWrite) + "\n";
+                body += "Pairing: " +
+                        String(!rpt.pairingAttempted || !rpt.bonded
+                                   ? "failed/none"
+                                   : (rpt.authenticated ? "authenticated" : "JUST WORKS (no MITM)")) +
+                        "\n";
+                if (!rpt.deviceInfoLeaks.empty()) {
+                    body += "Device Info leaks:\n";
+                    for (auto &s : rpt.deviceInfoLeaks) body += " " + s + "\n";
+                }
+            }
+            showResult("GATT Audit", body, BLE_RESULTS);
+            break;
+        }
+        case 1: { // Fuzz (isolated only!)
+            auto rpt = BleFuzzer::fuzz(dev.address);
+            String body;
+            if (!rpt.connected) {
+                body = "Could not connect";
+            } else {
+                body += "Oversized writes ok: " + String(rpt.oversizedWritesAccepted) + "/" +
+                        String(rpt.oversizedWritesAttempted) + "\n";
+                body += "Read-only writes ok: " + String(rpt.readOnlyWritesAccepted) + "/" +
+                        String(rpt.readOnlyWritesAttempted) + "\n";
+                body += "Reconnect fails: " + String(rpt.reconnectCyclesFailed) + "/" +
+                        String(rpt.reconnectCyclesAttempted) + "\n";
+                body += rpt.deviceUnresponsiveAtEnd ? "Device UNRESPONSIVE after test!"
+                                                     : "Device still responsive";
+            }
+            showResult("BLE Fuzz", body, BLE_RESULTS);
+            break;
+        }
+        case 2: // Back
+            g_state = BLE_RESULTS;
+            break;
     }
 }
 
@@ -268,6 +349,34 @@ void loop() {
             else if (btn == Buttons::SELECT) runApAction(g_apActionSel); // hold BACK while pressing SELECT to arm "Deauth this AP"
             else if (backTapped) g_state = WIFI_RESULTS;
             if (g_state == WIFI_AP_ACTION) Display::showList(g_wifiResults[g_wifiSel].ssid, actions, g_apActionSel);
+            break;
+        }
+
+        case BLE_RESULTS: {
+            std::vector<String> lines;
+            for (auto &dev : g_bleResults) {
+                String label = dev.name.length() ? dev.name : dev.address;
+                lines.push_back(label + " " + String(dev.rssi) +
+                                 (dev.manufacturerName.length() ? " [" + dev.manufacturerName + "]" : ""));
+            }
+            if (btn == Buttons::UP) g_bleSel = (g_bleSel + g_bleResults.size() - 1) % g_bleResults.size();
+            else if (btn == Buttons::DOWN) g_bleSel = (g_bleSel + 1) % g_bleResults.size();
+            else if (btn == Buttons::SELECT) { g_bleActionSel = 0; g_state = BLE_DEVICE_ACTION; }
+            else if (backTapped) g_state = MAIN;
+            if (g_state == BLE_RESULTS) Display::showList("BLE results", lines, g_bleSel);
+            break;
+        }
+
+        case BLE_DEVICE_ACTION: {
+            std::vector<String> actions = {"GATT Audit", "Fuzz (isolated only!)", "Back"};
+            if (btn == Buttons::UP) g_bleActionSel = (g_bleActionSel + actions.size() - 1) % actions.size();
+            else if (btn == Buttons::DOWN) g_bleActionSel = (g_bleActionSel + 1) % actions.size();
+            else if (btn == Buttons::SELECT) runBleDeviceAction(g_bleActionSel);
+            else if (backTapped) g_state = BLE_RESULTS;
+            if (g_state == BLE_DEVICE_ACTION) {
+                auto &dev = g_bleResults[g_bleSel];
+                Display::showList(dev.name.length() ? dev.name : dev.address, actions, g_bleActionSel);
+            }
             break;
         }
 

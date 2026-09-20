@@ -41,9 +41,31 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 </div>
 
 <div class="card">
-  <h2>BLE scan</h2>
+  <h2>BLE scan (Module 1)</h2>
   <button onclick="bleScan()">Scan 5s</button>
   <table id="bleTable"></table>
+</div>
+
+<div class="card">
+  <h2>BLE GATT audit — Module 2 (tes appareils uniquement)</h2>
+  <input id="bleAuditAddr" placeholder="adresse MAC (depuis le scan ci-dessus)">
+  <button onclick="bleGattAudit()">Auditer</button>
+  <pre id="bleAuditOut"></pre>
+</div>
+
+<div class="card">
+  <h2>BLE spam watch — Module 3 (défensif)</h2>
+  <button onclick="bleSpamStart()">Démarrer surveillance</button>
+  <button onclick="bleSpamStop()">Arrêter</button>
+  <button onclick="bleSpamCheck()">Vérifier maintenant</button>
+  <div id="bleSpamOut"></div>
+</div>
+
+<div class="card">
+  <h2>&#9888; BLE fuzz — Module 4 (un seul appareil à toi, en isolation)</h2>
+  <input id="bleFuzzAddr" placeholder="adresse MAC (ton appareil, isolé)">
+  <button class="warn" onclick="bleFuzz()">Lancer le test</button>
+  <pre id="bleFuzzOut"></pre>
 </div>
 
 <div class="card">
@@ -121,6 +143,7 @@ async function refreshStatus() {
       `<span class="badge">${s.time}</span>` +
       `<span class="badge">GPS: ${s.gpsFix ? ('fix, sats=' + s.sats) : 'no fix'}</span>` +
       `<span class="badge">AP clients: ${s.apClients}</span>` +
+      `<span class="badge">Batt: ${s.battV}V (${s.battPct}%)</span>` +
       `<span class="badge ${s.safetyArmed ? 'armed' : 'safe'}">TX arm (BACK): ${s.safetyArmed ? 'HELD' : 'off'}</span>`;
   } catch (e) {}
 }
@@ -144,9 +167,47 @@ async function wifiSniff() {
 
 async function bleScan() {
   const rows = await j('/api/ble/scan?seconds=5');
-  let html = '<tr><th>Address</th><th>Name</th><th>RSSI</th></tr>';
-  rows.forEach(d => html += `<tr><td>${d.address}</td><td>${d.name}</td><td>${d.rssi}</td></tr>`);
+  let html = '<tr><th>Address</th><th>Name</th><th>RSSI</th><th>Fabricant</th></tr>';
+  rows.forEach(d => html += `<tr><td>${d.address}</td><td>${d.name}</td><td>${d.rssi}</td><td>${d.manufacturer}</td></tr>`);
   document.getElementById('bleTable').innerHTML = html;
+}
+
+async function bleGattAudit() {
+  const addr = document.getElementById('bleAuditAddr').value;
+  document.getElementById('bleAuditOut').textContent = 'audit en cours (scan + connexion)...';
+  const r = await j(`/api/ble/gatt-audit?address=${encodeURIComponent(addr)}`, {method: 'POST'});
+  if (!r.connected) { document.getElementById('bleAuditOut').textContent = 'connexion impossible'; return; }
+  let out = `Caractéristiques: ${r.chars}\nLisibles sans appairage: ${r.readableWithoutPairing}\nÉcrivibles sans authentification: ${r.writableWithoutAuth}\n`;
+  out += r.bonded ? (r.authenticated ? 'Appairage: authentifié' : 'Appairage: JUST WORKS (pas de protection MITM)') : 'Appairage: échec/aucun';
+  if (r.deviceInfoLeaks && r.deviceInfoLeaks.length) out += '\nFuites Device Info:\n' + r.deviceInfoLeaks.join('\n');
+  document.getElementById('bleAuditOut').textContent = out;
+}
+
+async function bleFuzz() {
+  const addr = document.getElementById('bleFuzzAddr').value;
+  document.getElementById('bleFuzzOut').textContent = 'test en cours...';
+  const r = await j(`/api/ble/fuzz?address=${encodeURIComponent(addr)}`, {method: 'POST'});
+  if (!r.connected) { document.getElementById('bleFuzzOut').textContent = 'connexion impossible'; return; }
+  let out = `Écritures surdimensionnées acceptées: ${r.oversizedWritesAccepted}/${r.oversizedWritesAttempted}\n`;
+  out += `Écritures read-only acceptées: ${r.readOnlyWritesAccepted}/${r.readOnlyWritesAttempted}\n`;
+  out += `Échecs de reconnexion: ${r.reconnectCyclesFailed}/${r.reconnectCyclesAttempted}\n`;
+  out += r.deviceUnresponsiveAtEnd ? 'Appareil NE RÉPOND PLUS après le test !' : 'Appareil toujours réactif';
+  document.getElementById('bleFuzzOut').textContent = out;
+}
+
+async function bleSpamStart() {
+  await j('/api/ble/spam/start', {method: 'POST'});
+  document.getElementById('bleSpamOut').textContent = 'surveillance active';
+}
+async function bleSpamStop() {
+  await j('/api/ble/spam/stop', {method: 'POST'});
+  document.getElementById('bleSpamOut').textContent = 'arrêtée';
+}
+async function bleSpamCheck() {
+  const r = await j('/api/ble/spam/check');
+  document.getElementById('bleSpamOut').textContent = r.type
+    ? `ALERTE ${r.type}: ${r.distinctMacs} MAC distinctes, plus fort signal ${r.strongestRssi}dBm`
+    : `rien au-dessus du seuil (surveillance ${r.active ? 'active' : 'arrêtée'})`;
 }
 
 async function nrfScan() {

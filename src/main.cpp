@@ -20,6 +20,8 @@
 #include "buttons.h"
 #include "menu.h"
 #include "ir_tools.h"
+#include "battery.h"
+#include "ble_spam_detector.h"
 
 namespace {
 String apSsid;
@@ -32,6 +34,7 @@ void setup() {
     LittleFS.begin(true); // format on first boot if no filesystem is found
 
     Buzzer::begin();
+    Battery::begin();
 
     // Shared SPI bus for the TFT, CC1101 and NRF24L01 (each has its own CS).
     SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
@@ -47,6 +50,7 @@ void setup() {
 
     WifiTools::begin(apSsid, AP_PASSWORD);
     BleTools::begin();
+    BleSpamDetector::begin();
     Nrf24Tools::begin();
     SubGhz::begin();
     IrTools::begin();

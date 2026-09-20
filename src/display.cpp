@@ -3,14 +3,13 @@
 #include "rtc_clock.h"
 #include "gps_module.h"
 #include "tx_arm.h"
+#include "battery.h"
 #include "mascot.h"
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
+#include <TFT_eSPI.h>
 #include <WiFi.h>
 
 namespace {
-Adafruit_ILI9341 tft(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST); // uses the shared SPI bus set up in main.cpp
+TFT_eSPI tft = TFT_eSPI(); // pins/driver set via platformio.ini build_flags
 
 // Shark "swim-by" cameo on the idle status screen: mostly off, occasionally
 // crosses the bottom row. INT16_MIN means "not currently swimming".
@@ -18,8 +17,9 @@ int16_t g_sharkX = INT16_MIN;
 uint16_t g_ticksUntilSwim = 20; // ~20 status refreshes (~20s) between cameos
 constexpr uint8_t SHARK_SCALE = 2;
 
-// Adafruit_GFX's drawBitmap has no scale factor, so this draws each set bit
-// as an NxN block. Fine for a tiny 32x16 mascot; not meant for big images.
+// TFT_eSPI's drawXBitmap draws a 1bpp bitmap at native size (like Adafruit's
+// drawBitmap); it has no scale factor, so scaling is done by hand here,
+// one filled block per set bit. Fine for a tiny 32x16 mascot.
 void drawBitmapScaled(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t w, uint8_t h,
                        uint8_t scale, uint16_t color) {
     uint8_t bytesPerRow = (w + 7) / 8;
@@ -43,10 +43,10 @@ bool advanceSharkAnimation() {
         g_sharkX = -sharkW;
     }
 
-    drawBitmapScaled(g_sharkX, TFT_HEIGHT - Mascot::HEIGHT * SHARK_SCALE, Mascot::SHARK_BITMAP,
-                      Mascot::WIDTH, Mascot::HEIGHT, SHARK_SCALE, ILI9341_WHITE);
+    drawBitmapScaled(g_sharkX, tft.height() - Mascot::HEIGHT * SHARK_SCALE, Mascot::SHARK_BITMAP,
+                      Mascot::WIDTH, Mascot::HEIGHT, SHARK_SCALE, TFT_WHITE);
     g_sharkX += 24;
-    if (g_sharkX > TFT_WIDTH) {
+    if (g_sharkX > tft.width()) {
         g_sharkX = INT16_MIN;
         g_ticksUntilSwim = 20;
     }
@@ -57,17 +57,17 @@ bool advanceSharkAnimation() {
 namespace Display {
 
 void begin() {
-    tft.begin();
+    tft.init();
     tft.setRotation(1); // landscape 320x240; use 3 instead if the image is upside down
-    tft.fillScreen(ILI9341_BLACK);
-    tft.setTextColor(ILI9341_WHITE);
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
     splash("ESP32 Audit Tool", "booting...");
 }
 
 void splash(const String &line1, const String &line2) {
-    tft.fillScreen(ILI9341_BLACK);
-    drawBitmapScaled((TFT_WIDTH - Mascot::WIDTH * 3) / 2, 10, Mascot::SHARK_BITMAP,
-                      Mascot::WIDTH, Mascot::HEIGHT, 3, ILI9341_WHITE);
+    tft.fillScreen(TFT_BLACK);
+    drawBitmapScaled((tft.width() - Mascot::WIDTH * 3) / 2, 10, Mascot::SHARK_BITMAP,
+                      Mascot::WIDTH, Mascot::HEIGHT, 3, TFT_WHITE);
     tft.setTextSize(2);
     tft.setCursor(0, Mascot::HEIGHT * 3 + 20);
     tft.println(line1);
@@ -75,7 +75,7 @@ void splash(const String &line1, const String &line2) {
 }
 
 void update(const String &lastAction) {
-    tft.fillScreen(ILI9341_BLACK);
+    tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
     tft.setCursor(0, 0);
 
@@ -92,6 +92,12 @@ void update(const String &lastAction) {
     tft.print("AP clients: ");
     tft.println(WiFi.softAPgetStationNum());
 
+    tft.print("Batt: ");
+    tft.print(Battery::voltage(), 2);
+    tft.print("V ");
+    tft.print(Battery::percent());
+    tft.println("%");
+
     tft.print("TX arm (BACK): ");
     tft.println(TxArm::isArmed() ? "HELD" : "off");
 
@@ -104,7 +110,7 @@ void update(const String &lastAction) {
 }
 
 void showList(const String &title, const std::vector<String> &items, int selectedIndex) {
-    tft.fillScreen(ILI9341_BLACK);
+    tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
     tft.setCursor(0, 0);
     tft.println(title);
@@ -125,7 +131,7 @@ void showList(const String &title, const std::vector<String> &items, int selecte
 }
 
 void showText(const String &title, const String &body) {
-    tft.fillScreen(ILI9341_BLACK);
+    tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
     tft.setCursor(0, 0);
     tft.println(title);

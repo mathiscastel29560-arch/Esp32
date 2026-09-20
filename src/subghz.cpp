@@ -1,10 +1,13 @@
 #include "subghz.h"
 #include "config.h"
 #include "tx_arm.h"
-#include <ELECHOUSE_CC1101_SRC_DRV.h>
+#include <RadioLib.h>
 #include <LittleFS.h>
 
 namespace {
+Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);
+CC1101 radio(&cc1101Module);
+
 constexpr size_t MAX_PULSES = 1024;
 volatile uint16_t g_pulseBuf[MAX_PULSES];
 volatile size_t g_pulseCount = 0;
@@ -20,39 +23,29 @@ void IRAM_ATTR onEdge() {
         g_pulseBuf[g_pulseCount++] = (dt > 0xFFFF) ? 0xFFFF : (uint16_t)dt;
     }
 }
-
-// PKTCTRL0 = 0x08. Value 0x32 selects asynchronous serial mode: GDO0
-// becomes the raw demodulated bitstream in RX and the direct modulator
-// input in TX, which is what makes edge-timing capture/replay possible.
-constexpr uint8_t REG_PKTCTRL0 = 0x08;
-constexpr uint8_t PKTCTRL0_ASYNC_SERIAL = 0x32;
 }
 
 namespace SubGhz {
 
 void begin() {
-    ELECHOUSE_cc1101.setSpiPin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, PIN_CC1101_CS);
-    ELECHOUSE_cc1101.setGDO(PIN_CC1101_GDO0, PIN_CC1101_GDO2);
-    ELECHOUSE_cc1101.Init();
-    ELECHOUSE_cc1101.setModulation(2); // ASK/OOK
-    ELECHOUSE_cc1101.setMHZ(433.92);
-    ELECHOUSE_cc1101.SpiWriteReg(REG_PKTCTRL0, PKTCTRL0_ASYNC_SERIAL);
-    ELECHOUSE_cc1101.SetRx();
+    radio.begin(CC1101_FREQ_MHZ);
+    radio.setOOK(true);
+    radio.receiveDirectAsync(); // GDO0 becomes the raw demodulated bitstream
 }
 
 int8_t rssiAt(float freqMHz) {
-    ELECHOUSE_cc1101.setMHZ(freqMHz);
-    ELECHOUSE_cc1101.SetRx();
+    radio.setFrequency(freqMHz);
+    radio.receiveDirectAsync();
     delay(5);
-    return ELECHOUSE_cc1101.getRssi();
+    return (int8_t)radio.getRSSI();
 }
 
 Capture record(float freqMHz, uint32_t timeoutMs) {
     Capture cap;
     cap.freqMHz = freqMHz;
 
-    ELECHOUSE_cc1101.setMHZ(freqMHz);
-    ELECHOUSE_cc1101.SetRx();
+    radio.setFrequency(freqMHz);
+    radio.receiveDirectAsync();
 
     g_pulseCount = 0;
     g_lastEdgeUs = micros();
@@ -76,8 +69,8 @@ bool replay(const Capture &capture) {
     if (!TxArm::isArmed()) return false;
     if (capture.pulsesUs.empty()) return false;
 
-    ELECHOUSE_cc1101.setMHZ(capture.freqMHz);
-    ELECHOUSE_cc1101.SetTx();
+    radio.setFrequency(capture.freqMHz);
+    radio.transmitDirectAsync(); // GDO0 becomes the direct modulator input
     pinMode(PIN_CC1101_GDO0, OUTPUT);
 
     bool level = HIGH;
@@ -88,7 +81,8 @@ bool replay(const Capture &capture) {
     }
     digitalWrite(PIN_CC1101_GDO0, LOW);
 
-    ELECHOUSE_cc1101.SetRx();
+    radio.packetMode();
+    radio.receiveDirectAsync();
     return true;
 }
 
