@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <SPI.h>
 #include <WiFi.h>
 #include <LittleFS.h>
 
@@ -39,9 +38,13 @@ void setup() {
     Buzzer::begin();
     Battery::begin();
 
-    // Shared SPI bus for the TFT, CC1101 and NRF24L01 (each has its own CS).
-    SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
-
+    // Display::begin() auto-detects which screen is wired (TFT or OLED,
+    // see display.h) and itself calls SPI.begin() for the shared TFT/
+    // CC1101/NRF24L01 bus exactly once, in whichever order is safe for
+    // the screen it finds -- doing it here unconditionally, before
+    // Display::begin() runs, was a redundant second SPI.begin() call on
+    // the same global SPI object and the likely cause of a boot crash
+    // when no TFT was physically attached.
     Display::begin();
     Ui::begin();
     bool rtcOk = RtcClock::begin();

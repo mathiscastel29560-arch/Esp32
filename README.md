@@ -110,9 +110,40 @@ plus bas), l'app n'a plus toute la flash 16MB pour elle — juste les 3MB
 d'`ota_0` — d'où le pourcentage plus élevé qu'avant malgré une taille de
 binaire inchangée.
 
-Note écran : `tft.setRotation(1)` est utilisé pour l'affichage en paysage
-320x240. Si l'image sort à l'envers, change juste ça en `setRotation(3)`
-dans `src/display.cpp`.
+Note écran : `tft.setRotation(Theme::ROTATION)` (`include/ui/theme.h`) pilote
+l'orientation du TFT. Si l'image sort à l'envers, change cette constante.
+
+### Écran : TFT (actuel) ou OLED (ancien) — détection automatique
+
+Le firmware marche avec les deux écrans envisagés, sans rien à choisir à la
+compilation : au boot, `Display::begin()` (`src/display.cpp`) teste dans
+l'ordre —
+
+1. **I2C** : sonde l'adresse `OLED_I2C_ADDR` (`0x3C` par défaut,
+   `include/config.h`) sur le bus SDA=8/SCL=9. Si un SSD1306 répond, c'est
+   lui qui est utilisé — le TFT/SPI n'est même pas touché.
+2. **SPI** : sinon, initialise le TFT puis lit son registre d'auto-ID
+   (`RDID4`, motif documenté par TFT_eSPI lui-même) pour confirmer qu'un
+   vrai ILI9341 est branché — pas juste que l'init n'a pas planté. Si la
+   valeur attendue (`0x93`) ne revient pas (bus flottant, rien de branché),
+   bascule sur le mode headless.
+3. **Aucun écran détecté** : mode headless, tout continue de tourner
+   normalement (Wi-Fi/BLE/scans/logs), juste sans affichage local — le
+   panneau web reste utilisable.
+
+C'est aussi la vraie correction du crash au boot sans écran signalé plus tôt
+(`StoreProhibited` dans `begin_tft_write()`) : la cause était un double
+`SPI.begin()` sur le même objet `SPI` global (une fois dans `main.cpp`, une
+fois à l'intérieur de `tft.init()`) — `main.cpp` ne l'appelle plus lui-même,
+`Display::begin()` s'en charge une seule fois, dans le bon ordre selon
+l'écran trouvé. **Pas testé sur le matériel réel par manque d'accès à la
+carte pendant cette session** — à vérifier au prochain flash.
+
+L'OLED SSD1306 obtient une UI simplifiée mais complète (même menu,
+mêmes listes/écrans de détail, même confirmation TX) via
+`src/ui/oled_ui.cpp` : texte monochrome sans animations ni sprites, pensé
+pour un module 128x64 (`OLED_WIDTH`/`OLED_HEIGHT` dans `config.h` — passe à
+32 si le tien est un 128x32).
 
 ## Utilisation
 
@@ -247,6 +278,7 @@ src/             un module par domaine :
                  evil_portal, ble_tools, ble_gatt_audit, ble_spam_detector,
                  ble_fuzzer, nrf24_tools, subghz, ir_tools, wardriving,
                  web_ctrl, mascot, dualboot, main.cpp
+                 (+ src/ui/: ui, oled_ui, widgets — écran TFT et/ou OLED)
 partitions_16mb.csv   table de partitions dual-boot (ota_0/ota_1 + auditfs/spiffs)
 bruce-board/     profil de carte Bruce + script de flash (voir "Dual-boot avec Bruce")
 ```

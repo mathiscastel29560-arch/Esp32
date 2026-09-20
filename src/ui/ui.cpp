@@ -1,6 +1,7 @@
 #include "ui/ui.h"
 #include "ui/theme.h"
 #include "ui/widgets.h"
+#include "ui/oled_ui.h"
 #include "display.h"
 #include "mascot.h"
 #include "buttons.h"
@@ -43,6 +44,7 @@ constexpr uint8_t SHARK_SCALE = 2;
 void ensureCanvas() {
     if (canvasReady) return;
     canvasReady = true;
+    if (Display::kind() != Display::ScreenKind::TFT) return; // g_displayOk stays false: no TFT, nothing to allocate
     canvas.setColorDepth(16);
     void *buf = canvas.createSprite(tft.width(), tft.height()); // auto-allocates in PSRAM (see Sprite.cpp)
     g_displayOk = (buf != nullptr);
@@ -184,6 +186,10 @@ void begin() {
 }
 
 void showSplash(const String &title, const String &subtitle) {
+    if (Display::kind() == Display::ScreenKind::OLED) {
+        OledUi::showSplash(title, subtitle);
+        return;
+    }
     ensureCanvas();
     if (!g_displayOk) return;
 
@@ -217,6 +223,10 @@ void showSplash(const String &title, const String &subtitle) {
 }
 
 void showHome(const StatusInfo &status, const String &lastAction) {
+    if (Display::kind() == Display::ScreenKind::OLED) {
+        OledUi::showHome(status, lastAction);
+        return;
+    }
     ensureCanvas();
     if (!g_displayOk) return;
     bool screenChanged = enterScreen("__home__");
@@ -253,6 +263,10 @@ void showHome(const StatusInfo &status, const String &lastAction) {
 
 void showList(const StatusInfo &status, const String &title, const std::vector<ListItem> &items,
               int selectedIndex, bool scanning) {
+    if (Display::kind() == Display::ScreenKind::OLED) {
+        OledUi::showList(status, title, items, selectedIndex, scanning);
+        return;
+    }
     ensureCanvas();
     if (!g_displayOk) return;
     bool screenChanged = enterScreen(title);
@@ -305,6 +319,10 @@ void showList(const StatusInfo &status, const String &title, const std::vector<S
 
 void showDetail(const StatusInfo &status, const String &title, const std::vector<DetailRow> &rows,
                  const std::vector<Badge> &badges) {
+    if (Display::kind() == Display::ScreenKind::OLED) {
+        OledUi::showDetail(status, title, rows); // badges dropped -- monochrome, no room
+        return;
+    }
     ensureCanvas();
     if (!g_displayOk) return;
     bool screenChanged = enterScreen(title);
@@ -364,25 +382,29 @@ void showTextBlock(const StatusInfo &status, const String &title, const String &
 }
 
 bool confirm(const String &title, const String &message) {
-    ensureCanvas();
-    if (g_displayOk) {
-        enterScreen("__confirm__" + title); // always a fresh screen: no lingering slide state
+    if (Display::kind() == Display::ScreenKind::OLED) {
+        OledUi::confirm(title, message);
+    } else {
+        ensureCanvas();
+        if (g_displayOk) {
+            enterScreen("__confirm__" + title); // always a fresh screen: no lingering slide state
 
-        canvas.fillSprite(Theme::COLOR_BG);
-        canvas.loadFont(FONT_BODY);
-        canvas.setTextDatum(MC_DATUM);
-        canvas.setTextColor(Theme::COLOR_WARN, Theme::COLOR_BG);
-        canvas.drawString(title, canvas.width() / 2, canvas.height() / 2 - 40);
-        canvas.setTextColor(Theme::COLOR_TEXT, Theme::COLOR_BG);
-        canvas.drawString(message, canvas.width() / 2, canvas.height() / 2 - 10);
-        canvas.setTextColor(Theme::COLOR_TEXT_DIM, Theme::COLOR_BG);
-        canvas.drawString("OK = confirmer   RETOUR = annuler", canvas.width() / 2, canvas.height() / 2 + 30);
-        canvas.unloadFont();
-        canvas.pushSprite(0, 0);
+            canvas.fillSprite(Theme::COLOR_BG);
+            canvas.loadFont(FONT_BODY);
+            canvas.setTextDatum(MC_DATUM);
+            canvas.setTextColor(Theme::COLOR_WARN, Theme::COLOR_BG);
+            canvas.drawString(title, canvas.width() / 2, canvas.height() / 2 - 40);
+            canvas.setTextColor(Theme::COLOR_TEXT, Theme::COLOR_BG);
+            canvas.drawString(message, canvas.width() / 2, canvas.height() / 2 - 10);
+            canvas.setTextColor(Theme::COLOR_TEXT_DIM, Theme::COLOR_BG);
+            canvas.drawString("OK = confirmer   RETOUR = annuler", canvas.width() / 2, canvas.height() / 2 + 30);
+            canvas.unloadFont();
+            canvas.pushSprite(0, 0);
+        }
     }
-    // No screen to show the prompt on: still block on the buttons below
-    // rather than silently defaulting to yes/no, since Buttons:: doesn't
-    // need the display to work.
+    // No screen to show the prompt on (ScreenKind::NONE): still block on
+    // the buttons below rather than silently defaulting to yes/no, since
+    // Buttons:: doesn't need the display to work.
 
     while (true) {
         Buttons::Button btn = Buttons::poll();

@@ -12,10 +12,19 @@
 // build_flags (see that file) so the library picks them up at compile time.
 // ============================================================================
 
-// ---- I2C bus: DS3231 real-time clock ----
+// ---- I2C bus: DS3231 real-time clock, and (if wired instead of the TFT)
+// the old SSD1306 OLED screen ----
 #define PIN_I2C_SDA         8
 #define PIN_I2C_SCL         9
 #define RTC_I2C_ADDR        0x68
+
+// ---- OLED screen (old, small): auto-detected at boot (see display.cpp)
+// by probing this I2C address — if it doesn't answer, the firmware tries
+// the TFT next. Most 1" SSD1306 modules are 128x64; some are 128x32 —
+// change OLED_HEIGHT to match what you actually have.
+#define OLED_I2C_ADDR       0x3C
+#define OLED_WIDTH          128
+#define OLED_HEIGHT         64
 
 // ---- UART1: NEO-6M GPS module ----
 #define PIN_GPS_RX          18   // ESP32 RX <- GPS TX
