@@ -230,6 +230,14 @@ de rollback OTA d'ESP-IDF :
   suffit à revenir sur ce firmware — le bootloader considère le boot Bruce
   comme jamais confirmé et repointe automatiquement sur `ota_0`. Aucune
   combinaison de boutons, aucune modification du code de Bruce.
+- Piège découvert en testant sur du vrai matériel : le cœur Arduino-ESP32
+  lui-même confirme automatiquement chaque boot comme valide
+  (`initArduino()`, avant même que `setup()` tourne), ce qui désamorçait
+  le filet de sécurité avant que Bruce ait la moindre chance de planter.
+  `bruce-board/esp32-audit-dualboot/interface.cpp` neutralise ça en
+  surchargeant le symbole faible `verifyRollbackLater()` (mécanisme prévu
+  par Arduino-ESP32 pour ça, pas une modification du code de Bruce) — le
+  slot `ota_1` reste donc "à confirmer" tant que Bruce tourne.
 
 ### Mise en place (une fois)
 

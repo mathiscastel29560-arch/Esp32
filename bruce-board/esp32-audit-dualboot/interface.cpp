@@ -73,6 +73,26 @@ void InputHandler(void) {
     if (!_e) { EscPress = true; }
 }
 
+// Arduino-ESP32's own core (esp32-hal-misc.c, initArduino(), guarded by
+// CONFIG_APP_ROLLBACK_ENABLE) calls esp_ota_mark_app_valid_cancel_
+// rollback() automatically, before Bruce's own setup() even runs,
+// UNLESS this weak symbol is overridden to defer that check. Without
+// this, Bruce confirms its own boot as valid within milliseconds of
+// starting regardless of what Bruce's application code does afterward
+// -- silently defeating the whole point of booting it through the
+// audit firmware's rollback mechanism (see dualboot.cpp there): ota_1
+// would go PENDING_VERIFY -> VALID before Bruce could ever crash, so a
+// crash or reset while running Bruce would just boot straight back
+// into Bruce instead of reverting to ota_0.
+//
+// Overriding it here keeps ota_1 in PENDING_VERIFY for as long as
+// Bruce is running, since Bruce (unmodified) never calls the
+// mark-valid API itself -- exactly the "any reset while in Bruce
+// reverts to the audit firmware" behavior documented in README.md.
+// This is a board-profile-level override (a weak symbol meant to be
+// replaced by board code), not a change to Bruce's own source.
+extern "C" bool verifyRollbackLater() { return true; }
+
 /*********************************************************************
 ** Function: powerOff
 ** location: mykeyboard.cpp
