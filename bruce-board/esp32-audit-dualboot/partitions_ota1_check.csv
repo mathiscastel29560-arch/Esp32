@@ -1,18 +1,21 @@
-# Same offsets/sizes as ../../partitions_16mb.csv (the table actually
-# flashed to the device, once, by the audit firmware's own upload) --
-# just with ota_1 listed before ota_0. PlatformIO's checkprogsize step
-# always checks the built .bin against the FIRST "app" row it finds in
-# whatever partitions CSV the env points at, with no way to tell it
-# "this build targets ota_1"; since Bruce is always built for ota_1 here,
-# this reordered copy makes that check compare against the right size
-# (4.5MB) instead of ota_0's 3MB. Never flashed -- flash_bruce.sh only
-# extracts the resulting firmware.bin and writes it to the real,
-# already-flashed partition table at the fixed 0x310000 offset.
+# Local build-time size check ONLY -- never flashed to the device.
+#
+# PlatformIO's checkprogsize step always sizes the build against the
+# FIRST "app" row of whatever partitions CSV the env points at, with no
+# way to tell it this build targets ota_1 (4.5MB), not ota_0 (3MB) --
+# see ../../partitions_16mb.csv, the real table, flashed once by the
+# audit firmware's own upload. Listing ota_1 before ota_0 to fix that
+# doesn't work either: esp-idf's gen_esp32part.py requires strictly
+# ascending, non-overlapping offsets, so a reordered copy of the real
+# table fails to even generate a partitions.bin.
+#
+# So this is a throwaway table, unrelated to the real offsets, with one
+# single ~5MB app partition -- comfortably above Bruce's actual image
+# size (~3.6MB as built) -- purely so checkprogsize has something
+# correctly-sized to compare against. flash_bruce.sh never reads this
+# file's partitions.bin; it only extracts firmware.bin and writes that
+# to the real, already-flashed table at the fixed 0x310000 offset.
 # Name,     Type, SubType,   Offset,     Size
 nvs,        data, nvs,       0x9000,     0x5000
-otadata,    data, ota,       0xE000,     0x2000
-ota_1,      app,  ota_1,     0x310000,   0x480000
-ota_0,      app,  ota_0,     0x10000,    0x300000
-auditfs,    data, spiffs,    0x790000,   0x200000
-spiffs,     data, spiffs,    0x990000,   0x660000
-coredump,   data, coredump,  0xFF0000,   0x10000
+app_check,  app,  factory,   0x10000,    0x500000
+data_check, data, spiffs,    0x510000,   0xAE0000
