@@ -77,6 +77,11 @@ void loop() {
     uint32_t now = millis();
     if (!Menu::isActive() && now - lastDisplayUpdate > 1000) {
         lastDisplayUpdate = now;
-        Display::update(WebCtrl::lastAction());
+        Ui::StatusInfo status;
+        status.time = RtcClock::isoTimestamp();
+        status.gpsFix = GpsModule::hasFix();
+        status.battPercent = Battery::percent();
+        status.radioActive = BeaconSpam::active() || EvilPortal::active() || BleSpamDetector::active();
+        Ui::showHome(status, WebCtrl::lastAction());
     }
 }

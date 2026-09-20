@@ -100,6 +100,15 @@ std::vector<String> mainMenuItems() {
     };
 }
 
+Ui::StatusInfo currentStatus() {
+    Ui::StatusInfo status;
+    status.time = RtcClock::isoTimestamp();
+    status.gpsFix = GpsModule::hasFix();
+    status.battPercent = Battery::percent();
+    status.radioActive = BeaconSpam::active() || EvilPortal::active() || BleSpamDetector::active();
+    return status;
+}
+
 void showResult(const String &title, const String &body, State returnTo) {
     g_resultTitle = title;
     g_resultBody = body;
@@ -332,24 +341,23 @@ void loop() {
             else if (btn == Buttons::DOWN) g_mainSel = (g_mainSel + 1) % items.size();
             else if (btn == Buttons::SELECT) runMainAction(g_mainSel);
             else if (backTapped) g_state = HOME;
-            if (g_state == MAIN) {
-                Ui::StatusInfo status;
-                status.time = RtcClock::isoTimestamp();
-                status.gpsFix = GpsModule::hasFix();
-                status.battPercent = Battery::percent();
-                status.radioActive = BeaconSpam::active() || EvilPortal::active() || BleSpamDetector::active();
-                Ui::showMainMenu(status, "Main Menu", items, g_mainSel);
-            }
+            if (g_state == MAIN) Ui::showList(currentStatus(), "Main Menu", items, g_mainSel);
             break;
 
         case WIFI_RESULTS: {
-            std::vector<String> lines;
-            for (auto &ap : g_wifiResults) lines.push_back(ap.ssid + " " + String(ap.rssi));
+            std::vector<Ui::ListItem> rows;
+            for (auto &ap : g_wifiResults) {
+                Ui::ListItem item(ap.ssid.length() ? ap.ssid : "(hidden)");
+                item.hasRssi = true;
+                item.rssi = ap.rssi;
+                item.badge = ap.enc;
+                rows.push_back(item);
+            }
             if (btn == Buttons::UP) g_wifiSel = (g_wifiSel + g_wifiResults.size() - 1) % g_wifiResults.size();
             else if (btn == Buttons::DOWN) g_wifiSel = (g_wifiSel + 1) % g_wifiResults.size();
             else if (btn == Buttons::SELECT) { g_apActionSel = 0; g_state = WIFI_AP_ACTION; }
             else if (backTapped) g_state = MAIN;
-            if (g_state == WIFI_RESULTS) Display::showList("Wi-Fi results", lines, g_wifiSel);
+            if (g_state == WIFI_RESULTS) Ui::showList(currentStatus(), "Wi-Fi results", rows, g_wifiSel);
             break;
         }
 
@@ -359,22 +367,25 @@ void loop() {
             else if (btn == Buttons::DOWN) g_apActionSel = (g_apActionSel + 1) % actions.size();
             else if (btn == Buttons::SELECT) runApAction(g_apActionSel); // hold BACK while pressing SELECT to arm "Deauth this AP"
             else if (backTapped) g_state = WIFI_RESULTS;
-            if (g_state == WIFI_AP_ACTION) Display::showList(g_wifiResults[g_wifiSel].ssid, actions, g_apActionSel);
+            if (g_state == WIFI_AP_ACTION)
+                Ui::showList(currentStatus(), g_wifiResults[g_wifiSel].ssid, actions, g_apActionSel);
             break;
         }
 
         case BLE_RESULTS: {
-            std::vector<String> lines;
+            std::vector<Ui::ListItem> rows;
             for (auto &dev : g_bleResults) {
-                String label = dev.name.length() ? dev.name : dev.address;
-                lines.push_back(label + " " + String(dev.rssi) +
-                                 (dev.manufacturerName.length() ? " [" + dev.manufacturerName + "]" : ""));
+                Ui::ListItem item(dev.name.length() ? dev.name : dev.address);
+                item.hasRssi = true;
+                item.rssi = dev.rssi;
+                item.badge = dev.manufacturerName;
+                rows.push_back(item);
             }
             if (btn == Buttons::UP) g_bleSel = (g_bleSel + g_bleResults.size() - 1) % g_bleResults.size();
             else if (btn == Buttons::DOWN) g_bleSel = (g_bleSel + 1) % g_bleResults.size();
             else if (btn == Buttons::SELECT) { g_bleActionSel = 0; g_state = BLE_DEVICE_ACTION; }
             else if (backTapped) g_state = MAIN;
-            if (g_state == BLE_RESULTS) Display::showList("BLE results", lines, g_bleSel);
+            if (g_state == BLE_RESULTS) Ui::showList(currentStatus(), "BLE results", rows, g_bleSel);
             break;
         }
 
@@ -386,13 +397,14 @@ void loop() {
             else if (backTapped) g_state = BLE_RESULTS;
             if (g_state == BLE_DEVICE_ACTION) {
                 auto &dev = g_bleResults[g_bleSel];
-                Display::showList(dev.name.length() ? dev.name : dev.address, actions, g_bleActionSel);
+                Ui::showList(currentStatus(), dev.name.length() ? dev.name : dev.address, actions,
+                              g_bleActionSel);
             }
             break;
         }
 
         case RESULT_MSG:
-            Display::showText(g_resultTitle, g_resultBody);
+            Ui::showTextBlock(currentStatus(), g_resultTitle, g_resultBody);
             if (backTapped || btn == Buttons::SELECT) g_state = g_resultReturnTo;
             break;
 
