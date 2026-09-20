@@ -48,6 +48,15 @@ const char WEBUI_HTML[] = R"===(
   <div id="badUsbOut"></div>
 </div>
 
+<div class="card" style="background:#e6f3ff;border-color:#0066cc;">
+  <h2 style="color:#0066cc;">RFID Scan & Clone (ISO14443A)</h2>
+  <p style="font-size:11px;color:#0066cc;">Scan: attend 5s une tag. Clone: copie données source vers nouvelle tag.</p>
+  <button onclick="rfidScan()">Scan Tag (5s)</button>
+  <button onclick="rfidClone()" style="background:#0066cc;">Clone (source->target)</button>
+  <button onclick="rfidListClones()">List Clones</button>
+  <div id="rfidOut"></div>
+</div>
+
 <script>
 function j(url, opts) {
   return fetch(url, opts).then(r => r.json());
@@ -85,6 +94,36 @@ async function badUsbInject() {
     document.getElementById('badUsbOut').textContent = res.message + ' | Keystrokes: ' + res.keystrokes;
   } else {
     document.getElementById('badUsbOut').textContent = 'erreur: ' + res.message;
+  }
+}
+
+async function rfidScan() {
+  document.getElementById('rfidOut').textContent = 'scan en cours (5s)...';
+  const res = await j('/api/rfid/scan', {method: 'POST'});
+  if (res.found) {
+    document.getElementById('rfidOut').textContent = 'UID: ' + res.uid + ' | Type: ' + res.type + ' | Capacity: ' + res.capacity + ' bytes';
+  } else {
+    document.getElementById('rfidOut').textContent = 'aucune tag trouvee (timeout 5s)';
+  }
+}
+
+async function rfidClone() {
+  document.getElementById('rfidOut').textContent = 'clone en cours...';
+  const res = await j('/api/rfid/clone', {method: 'POST'});
+  if (res.success) {
+    document.getElementById('rfidOut').textContent = 'Clone OK: ' + res.sourceUid + ' -> ' + res.targetUid + ' (' + res.bytesWritten + ' bytes)';
+  } else {
+    document.getElementById('rfidOut').textContent = 'erreur clone: ' + res.error;
+  }
+}
+
+async function rfidListClones() {
+  document.getElementById('rfidOut').textContent = 'chargement...';
+  const res = await j('/api/rfid/list', {method: 'GET'});
+  if (res.clones && res.clones.length > 0) {
+    document.getElementById('rfidOut').textContent = res.clones.length + ' clones: ' + res.clones.join(', ');
+  } else {
+    document.getElementById('rfidOut').textContent = 'aucun clone sauvegarde';
   }
 }
 </script>

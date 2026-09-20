@@ -9,6 +9,7 @@
 #include "evil_portal.h"
 #include "wardriving.h"
 #include "badusb.h"
+#include "rfid.h"
 
 enum MenuState {
     WIFI_RESULTS,
@@ -86,6 +87,51 @@ void runBadUsbAction(int osIdx) {
                   "Keystrokes: " + String(result.keystrokes);
     String title = "Bad USB [" + osName + "]";
     showResult(title.c_str(), body, WIFI_RESULTS);
+}
+
+void runRfidScan() {
+    auto result = RFID::scan();
+    String body;
+
+    if (result.found) {
+        String uidHex;
+        for (int i = 0; i < result.tag.uidLen; i++) {
+            if (result.tag.uid[i] < 0x10) uidHex += "0";
+            uidHex += String(result.tag.uid[i], HEX);
+        }
+        body = "Tag found!\n";
+        body += "UID: " + uidHex + "\n";
+        body += "Type: " + result.tag.type + "\n";
+        body += "Capacity: " + String(result.tag.capacity) + " bytes\n";
+        body += "Sectors: " + String(result.tag.sectorCount);
+    } else {
+        body = "No tag found.\nTimeout: 5 seconds.\n";
+        body += "Place tag near reader.";
+    }
+    body += "\nScan time: " + String(result.readTimeMs) + "ms";
+
+    showResult("RFID Scan", body, WIFI_RESULTS);
+}
+
+void runRfidClone() {
+    auto result = RFID::scan();
+
+    String body;
+    if (result.found) {
+        auto cloneResult = RFID::clone(result.tag);
+        if (cloneResult.success) {
+            body = "Clone successful!\n";
+            body += "Source: " + cloneResult.sourceUid + "\n";
+            body += "Target: " + cloneResult.targetUid + "\n";
+            body += "Bytes written: " + String(cloneResult.bytesWritten);
+        } else {
+            body = "Clone failed: " + cloneResult.error;
+        }
+    } else {
+        body = "No source tag found.\nScan first.";
+    }
+
+    showResult("RFID Clone", body, WIFI_RESULTS);
 }
 
 void menuLoop() {

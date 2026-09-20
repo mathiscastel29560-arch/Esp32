@@ -11,6 +11,7 @@
 #include "evil_portal.h"
 #include "ir_tools.h"
 #include "badusb.h"
+#include "rfid.h"
 
 WebServer server(8080);
 String g_lastAction = "booted";
@@ -99,6 +100,55 @@ void handleWifiScan() {
     server.send(200, "application/json", "[]");
 }
 
+void handleRfidScan() {
+    auto result = RFID::scan();
+    String uidHex;
+    if (result.found) {
+        for (int i = 0; i < result.tag.uidLen; i++) {
+            if (result.tag.uid[i] < 0x10) uidHex += "0";
+            uidHex += String(result.tag.uid[i], HEX);
+        }
+    }
+
+    note(result.found ? ("RFID: Tag " + uidHex) : "RFID: No tag found");
+    server.send(200, "application/json",
+                "{\"found\":" + String(result.found ? "true" : "false") + ","
+                "\"uid\":\"" + uidHex + "\","
+                "\"type\":\"" + jsonEscape(result.tag.type) + "\","
+                "\"capacity\":" + String(result.tag.capacity) + ","
+                "\"scanTimeMs\":" + String(result.readTimeMs) + "}");
+}
+
+void handleRfidClone() {
+    auto scanResult = RFID::scan();
+    if (!scanResult.found) {
+        server.send(400, "application/json", "{\"error\":\"No source tag found\"}");
+        return;
+    }
+
+    auto cloneResult = RFID::clone(scanResult.tag);
+    note(cloneResult.success ? ("RFID Clone: " + cloneResult.sourceUid + " -> " + cloneResult.targetUid)
+                             : ("RFID Clone failed: " + cloneResult.error));
+
+    server.send(200, "application/json",
+                "{\"success\":" + String(cloneResult.success ? "true" : "false") + ","
+                "\"sourceUid\":\"" + cloneResult.sourceUid + "\","
+                "\"targetUid\":\"" + cloneResult.targetUid + "\","
+                "\"bytesWritten\":" + String(cloneResult.bytesWritten) + ","
+                "\"error\":\"" + jsonEscape(cloneResult.error) + "\"}");
+}
+
+void handleRfidList() {
+    auto clones = RFID::listSavedClones();
+    String json = "{\"clones\":[";
+    for (size_t i = 0; i < clones.size(); i++) {
+        if (i > 0) json += ",";
+        json += "\"" + clones[i] + "\"";
+    }
+    json += "]}";
+    server.send(200, "application/json", json);
+}
+
 void begin() {
     server.on("/", [](){ server.send(200, "text/html", WEBUI_HTML); });
     server.on("/api/status", handleStatus);
@@ -110,6 +160,9 @@ void begin() {
     server.on("/api/nrf24/scan", handleNrfScan);
     server.on("/api/subghz/rssi", handleSubRssi);
     server.on("/api/badusb/inject", HTTP_POST, handleBadUsb);
+    server.on("/api/rfid/scan", HTTP_POST, handleRfidScan);
+    server.on("/api/rfid/clone", HTTP_POST, handleRfidClone);
+    server.on("/api/rfid/list", handleRfidList);
     server.begin();
 }
 
