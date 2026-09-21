@@ -36,6 +36,15 @@
 #include "wifi_deauth.h"
 #include "ble_advertising_jammer.h"
 #include "gps_spoof.h"
+#include "advanced_rf_jammer.h"
+#include "wifi_jammer_suite.h"
+#include "bluetooth_aggressive_jammer.h"
+#include "subghz_jammer_suite.h"
+#include "ble_advanced_attack_suite.h"
+#include "jamming_signal_generator.h"
+#include "wpa2_handshake_cracker.h"
+#include "wifi_association_hijacker.h"
+#include "http_downgrade_attack.h"
 #include <vector>
 #include <set>
 
@@ -93,6 +102,10 @@ std::vector<String> wifiMenuItems() {
         "Beacon Spam " + String(BeaconSpam::active() ? "STOP" : "start"),
         "Evil Portal " + String(EvilPortal::active() ? "STOP" : "start"),
         "WiFi Deauth " + String(WiFiDeauth::isActive() ? "STOP" : "start"),
+        "WiFi Jammer Suite " + String(WiFiJammerSuite::isActive() ? "STOP" : "start"),
+        "Association Hijacker",
+        "HTTP Downgrade Attack",
+        "WPA2 Handshake Cracker",
         "Back",
     };
 }
@@ -105,6 +118,8 @@ std::vector<String> bleMenuItems() {
         "BLE DoS Attack",
         "BLE Beacon Spam " + String(BLEBeaconSpam::isActive() ? "STOP" : "start"),
         "BLE Advertising Jam " + String(BLEAdvertisingJammer::isActive() ? "STOP" : "start"),
+        "Bluetooth Aggressive Jam " + String(BluetoothAggressiveJammer::isActive() ? "STOP" : "start"),
+        "BLE Advanced Attacks " + String(BLEAdvancedAttackSuite::isActive() ? "STOP" : "start"),
         "BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
         "Check Spam Alert",
         "Back",
@@ -125,6 +140,9 @@ std::vector<String> rfMenuItems() {
         "IR: Bruteforce AC",
         "IR: Bruteforce Light",
         "GPS Spoofing (2.4GHz)",
+        "Advanced RF Jammer " + String(AdvancedRFJammer::isActive() ? "STOP" : "start"),
+        "Sub-GHz Jammer Suite " + String(SubghzJammerSuite::isActive() ? "STOP" : "start"),
+        "Jamming Signal Gen " + String(JammingSignalGenerator::isActive() ? "STOP" : "start"),
         "Back",
     };
 }
@@ -253,6 +271,39 @@ void runWifiAction(int idx) {
             }
             break;
         }
+        case 8: { // WiFi Jammer Suite
+            if (WiFiJammerSuite::isActive()) {
+                WiFiJammerSuite::stop();
+                showResult("WiFi Jammer", "STOPPED");
+            } else {
+                auto result = WiFiJammerSuite::jamWiFiNetwork(6, 10000, "ALL");
+                showResult("WiFi Jammer Suite",
+                          "Sent: " + String(result.jamPacketsCount) + " packets\n" +
+                          "Rate: " + String((result.jamPacketsCount * 1000) / 10000) + "/sec");
+            }
+            break;
+        }
+        case 9: { // Association Hijacker
+            auto result = WiFiAssociationHijacker::hijackAssociation("AA:BB:CC:DD:EE:FF", 10000);
+            showResult("WiFi Association Hijack",
+                      "Spoofed: " + result.spoofedMAC + "\n" +
+                      "Attempts: " + String(result.associationsCount));
+            break;
+        }
+        case 10: { // HTTP Downgrade Attack
+            auto result = HTTPDowngradeAttack::executeDowngrade(20000);
+            showResult("HTTP Downgrade (SSL Strip)",
+                      "Redirects: " + String(result.redirectsCount) + "\n" +
+                      "Creds captured: " + String(result.credentialsIntercepted));
+            break;
+        }
+        case 11: { // WPA2 Handshake Cracker
+            auto result = WPA2HandshakeCracker::captureAndCrack("TestNetwork", 30000);
+            showResult("WPA2 Cracker",
+                      "Password: " + (result.passwordFound ? result.password : "NOT FOUND") + "\n" +
+                      "Attempts: " + String(result.attemptsCount));
+            break;
+        }
     }
 }
 
@@ -314,7 +365,31 @@ void runBleAction(int idx) {
             }
             break;
         }
-        case 6: { // Spam watch toggle
+        case 6: { // Bluetooth Aggressive Jammer
+            if (BluetoothAggressiveJammer::isActive()) {
+                BluetoothAggressiveJammer::stop();
+                showResult("Bluetooth Aggressive Jam", "STOPPED");
+            } else {
+                auto result = BluetoothAggressiveJammer::jamBluetooth(15000);
+                showResult("Bluetooth Aggressive Jam",
+                          "Sent: " + String(result.jamPacketsCount) + " packets\n" +
+                          "Duration: " + String(result.durationMs) + "ms");
+            }
+            break;
+        }
+        case 7: { // BLE Advanced Attack Suite
+            if (BLEAdvancedAttackSuite::isActive()) {
+                BLEAdvancedAttackSuite::stop();
+                showResult("BLE Advanced Attacks", "STOPPED");
+            } else {
+                auto result = BLEAdvancedAttackSuite::attackBLE(15000, "ALL");
+                showResult("BLE Advanced Attacks",
+                          "Packets: " + String(result.attackPacketsCount) + "\n" +
+                          "Method: GATT + Eavesdrop");
+            }
+            break;
+        }
+        case 8: { // Spam watch toggle
             if (BleSpamDetector::active()) {
                 BleSpamDetector::stop();
                 showResult("BLE Spam Watch", "STOPPED");
@@ -324,7 +399,7 @@ void runBleAction(int idx) {
             }
             break;
         }
-        case 7: { // Check alert
+        case 9: { // Check alert
             auto alert = BleSpamDetector::checkAlert();
             if (alert.type.length() > 0) {
                 showResult("BLE Spam Alert", alert.type + "\n" +
@@ -443,6 +518,42 @@ void runRfAction(int idx) {
             showResult("GPS Spoofing",
                       "Packets: " + String(result.packetsCount) + "\n" +
                       "Location: " + String(result.spoofedLat, 4) + ", " + String(result.spoofedLon, 4));
+            break;
+        }
+        case 12: { // Advanced RF Jammer
+            if (AdvancedRFJammer::isActive()) {
+                AdvancedRFJammer::stop();
+                showResult("Advanced RF Jammer", "STOPPED");
+            } else {
+                auto result = AdvancedRFJammer::jamRFSignals("433MHz", 10000, "NOISE");
+                showResult("Advanced RF Jammer",
+                          "Packets: " + String(result.jamPacketsCount) + "\n" +
+                          "Method: " + result.method);
+            }
+            break;
+        }
+        case 13: { // Sub-GHz Jammer Suite
+            if (SubghzJammerSuite::isActive()) {
+                SubghzJammerSuite::stop();
+                showResult("Sub-GHz Jammer", "STOPPED");
+            } else {
+                auto result = SubghzJammerSuite::jamSubghzDevices(10000);
+                showResult("Sub-GHz Jammer Suite",
+                          "Codes sent: " + String(result.jamPacketsCount) + "\n" +
+                          "Target: 433 MHz");
+            }
+            break;
+        }
+        case 14: { // Jamming Signal Generator
+            if (JammingSignalGenerator::isActive()) {
+                JammingSignalGenerator::stop();
+                showResult("Jamming Signal Gen", "STOPPED");
+            } else {
+                auto result = JammingSignalGenerator::generateJammingSignal(10000, "WHITE");
+                showResult("Jamming Signal Generator",
+                          "Signals: " + String(result.signalsGenerated) + "\n" +
+                          "Type: " + result.noiseType);
+            }
             break;
         }
     }
