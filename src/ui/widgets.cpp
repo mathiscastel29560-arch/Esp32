@@ -29,30 +29,38 @@ void listRow(TFT_eSprite &c, int16_t x, int16_t y, int16_t w, int16_t h, const S
     // Content only — no background box here. The selection capsule is a
     // single element that slides independently between rows (see
     // ui.cpp's showList), so drawing it per-row would fight that animation.
-    uint16_t bg = selected ? Theme::COLOR_SURFACE : Theme::COLOR_BG;
+    uint16_t textColor = selected ? Theme::COLOR_TEXT : Theme::COLOR_TEXT_DIM;
 
-    int16_t rightEdge = x + w - Theme::SPACE_1;
+    int16_t rightEdge = x + w - Theme::SPACE_2;
+
+    // Arrange right-side widgets with proper spacing
     if (hasRssi) {
-        int16_t barW = 40;
+        int16_t barW = 48; // Slightly wider for better visibility
         rightEdge -= barW;
-        rssiBar(c, rightEdge, y + h / 2 - 4, barW, 8, rssi);
+        rssiBar(c, rightEdge, y + (h - 10) / 2, barW, 10, rssi);
         rightEdge -= Theme::SPACE_1;
     }
     if (badgeText.length()) {
-        rightEdge -= (badgeText.length() * 7 + 12);
-        badge(c, rightEdge, y + h / 2 - 9, badgeText, Theme::COLOR_ACCENT);
-        rightEdge -= Theme::SPACE_1;
+        int16_t badgeW = badgeText.length() * 7 + 14;
+        rightEdge -= badgeW;
+        badge(c, rightEdge, y + (h - 16) / 2, badgeText, Theme::COLOR_ACCENT_LIGHT);
+        rightEdge -= Theme::SPACE_2;
     }
 
     c.loadFont(FONT_BODY);
     c.setTextDatum(ML_DATUM);
-    c.setTextColor(selected ? Theme::COLOR_TEXT : Theme::COLOR_TEXT_DIM, bg);
-    // Leave room for the widgets drawn on the right.
+    c.setTextColor(textColor, Theme::COLOR_BG);
+
+    // Clip label to fit available space with ellipsis
     String clipped = label;
-    while (clipped.length() > 1 && c.textWidth(clipped) > (rightEdge - (x + Theme::SPACE_1))) {
+    int16_t maxW = rightEdge - (x + Theme::SPACE_2);
+    while (clipped.length() > 2 && c.textWidth(clipped) > maxW) {
         clipped = clipped.substring(0, clipped.length() - 1);
     }
-    c.drawString(clipped, x + Theme::SPACE_1, y + h / 2);
+    if (clipped.length() < label.length()) {
+        clipped = clipped + ".";
+    }
+    c.drawString(clipped, x + Theme::SPACE_2, y + h / 2);
     c.unloadFont();
 }
 
@@ -70,23 +78,37 @@ void labelValue(TFT_eSprite &c, int16_t x, int16_t y, int16_t w, const String &l
 }
 
 void rssiBar(TFT_eSprite &c, int16_t x, int16_t y, int16_t w, int16_t h, int rssi) {
-    float t = (float)(rssi + 100) / 60.0f; // -100dBm..-40dBm -> 0..1
+    // Map dBm to 0..1: -100dBm = 0 (weak), -40dBm = 1 (strong)
+    float t = (float)(rssi + 100) / 60.0f;
     if (t < 0) t = 0;
     if (t > 1) t = 1;
 
-    c.fillRoundRect(x, y, w, h, h / 2, Theme::COLOR_SURFACE);
+    // Background: subtle surface color with rounded corners
+    c.fillRoundRect(x, y, w, h, Theme::RADIUS_SM, Theme::COLOR_SURFACE_ALT);
+    c.drawRoundRect(x, y, w, h, Theme::RADIUS_SM, Theme::COLOR_TEXT_DIM);
+
+    // Foreground: semantic color based on strength
     int16_t fillW = (int16_t)(w * t);
-    if (fillW > h) { // avoid a degenerate rounded rect thinner than its own radius
-        c.fillRoundRect(x, y, fillW, h, h / 2, signalColor(t));
+    if (fillW > Theme::RADIUS_SM) {
+        uint16_t barColor = signalColor(t);
+        c.fillRoundRect(x, y, fillW, h, Theme::RADIUS_SM, barColor);
     }
 }
 
 void badge(TFT_eSprite &c, int16_t x, int16_t y, const String &text, uint16_t color) {
     c.loadFont(FONT_BODY);
     int16_t tw = c.textWidth(text);
-    int16_t w = tw + 12;
-    int16_t h = 18;
-    c.drawRoundRect(x, y, w, h, h / 2, color);
+    int16_t w = tw + 14;
+    int16_t h = 20;
+
+    // Filled background with subtle color
+    c.fillRoundRect(x, y, w, h, Theme::RADIUS_SM,
+                    blend565(color, Theme::COLOR_BG, 0.85f)); // Very faint background
+
+    // Border for definition
+    c.drawRoundRect(x, y, w, h, Theme::RADIUS_SM, color);
+
+    // Text centered
     c.setTextDatum(MC_DATUM);
     c.setTextColor(color, Theme::COLOR_BG);
     c.drawString(text, x + w / 2, y + h / 2);

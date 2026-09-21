@@ -112,26 +112,49 @@ void drawMascot(int16_t x, int16_t y, uint8_t scale, uint16_t color) {
 }
 
 void drawStatusBar(const Ui::StatusInfo &status) {
+    // Background with subtle border
     canvas.fillRect(0, 0, canvas.width(), Theme::STATUS_BAR_H, Theme::COLOR_SURFACE);
+    canvas.drawLine(0, Theme::STATUS_BAR_H - 1, canvas.width(), Theme::STATUS_BAR_H - 1, Theme::COLOR_SURFACE_ALT);
 
+    // Time (left side)
     canvas.loadFont(FONT_BODY);
     canvas.setTextDatum(ML_DATUM);
     canvas.setTextColor(Theme::COLOR_TEXT, Theme::COLOR_SURFACE);
-    canvas.drawString(status.time, Theme::SPACE_1, Theme::STATUS_BAR_H / 2);
 
-    canvas.setTextDatum(MR_DATUM);
+    // Extract time and date for better readability
+    String displayTime = status.time.length() >= 19 ? status.time.substring(11, 16) : status.time;
+    canvas.drawString(displayTime, Theme::SPACE_2, Theme::STATUS_BAR_H / 2);
+    canvas.unloadFont();
+
+    // Right side: indicators (battery, GPS, radio)
+    int16_t rightX = canvas.width() - Theme::SPACE_2;
+
+    // Battery indicator with small icon representation
     uint16_t battColor = status.battPercent < 20   ? Theme::COLOR_DANGER
                           : status.battPercent < 50 ? Theme::COLOR_WARN
                                                      : Theme::COLOR_OK;
+
+    // Battery percentage text
+    canvas.loadFont(FONT_BODY);
+    canvas.setTextDatum(MR_DATUM);
     canvas.setTextColor(battColor, Theme::COLOR_SURFACE);
-    canvas.drawString(String(status.battPercent) + "%", canvas.width() - Theme::SPACE_1,
-                       Theme::STATUS_BAR_H / 2);
+    String battText = String(status.battPercent) + "%";
+    canvas.drawString(battText, rightX, Theme::STATUS_BAR_H / 2);
     canvas.unloadFont();
 
-    canvas.fillCircle(canvas.width() - 70, Theme::STATUS_BAR_H / 2, 4,
-                       status.gpsFix ? Theme::COLOR_OK : Theme::COLOR_TEXT_DIM);
+    // Small indicator dots for GPS and Radio (move left from battery)
+    rightX -= 50;
+
+    // GPS indicator: green dot if fix, dim if searching
+    if (status.gpsFix) {
+        canvas.fillCircle(rightX - 4, Theme::STATUS_BAR_H / 2, 3, Theme::COLOR_OK);
+    } else {
+        canvas.fillCircle(rightX - 4, Theme::STATUS_BAR_H / 2, 3, Theme::COLOR_TEXT_DIM);
+    }
+
+    // Radio indicator: red/amber if active (TX mode)
     if (status.radioActive) {
-        canvas.fillCircle(canvas.width() - 90, Theme::STATUS_BAR_H / 2, 4, Theme::COLOR_DANGER);
+        canvas.fillCircle(rightX - 20, Theme::STATUS_BAR_H / 2, 3, Theme::COLOR_DANGER);
     }
 }
 
