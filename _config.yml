@@ -1,0 +1,6 @@
+# GitHub Pages configuration
+theme: null
+plugins: []
+
+# Disable Jekyll processing
+markdown: CommonMark
