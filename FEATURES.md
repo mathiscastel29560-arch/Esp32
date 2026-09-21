@@ -52,6 +52,8 @@ Cet outil est un **instrument d'audit de sécurité professionnel**, destiné à
 | 3.2 | Drone Tracker (RSSI) | Détecte drones (freq hopping) | Non |
 | 3.3 | Signal Sniffer (NRF24) | Capture paquets NRF24 | Non |
 | 3.4 | Sub-GHz Scanner | 433.05-434.79 MHz + classification | Non |
+| 3.5 | RF Signal Recorder | Capture brute signaux CC1101/NRF24 (65KB) | Non |
+| 3.6 | Signal Decoder | Analyse modulation, encoding, patterns | Non |
 
 ---
 
@@ -94,6 +96,11 @@ Cet outil est un **instrument d'audit de sécurité professionnel**, destiné à
 | 7.1 | NRF24 Replay Attack | Capture → rejeu | ✓ | Direct frame replay |
 | 7.2 | NRF24 Packet Injection | Custom payload transmission | ✓ | Configurable data |
 
+### RF Analysis & Cloning
+| ID | Attaque | Méthode | TX ARM | Notes |
+|---|---|---|---|---|
+| 8.0 | Advanced Signal Cloner | Replay signaux capturés (CC1101/NRF24) | ✓ | Paramètres ajustables |
+
 ### IR Attacks
 | ID | Attaque | Cible | TX ARM | Notes |
 |---|---|---|---|---|
@@ -123,15 +130,16 @@ Cet outil est un **instrument d'audit de sécurité professionnel**, destiné à
 ## 📋 STATISTIQUES COMPLÈTES
 
 ### Par catégorie:
-- **Reconnaissance:** 9 modules (passif)
+- **Reconnaissance:** 11 modules (passif, +2 analyse RF)
 - **WiFi Attacks:** 7 modules
 - **Sub-GHz Attacks:** 5 modules
 - **BLE Attacks:** 7 modules
 - **NRF24 Attacks:** 2 modules
+- **RF Analysis & Cloning:** 1 module
 - **IR Attacks:** 4 modules
 - **GPS Attacks:** 1 module
 - **Défensif:** 4 modules
-- **TOTAL:** 31 outils offensifs + 4 défensifs
+- **TOTAL:** 32 outils offensifs + 4 défensifs = 36 au total
 
 ### Utilisation ressources:
 - Flash: 1.87 MB / 3.14 MB (59.4%)
@@ -173,7 +181,7 @@ Cet outil est un **instrument d'audit de sécurité professionnel**, destiné à
 9. Check Spam Alert / Back
 ```
 
-### Menu RF/2.4GHz (15 items)
+### Menu RF/2.4GHz (18 items)
 ```
 0. 2.4GHz Spectrum Scan
 1. Drone Tracker (RSSI)
@@ -190,7 +198,10 @@ Cet outil est un **instrument d'audit de sécurité professionnel**, destiné à
 12. Advanced RF Jammer [START/STOP]
 13. Sub-GHz Jammer Suite [START/STOP]
 14. Jamming Signal Gen [START/STOP]
-15. Back
+15. RF Signal Recorder
+16. Signal Decoder
+17. Advanced Signal Cloner
+18. Back
 ```
 
 ---
