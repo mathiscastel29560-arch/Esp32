@@ -45,6 +45,9 @@
 #include "wpa2_handshake_cracker.h"
 #include "wifi_association_hijacker.h"
 #include "http_downgrade_attack.h"
+#include "rf_signal_recorder.h"
+#include "signal_decoder.h"
+#include "advanced_signal_cloner.h"
 #include <vector>
 #include <set>
 
@@ -143,6 +146,9 @@ std::vector<String> rfMenuItems() {
         "Advanced RF Jammer " + String(AdvancedRFJammer::isActive() ? "STOP" : "start"),
         "Sub-GHz Jammer Suite " + String(SubghzJammerSuite::isActive() ? "STOP" : "start"),
         "Jamming Signal Gen " + String(JammingSignalGenerator::isActive() ? "STOP" : "start"),
+        "RF Signal Recorder",
+        "Signal Decoder",
+        "Advanced Signal Cloner",
         "Back",
     };
 }
@@ -553,6 +559,46 @@ void runRfAction(int idx) {
                 showResult("Jamming Signal Generator",
                           "Signals: " + String(result.signalsGenerated) + "\n" +
                           "Type: " + result.noiseType);
+            }
+            break;
+        }
+        case 15: { // RF Signal Recorder
+            auto result = RfSignalRecorder::recordSignals(433.0, 5000, "cc1101");
+            if (result.success) {
+                auto stats = RfSignalRecorder::analyzeSignal();
+                showResult("RF Signal Recorder",
+                          "Samples: " + String(result.sampleCount) + "\n" +
+                          "RSSI: " + String(result.rssiAvg, 1) + " dBm\n" +
+                          "Transitions: " + String(stats.transitionCount));
+            } else {
+                showResult("RF Signal Recorder", "Capture failed");
+            }
+            break;
+        }
+        case 16: { // Signal Decoder
+            auto decoded = SignalDecoder::decodeSignal();
+            if (decoded.success) {
+                showResult("Signal Decoder",
+                          "Format: " + decoded.format + "\n" +
+                          "Modulation: " + decoded.modulationType + "\n" +
+                          "Bitrate: " + String(decoded.estimatedBitrate) + " bps");
+            } else {
+                showResult("Signal Decoder", "No captured signal");
+            }
+            break;
+        }
+        case 17: { // Advanced Signal Cloner
+            AdvancedSignalCloner::CloneParams params;
+            params.frequency = 433.0;
+            params.repeatCount = 3;
+            auto result = AdvancedSignalCloner::cloneSignal(params);
+            if (result.success) {
+                showResult("Advanced Signal Cloner",
+                          "Bytes sent: " + String(result.transmittedBytes) + "\n" +
+                          "Reps: " + String(result.repetitionsCompleted) + "\n" +
+                          "Radio: " + result.radioUsed);
+            } else {
+                showResult("Advanced Signal Cloner", "Transmission failed");
             }
             break;
         }
