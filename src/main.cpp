@@ -25,6 +25,7 @@
 #include "dualboot.h"
 #include "ui/ui.h"
 #include "boot_screen.h"
+#include "system_diagnostics.h"
 
 namespace {
 String apSsid;
@@ -48,6 +49,11 @@ void setup() {
     // when no TFT was physically attached.
     Display::begin();
     Ui::begin();
+
+    // Hardware diagnostics: test each component at boot
+    auto diagResults = SystemDiagnostics::runDiagnostics();
+    bool systemHealthy = SystemDiagnostics::showDiagnosticResults(diagResults);
+
     bool rtcOk = RtcClock::begin();
     GpsModule::begin();
 
@@ -56,6 +62,8 @@ void setup() {
     snprintf(suffix, sizeof(suffix), "%04X", (uint16_t)(chipId & 0xFFFF));
     apSsid = String(AP_SSID_PREFIX) + suffix;
 
+    // Initialize all modules with graceful error handling
+    // Each begin() is already designed to not crash if hardware is missing
     WifiTools::begin(apSsid, AP_PASSWORD);
     BleTools::begin();
     BleSpamDetector::begin();
@@ -68,6 +76,10 @@ void setup() {
     CustomModule::begin();
 
     BootScreen::show("ESP32-S3 AUDIT TOOL v1.0", apSsid);
+
+    if (!systemHealthy) {
+        Serial.println("WARNING: Not all critical hardware detected. Some features may not work.");
+    }
 
     // Everything above came up without hanging or crashing -- tell the
     // bootloader this boot is good, so app rollback never reverts us

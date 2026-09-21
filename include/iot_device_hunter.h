@@ -7,8 +7,8 @@ namespace IoTDeviceHunter {
 struct DetectedDevice {
     String vendor;
     String deviceType;
-    int8_t signal;
-    String protocol;  // "WiFi", "BLE", "Sub-GHz"
+    int32_t signal;    // RSSI in dBm (typically -100 to -30)
+    String protocol;   // "WiFi", "BLE", "Sub-GHz"
     uint32_t timestamp;
 };
 
