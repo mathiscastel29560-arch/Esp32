@@ -16,6 +16,8 @@
 #include "gps_module.h"
 #include "battery.h"
 #include "help_content.h"
+#include "drone_tracker.h"
+#include "signal_sniffer.h"
 #include <vector>
 #include <set>
 
@@ -84,6 +86,8 @@ std::vector<String> bleMenuItems() {
 std::vector<String> rfMenuItems() {
     return {
         "2.4GHz Spectrum Scan",
+        "Drone Tracker (RSSI)",
+        "Signal Sniffer (NRF24)",
         "Sub-GHz Scan (433MHz)",
         "IR: TV Power Toggle",
         "IR: Bruteforce TV",
@@ -211,29 +215,54 @@ void runRfAction(int idx) {
                       "Activity: " + String(activity[best]));
             break;
         }
-        case 1: { // Sub-GHz scan
+        case 1: { // Drone Tracker
+            auto result = DroneTracker::scanForDrones(5000);
+            if (result.activeDroneCount > 0) {
+                showResult("Drone Tracker",
+                          "Channels: " + String(result.activeDroneCount) + "\n" +
+                          "Avg dist: " + String(result.averageDistance, 1) + "m");
+            } else {
+                showResult("Drone Tracker", "No signals detected");
+            }
+            break;
+        }
+        case 2: { // Signal Sniffer
+            auto result = SignalSniffer::sniffTraffic(0xFF, 3000);
+            if (result.packetsCapture > 0) {
+                bool hopDetected = SignalSniffer::detectFrequencyHopping(result);
+                String protocol = SignalSniffer::identifyProtocol(result);
+                showResult("Signal Sniffer",
+                          "Packets: " + String(result.packetsCapture) + "\n" +
+                          "Hopping: " + String(hopDetected ? "YES" : "NO") + "\n" +
+                          "Protocol: " + protocol);
+            } else {
+                showResult("Signal Sniffer", "No packets captured");
+            }
+            break;
+        }
+        case 3: { // Sub-GHz scan
             showResult("433MHz Scan", "Scanning RSSI...\n(requires CC1101)");
             break;
         }
-        case 2: { // IR TV toggle
+        case 4: { // IR TV toggle
             showResult("IR: TV Power", "Sending codes...\n(requires IR LED)");
             break;
         }
-        case 3: { // IR Bruteforce TV
+        case 5: { // IR Bruteforce TV
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("TV", 10000);
             showResult("IR: TV Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
                       "Check if TV responded!");
             break;
         }
-        case 4: { // IR Bruteforce AC
+        case 6: { // IR Bruteforce AC
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("AC", 10000);
             showResult("IR: AC Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
                       "Check if AC responded!");
             break;
         }
-        case 5: { // IR Bruteforce Light
+        case 7: { // IR Bruteforce Light
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("LIGHT", 10000);
             showResult("IR: Light Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
