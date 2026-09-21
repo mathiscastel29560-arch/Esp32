@@ -87,79 +87,79 @@ bool consumeBackTap() {
 
 std::vector<String> mainMenuItems() {
     return {
-        "[W] WiFi Tools",
-        "[B] BLE Tools",
-        "[R] RF/2.4GHz",
-        "[S] System",
-        "[?] Help",
+        "📡 WiFi Tools",
+        "🔵 BLE Tools",
+        "📶 RF/2.4GHz",
+        "⚙️  System",
+        "❓ Help",
     };
 }
 
 std::vector<String> wifiMenuItems() {
     return {
-        "Scan Networks",
-        "Reveal Hidden Networks",
-        "IoT Device Hunter",
-        "Smart Lock Scanner",
-        "Frequency Analyzer",
-        "Beacon Spam " + String(BeaconSpam::active() ? "STOP" : "start"),
-        "Evil Portal " + String(EvilPortal::active() ? "STOP" : "start"),
-        "WiFi Deauth " + String(WiFiDeauth::isActive() ? "STOP" : "start"),
-        "WiFi Jammer Suite " + String(WiFiJammerSuite::isActive() ? "STOP" : "start"),
-        "Association Hijacker",
-        "HTTP Downgrade Attack",
-        "WPA2 Handshake Cracker",
-        "Back",
+        "📡 Scan Networks",
+        "📡 Reveal Hidden Networks",
+        "📡 IoT Device Hunter",
+        "📡 Smart Lock Scanner",
+        "📡 Frequency Analyzer",
+        "📡 Beacon Spam " + String(BeaconSpam::active() ? "STOP" : "start"),
+        "📡 Evil Portal " + String(EvilPortal::active() ? "STOP" : "start"),
+        "📡 WiFi Deauth " + String(WiFiDeauth::isActive() ? "STOP" : "start"),
+        "📡 WiFi Jammer Suite " + String(WiFiJammerSuite::isActive() ? "STOP" : "start"),
+        "📡 Association Hijacker",
+        "📡 HTTP Downgrade Attack",
+        "📡 WPA2 Handshake Cracker",
+        "🔙 Back",
     };
 }
 
 std::vector<String> bleMenuItems() {
     return {
-        "Scan Devices (5s)",
-        "BLE Address Spoof",
-        "BLE Pairing Attack",
-        "BLE DoS Attack",
-        "BLE Beacon Spam " + String(BLEBeaconSpam::isActive() ? "STOP" : "start"),
-        "BLE Advertising Jam " + String(BLEAdvertisingJammer::isActive() ? "STOP" : "start"),
-        "Bluetooth Aggressive Jam " + String(BluetoothAggressiveJammer::isActive() ? "STOP" : "start"),
-        "BLE Advanced Attacks " + String(BLEAdvancedAttackSuite::isActive() ? "STOP" : "start"),
-        "BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
-        "Check Spam Alert",
-        "Back",
+        "🔵 Scan Devices (5s)",
+        "🔵 BLE Address Spoof",
+        "🔵 BLE Pairing Attack",
+        "🔵 BLE DoS Attack",
+        "🔵 BLE Beacon Spam " + String(BLEBeaconSpam::isActive() ? "STOP" : "start"),
+        "🔵 BLE Advertising Jam " + String(BLEAdvertisingJammer::isActive() ? "STOP" : "start"),
+        "🔵 Bluetooth Aggressive Jam " + String(BluetoothAggressiveJammer::isActive() ? "STOP" : "start"),
+        "🔵 BLE Advanced Attacks " + String(BLEAdvancedAttackSuite::isActive() ? "STOP" : "start"),
+        "🔵 BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
+        "🔵 Check Spam Alert",
+        "🔙 Back",
     };
 }
 
 std::vector<String> rfMenuItems() {
     return {
-        "2.4GHz Spectrum Scan",
-        "Drone Tracker (RSSI)",
-        "Signal Sniffer (NRF24)",
-        "NRF24 Replay Attack",
-        "Sub-GHz Scanner",
-        "Sub-GHz Bruteforce",
-        "Sub-GHz Replay",
-        "IR: TV Power Toggle",
-        "IR: Bruteforce TV",
-        "IR: Bruteforce AC",
-        "IR: Bruteforce Light",
-        "GPS Spoofing (2.4GHz)",
-        "Advanced RF Jammer " + String(AdvancedRFJammer::isActive() ? "STOP" : "start"),
-        "Sub-GHz Jammer Suite " + String(SubghzJammerSuite::isActive() ? "STOP" : "start"),
-        "Jamming Signal Gen " + String(JammingSignalGenerator::isActive() ? "STOP" : "start"),
-        "RF Signal Recorder",
-        "Signal Decoder",
-        "Advanced Signal Cloner",
-        "Back",
+        "📶 2.4GHz Spectrum Scan",
+        "📶 Drone Tracker (RSSI)",
+        "📶 Signal Sniffer (NRF24)",
+        "📶 NRF24 Replay Attack",
+        "📶 Sub-GHz Scanner",
+        "📶 Sub-GHz Bruteforce",
+        "📶 Sub-GHz Replay",
+        "🔴 IR: TV Power Toggle",
+        "🔴 IR: Bruteforce TV",
+        "🔴 IR: Bruteforce AC",
+        "🔴 IR: Bruteforce Light",
+        "🛰️  GPS Spoofing (2.4GHz)",
+        "📶 Advanced RF Jammer " + String(AdvancedRFJammer::isActive() ? "STOP" : "start"),
+        "📶 Sub-GHz Jammer Suite " + String(SubghzJammerSuite::isActive() ? "STOP" : "start"),
+        "📶 Jamming Signal Gen " + String(JammingSignalGenerator::isActive() ? "STOP" : "start"),
+        "📶 RF Signal Recorder",
+        "📶 Signal Decoder",
+        "📶 Advanced Signal Cloner",
+        "🔙 Back",
     };
 }
 
 std::vector<String> systemMenuItems() {
     return {
-        "TX Arm Status",
-        "Battery Status",
-        "GPS Map",
-        "Dualboot OTA1",
-        "Back",
+        "⚙️  TX Arm Status",
+        "🔋 Battery Status",
+        "🗺️  GPS Map",
+        "🔄 Dualboot OTA1",
+        "🔙 Back",
     };
 }
 
@@ -635,12 +635,22 @@ void runSystemAction(int idx) {
 }
 
 void drawSimpleMenu(const std::vector<String> &items, int selection, const String &title) {
-    Serial.println("\n=== " + title + " ===");
+    String icon = "";
+    if (title == "WIFI TOOLS") icon = "📡 ";
+    else if (title == "BLE TOOLS") icon = "🔵 ";
+    else if (title == "RF TOOLS") icon = "📶 ";
+    else if (title == "SYSTEM") icon = "⚙️  ";
+    else if (title.indexOf("HELP") >= 0) icon = "❓ ";
+
+    Serial.println("\n═════════════════════════");
+    Serial.println("  " + icon + title);
+    Serial.println("═════════════════════════");
     for (size_t i = 0; i < items.size(); i++) {
-        String line = String(i == selection ? "> " : "  ") + items[i];
+        String line = String(i == selection ? "▶ " : "  ") + items[i];
         Serial.println(line);
     }
-    Serial.println("Use UP/DOWN to select, OK to choose, BACK to exit");
+    Serial.println("─────────────────────────");
+    Serial.println(" ▲/▼: navigate  ●: select  ◄: back");
 }
 
 } // namespace
