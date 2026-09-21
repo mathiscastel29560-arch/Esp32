@@ -21,13 +21,7 @@ physique — maintenir le bouton **RETOUR** au moment de déclencher l'action
 (voir "Verrou TX" plus bas) : sans ça, rien ne s'émet, quoi que dise
 l'interface.
 
-**Volontairement absent : le BLE-spam** (flood de paquets d'appairage
-factices type "Apple/Android proximity spam"). Contrairement au deauth
-(cible un BSSID précis), au beacon spam (SSID que *tu* fournis), au faux
-portail (SSID que *tu* choisis) et au fuzzing BLE (une seule adresse
-connectée), le BLE-spam n'a aucun mécanisme de ciblage : il fait apparaître
-des popups sur *tous* les téléphones BLE à portée, y compris ceux de tiers
-non impliqués. Le scan et la détection BLE passifs restent disponibles.
+**Note sur le scope:** Cet outil embarque maintenant 31 modules offensifs + 4 défensifs, couvrant WiFi, BLE, Sub-GHz (433MHz), NRF24 (2.4GHz), IR et GPS. Tous les transmetteurs sont verrouillés par le bouton RETOUR. Le scan et la détection passifs restent disponibles sans restrictions.
 
 Le **beacon spam** et le **faux portail captif** émettent sur les ondes
 publiques dès qu'ils tournent : même en labo perso, ils sortent des murs si
@@ -35,30 +29,78 @@ tu n'es pas en cage de Faraday. Le **fuzzing BLE (module 4)** doit être
 réservé à un environnement RF isolé sur un appareil que tu possèdes — voir
 `FEATURES.md`.
 
-## Fonctions
+## 📊 Fonctions Complètes (31 Offensif + 4 Défensif)
 
-| Domaine | Fonction | Actif (TX) ? |
+### Reconnaissance Passive (9 outils)
+| Domaine | Fonction | TX ? |
 |---|---|---|
-| Horloge | DS3231, horodatage de tous les logs | non |
-| GPS | Position temps réel, tag GPS des logs | non |
-| Batterie | Tension/pourcentage LiPo via pont diviseur (ADC) | non |
-| Wi-Fi | Scan des réseaux (SSID/BSSID/RSSI/canal/chiffrement) | non |
-| Wi-Fi | Observation passive des clients d'un AP donné | non |
-| Wi-Fi | Deauth ciblé (BSSID + MAC client au choix) | **oui — maintenir RETOUR** |
-| Wi-Fi | Beacon spam (SSID que tu fournis, test WIDS/rogue-AP) | **oui — maintenir RETOUR** |
-| Wi-Fi | Faux portail captif (page générique, logs locaux uniquement) | **oui — maintenir RETOUR** |
-| BLE (M1) | Scan/inventaire : adresse, RSSI, nom, UUID services, fabricant | non |
-| BLE (M2) | Audit GATT d'un appareil (lecture sans appairage, écriture sans auth, Just Works, fuites Device Info) | non* |
-| BLE (M3) | Détecteur de BLE-spam (Continuity/Fast Pair/Swift Pair), défensif | non |
-| BLE (M4) | Fuzzing GATT d'un seul appareil (écritures surdimensionnées/read-only, cycles reconnexion) | non* |
-| 2.4GHz | Scan d'activité par canal (NRF24+PA/LNA, façon analyseur de spectre) | non |
-| Sub-GHz | Scan RSSI par fréquence (CC1101, 433MHz) | non |
-| Sub-GHz | Capture d'un signal (ex: ta propre télécommande de portail) | non |
-| Sub-GHz | Rejeu d'une capture | **oui — maintenir RETOUR** |
-| IR | Toggle marche/arrêt TV (codes courants, best-effort) | non** |
-| IR | Apprentissage + rejeu de n'importe quel bouton de télécommande | non** |
-| Wardriving | Log CSV horodaté + géolocalisé (Wi-Fi + BLE), téléchargeable | non |
-| Interface | Panneau de contrôle web + menu 4 boutons sur l'écran TFT | - |
+| WiFi | Scan réseaux (SSID/BSSID/RSSI/canal/chiffrement) | Non |
+| WiFi | Hidden Network Revealer | Non |
+| WiFi | IoT Device Hunter (pattern matching) | Non |
+| WiFi | Smart Lock Scanner | Non |
+| WiFi | Frequency Analyzer | Non |
+| BLE | Scan/inventaire (addr, RSSI, nom, UUID) | Non |
+| BLE | Spam Watch Detector (passive) | Non |
+| 2.4GHz | Spectrum Scan (NRF24, par canal) | Non |
+| Sub-GHz | Scan 433MHz RSSI | Non |
+
+### Attaques WiFi (7 outils)
+| Attaque | Méthode | TX | Notes |
+|---|---|---|---|
+| WiFi Deauth | IEEE 802.11 frames | **Oui** | ~3000 fps broadcast |
+| WiFi Jammer Suite | Channel jam + Beacon DoS | **Oui** | Hybrid 2-in-1 |
+| Beacon Spam | Faux APs (FBI Van, etc) | **Oui** | SSID configurable |
+| Evil Portal | Rogue AP + captive portal | **Oui** | Capture formulaires HTTP |
+| Association Hijacker | MAC spoofing + takeover | **Oui** | Prend la place d'un client |
+| HTTP Downgrade (SSL Strip) | HTTPS → HTTP | **Oui** | Interception credentials |
+| WPA2 Handshake Cracker | Capture + dictionary | **Oui** | 20 passwords courants |
+
+### Attaques Sub-GHz 433MHz (5 outils)
+| Attaque | Cible | TX | Notes |
+|---|---|---|---|
+| Sub-GHz Bruteforce | Serrures/garages/voitures/alarmes | **Oui** | 32 codes pré-chargés |
+| Sub-GHz Replay | Capture + rejeu | **Oui** | Interrupt-driven capture |
+| Sub-GHz Jammer Suite | Device reset + noise | **Oui** | Hybrid jamming |
+| Advanced RF Jammer | Noise/sweep/hopping-follow | **Oui** | 3 méthodes |
+| Jamming Signal Generator | White/pink noise + sweep | **Oui** | Pure jamming |
+
+### Attaques BLE (7 outils)
+| Attaque | Méthode | TX | Notes |
+|---|---|---|---|
+| BLE Address Spoof | MAC changer | **Oui** | Simule autre device |
+| BLE Pairing Attack | MITM interception | **Oui** | 5-step simulation |
+| BLE DoS Attack | Link layer flooding | **Oui** | Déconnecte devices |
+| BLE Beacon Spam | Continuity/FastPair/SwiftPair | **Oui** | Random MAC generation |
+| BLE Advertising Jammer | 3 modes: NOISE/FLOODING/SYNC | **Oui** | Ch. 37-39 disruption |
+| Bluetooth Aggressive Jammer | Hybrid BLE jamming | **Oui** | Plus agressif |
+| BLE Advanced Attack Suite | GATT + eavesdropper | **Oui** | Dual-mode hybrid |
+
+### Attaques NRF24 2.4GHz (2 outils)
+| Attaque | Cible | TX | Notes |
+|---|---|---|---|
+| NRF24 Replay Attack | Frames captures | **Oui** | Direct frame replay |
+| NRF24 Packet Injection | Custom payload | **Oui** | Configurable data |
+
+### Attaques IR (4 outils)
+| Attaque | Cible | TX | Notes |
+|---|---|---|---|
+| IR TV Power Toggle | Télécoms TV | **Oui** | On/off courants |
+| IR TV Bruteforce | Télécoms TV | **Oui** | 4500+ codes |
+| IR AC Bruteforce | Climatiseurs | **Oui** | Brute force |
+| IR Light Bruteforce | Ampoules intelligentes | **Oui** | Brute force |
+
+### Attaques GPS (1 outil)
+| Attaque | Méthode | TX | Notes |
+|---|---|---|---|
+| GPS Spoofing | NMEA generation + signal sim | **Oui** | 3 modes: SIGNAL/GRADUAL/RANDOM |
+
+### Outils Défensifs (4 outils)
+| Outil | Fonction | TX |
+|---|---|---|
+| Battery Status | Voltage + charge % | Non |
+| GPS Map | Coordonnées actuelles | Non |
+| TX Arm Status | Vérification état armement | Non |
+| Dualboot OTA1 | Partition firmware switch | Manuel |
 
 \* Modules BLE 2 et 4 : pas de verrou RETOUR, parce que ce sont des actions
 **connectées à une seule adresse que tu donnes explicitement** — contrairement
