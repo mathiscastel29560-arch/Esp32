@@ -22,6 +22,11 @@
 #include "subghz_replay.h"
 #include "subghz_scanner.h"
 #include "gps_wardriving.h"
+#include "nrf24_replay.h"
+#include "wifi_hidden_revealer.h"
+#include "iot_device_hunter.h"
+#include "ble_spoof.h"
+#include "frequency_analyzer.h"
 #include <vector>
 #include <set>
 
@@ -72,6 +77,9 @@ std::vector<String> mainMenuItems() {
 std::vector<String> wifiMenuItems() {
     return {
         "Scan Networks",
+        "Reveal Hidden Networks",
+        "IoT Device Hunter",
+        "Frequency Analyzer",
         "Beacon Spam " + String(BeaconSpam::active() ? "STOP" : "start"),
         "Evil Portal " + String(EvilPortal::active() ? "STOP" : "start"),
         "Back",
@@ -81,6 +89,7 @@ std::vector<String> wifiMenuItems() {
 std::vector<String> bleMenuItems() {
     return {
         "Scan Devices (5s)",
+        "BLE Address Spoof",
         "BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
         "Check Spam Alert",
         "Back",
@@ -92,6 +101,7 @@ std::vector<String> rfMenuItems() {
         "2.4GHz Spectrum Scan",
         "Drone Tracker (RSSI)",
         "Signal Sniffer (NRF24)",
+        "NRF24 Replay Attack",
         "Sub-GHz Scanner",
         "Sub-GHz Bruteforce",
         "Sub-GHz Replay",
@@ -148,7 +158,36 @@ void runWifiAction(int idx) {
             }
             break;
         }
-        case 1: { // Beacon spam toggle
+        case 1: { // Reveal hidden networks
+            auto result = WiFiHiddenRevealer::revealHiddenNetworks(10000);
+            if (result.networksFound > 0) {
+                showResult("Hidden Networks",
+                          "Found: " + String(result.networksFound) + "\n" +
+                          "Check logs for details");
+            } else {
+                showResult("Hidden Networks", "No hidden networks found");
+            }
+            break;
+        }
+        case 2: { // IoT Device Hunter
+            auto result = IoTDeviceHunter::huntDevices(15000);
+            if (result.devicesFound > 0) {
+                showResult("IoT Devices",
+                          "Found: " + String(result.devicesFound) + "\n" +
+                          "Smart devices detected");
+            } else {
+                showResult("IoT Devices", "No IoT devices found");
+            }
+            break;
+        }
+        case 3: { // Frequency Analyzer
+            auto result = FrequencyAnalyzer::analyzeBands(20000);
+            showResult("Frequency Analysis",
+                      "Signals: " + String(result.totalSignals) + "\n" +
+                      "Bands analyzed: 2.4GHz + 433MHz");
+            break;
+        }
+        case 4: { // Beacon spam toggle
             if (BeaconSpam::active()) {
                 BeaconSpam::stop();
                 showResult("Beacon Spam", "STOPPED");
@@ -162,7 +201,7 @@ void runWifiAction(int idx) {
             }
             break;
         }
-        case 2: { // Evil Portal toggle
+        case 5: { // Evil Portal toggle
             if (EvilPortal::active()) {
                 EvilPortal::stop();
                 showResult("Evil Portal", "STOPPED");
@@ -191,7 +230,14 @@ void runBleAction(int idx) {
             }
             break;
         }
-        case 1: { // Spam watch toggle
+        case 1: { // BLE Address Spoof
+            auto result = BLESpoof::spoofBLEAddress("SmartDevice", "AA:BB:CC:DD:EE:FF");
+            showResult("BLE Address Spoof",
+                      "Spoofed: " + result.spoofedMAC + "\n" +
+                      "Advertising as: " + result.targetDevice);
+            break;
+        }
+        case 3: { // Spam watch toggle
             if (BleSpamDetector::active()) {
                 BleSpamDetector::stop();
                 showResult("BLE Spam Watch", "STOPPED");
@@ -201,7 +247,7 @@ void runBleAction(int idx) {
             }
             break;
         }
-        case 2: { // Check alert
+        case 4: { // Check alert
             showResult("BLE Spam Alert", "No alerts detected");
             break;
         }
@@ -246,7 +292,19 @@ void runRfAction(int idx) {
             }
             break;
         }
-        case 3: { // Sub-GHz Scanner
+        case 3: { // NRF24 Replay Attack
+            auto pkt = Nrf24Replay::capturePacket(1, 3000);
+            if (pkt.data.size() > 0) {
+                auto result = Nrf24Replay::replayPacket(pkt, 5);
+                showResult("NRF24 Replay",
+                          "Captured: " + String(pkt.data.size()) + " bytes\n" +
+                          "Replayed: " + String(result.packetsSent) + " times");
+            } else {
+                showResult("NRF24 Replay", "No packets captured");
+            }
+            break;
+        }
+        case 4: { // Sub-GHz Scanner
             auto result = SubghzScanner::scanBand(8000);
             if (result.detectionCount > 0) {
                 showResult("Sub-GHz Scanner",
@@ -258,7 +316,7 @@ void runRfAction(int idx) {
             }
             break;
         }
-        case 4: { // Sub-GHz bruteforce
+        case 5: { // Sub-GHz bruteforce
             auto result = SubghzBruteforce::bruteForce("GENERIC", 15000);
             showResult("Sub-GHz Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
@@ -266,30 +324,30 @@ void runRfAction(int idx) {
                       "Check device response!");
             break;
         }
-        case 5: { // Sub-GHz Replay
+        case 6: { // Sub-GHz Replay
             showResult("Sub-GHz Replay",
                       "Record mode not yet\nconfigured in menu\n(see source code)");
             break;
         }
-        case 6: { // IR TV toggle
+        case 7: { // IR TV toggle
             showResult("IR: TV Power", "Sending codes...\n(requires IR LED)");
             break;
         }
-        case 7: { // IR Bruteforce TV
+        case 8: { // IR Bruteforce TV
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("TV", 10000);
             showResult("IR: TV Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
                       "Check if TV responded!");
             break;
         }
-        case 8: { // IR Bruteforce AC
+        case 9: { // IR Bruteforce AC
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("AC", 10000);
             showResult("IR: AC Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
                       "Check if AC responded!");
             break;
         }
-        case 9: { // IR Bruteforce Light
+        case 10: { // IR Bruteforce Light
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("LIGHT", 10000);
             showResult("IR: Light Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
