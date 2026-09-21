@@ -21,11 +21,78 @@ class AppViewModel: ObservableObject {
     private let auditsKey = "savedAudits"
     private let resultsKey = "savedResults"
 
+    private var webSocketService = ESP32WebSocketService()
+    private var cancellables = Set<AnyCancellable>()
+
     init() {
         loadAudits()
         loadResults()
         loadStatistics()
         setupConnections()
+        setupWebSocketObservers()
+    }
+
+    private func setupWebSocketObservers() {
+        // Listen to WebSocket connection status changes
+        webSocketService.$isConnected
+            .sink { [weak self] isConnected in
+                self?.esp32Connection.isConnected = isConnected
+                if isConnected {
+                    self?.esp32Connection.connectionStatus = .connected
+                    self?.successMessage = TranslationsFR.translate("status_connected")
+                } else {
+                    self?.esp32Connection.connectionStatus = .disconnected
+                }
+            }
+            .store(in: &cancellables)
+
+        // Listen to connection status changes
+        webSocketService.$connectionStatus
+            .sink { [weak self] status in
+                switch status {
+                case .connected:
+                    self?.esp32Connection.connectionStatus = .connected
+                case .connecting:
+                    self?.esp32Connection.connectionStatus = .connecting
+                case .disconnected:
+                    self?.esp32Connection.connectionStatus = .disconnected
+                case .error(let message):
+                    self?.esp32Connection.connectionStatus = .error
+                    self?.errorMessage = message
+                }
+            }
+            .store(in: &cancellables)
+
+        // Listen to received messages (attack results from WebSocket)
+        NotificationCenter.default.publisher(for: NSNotification.Name("AttackResultReceived"))
+            .sink { [weak self] notification in
+                if let message = notification.object as? [String: Any] {
+                    self?.processWebSocketAttackResult(message)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func processWebSocketAttackResult(_ message: [String: Any]) {
+        guard let attackType = message["attackType"] as? String,
+              let target = message["target"] as? String,
+              let duration = message["duration"] as? Int,
+              let success = message["success"] as? Bool else {
+            return
+        }
+
+        let result = AttackResult(
+            id: UUID(),
+            attackType: attackType,
+            target: target,
+            duration: duration,
+            timestamp: Date(),
+            success: success,
+            message: message["message"] as? String ?? "",
+            details: (message["details"] as? [String: String]) ?? [:]
+        )
+
+        addAttackResult(result)
     }
 
     // MARK: - Audit Management
@@ -164,7 +231,6 @@ class AppViewModel: ObservableObject {
     // MARK: - ESP32 Connection
 
     private func setupConnections() {
-        // Placeholder for ESP32 WebSocket connection setup
         esp32Connection.isConnected = false
         esp32Connection.connectionStatus = .disconnected
     }
@@ -173,17 +239,16 @@ class AppViewModel: ObservableObject {
         esp32Connection.ipAddress = ipAddress
         esp32Connection.port = port
         esp32Connection.connectionStatus = .connecting
-
-        // Simulate connection (replace with actual WebSocket implementation)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.esp32Connection.isConnected = true
-            self.esp32Connection.connectionStatus = .connected
-            self.successMessage = TranslationsFR.translate("status_connected")
-        }
+        webSocketService.connect(to: ipAddress, port: port)
     }
 
     func disconnectFromESP32() {
+        webSocketService.disconnect()
         esp32Connection.isConnected = false
         esp32Connection.connectionStatus = .disconnected
+    }
+
+    func sendToESP32(message: [String: Any]) {
+        webSocketService.send(message: message)
     }
 }

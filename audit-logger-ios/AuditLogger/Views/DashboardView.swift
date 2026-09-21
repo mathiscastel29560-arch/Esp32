@@ -66,6 +66,17 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal)
 
+                    // Charts Section
+                    if viewModel.statistics.totalAttacks > 0 {
+                        VStack(spacing: 16) {
+                            AttackSuccessRateChart(statistics: viewModel.statistics)
+                            AttacksByTypeChart(statistics: viewModel.statistics)
+                            DurationTrendChart(results: viewModel.results)
+                            TimelineChart(results: viewModel.results)
+                        }
+                        .padding(.horizontal)
+                    }
+
                     // Recent Audits
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Audits Récents")
