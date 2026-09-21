@@ -48,6 +48,21 @@
 #include "rf_signal_recorder.h"
 #include "signal_decoder.h"
 #include "advanced_signal_cloner.h"
+#include "zigbee_scanner.h"
+#include "mqtt_hijacker.h"
+#include "zwave_scanner.h"
+#include "bluetooth_classic.h"
+#include "coap_scanner.h"
+#include "lorawan_recon.h"
+#include "rfid_emulator.h"
+#include "mifare_classic.h"
+#include "nfc_cloner.h"
+#include "smarthome_hijacker.h"
+#include "spectrum_analyzer_plus.h"
+#include "modulation_classifier.h"
+#include "auto_handshake_capture.h"
+#include "generic_packet_tools.h"
+#include "advanced_wifi_attacks.h"
 #include <vector>
 #include <set>
 
@@ -59,6 +74,7 @@ enum State {
     WIFI_SUBMENU,
     BLE_SUBMENU,
     RF_SUBMENU,
+    IOT_SUBMENU,
     SYSTEM_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
@@ -90,6 +106,7 @@ std::vector<String> mainMenuItems() {
         "📡 WiFi Tools",
         "🔵 BLE Tools",
         "📶 RF/2.4GHz",
+        "🌐 IoT/Advanced",
         "⚙️  System",
         "❓ Help",
     };
@@ -159,6 +176,27 @@ std::vector<String> systemMenuItems() {
         "🔋 Battery Status",
         "🗺️  GPS Map",
         "🔄 Dualboot OTA1",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> iotMenuItems() {
+    return {
+        "🌐 Zigbee Scanner",
+        "🌐 MQTT Hijacker",
+        "🌐 Z-Wave Scanner",
+        "🌐 Bluetooth Classic",
+        "🌐 CoAP Scanner",
+        "🌐 LoRaWAN Recon",
+        "🌐 RFID Emulator",
+        "🌐 Mifare Classic",
+        "🌐 NFC Cloner",
+        "🌐 Smart Home Hijacker",
+        "🌐 Spectrum Analyzer+",
+        "🌐 Modulation Classifier",
+        "🌐 Auto Handshake Capture",
+        "🌐 Generic Packet Tools",
+        "🌐 Advanced WiFi Attacks",
         "🔙 Back",
     };
 }
@@ -605,6 +643,116 @@ void runRfAction(int idx) {
     }
 }
 
+void runIotAction(int idx) {
+    switch (idx) {
+        case 0: { // Zigbee Scanner
+            auto result = ZigbeeScanner::scanZigbeeDevices(15000);
+            showResult("Zigbee Scanner",
+                      "Devices found: " + String(result.deviceCount) + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 1: { // MQTT Hijacker
+            auto result = MqttHijacker::scanMqttBrokers(15000);
+            showResult("MQTT Hijacker",
+                      "Brokers found: " + String(result.brokerCount) + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 2: { // Z-Wave Scanner
+            auto result = ZwaveScanner::scanZwaveNetwork(20000);
+            showResult("Z-Wave Scanner",
+                      "Nodes found: " + String(result.nodeCount) + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 3: { // Bluetooth Classic
+            auto result = BluetoothClassic::scanClassicDevices(10000);
+            showResult("Bluetooth Classic",
+                      "Devices found: " + String(result.deviceCount) + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 4: { // CoAP Scanner
+            auto result = CoapScanner::scanCoapServers(15000);
+            showResult("CoAP Scanner",
+                      "Servers found: " + String(result.serverCount) + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 5: { // LoRaWAN Recon
+            auto result = LoRawanRecon::scanLoRawanNetwork(20000);
+            showResult("LoRaWAN Recon",
+                      "Gateways found: " + String(result.gatewayCount) + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 6: { // RFID Emulator
+            auto result = RfidEmulator::emulateRfidCard("HID", 10000);
+            showResult("RFID Emulator",
+                      "Emulating: " + result.cardType + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 7: { // Mifare Classic
+            auto result = MifareClassic::readMifareCard();
+            showResult("Mifare Classic",
+                      String("Card read complete\n") +
+                      "Data: " + result.sectorData.substring(0, 20));
+            break;
+        }
+        case 8: { // NFC Cloner
+            auto result = NfcCloner::readNfcTag();
+            showResult("NFC Cloner",
+                      "UID: " + result.tagUid + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 9: { // Smart Home Hijacker
+            auto result = SmarthomeHijacker::hijackPhilipsHue("192.168.1.100", 15000);
+            showResult("Smart Home Hijacker",
+                      "Devices controlled: " + String(result.devicesControlled) + "\n" +
+                      "Bridge: " + result.bridgeIp);
+            break;
+        }
+        case 10: { // Spectrum Analyzer+
+            auto result = SpectrumAnalyzerPlus::analyzeSpectrum(400.0, 5000.0, 20000);
+            showResult("Spectrum Analyzer+",
+                      "Peaks found: " + String(result.peaksFound) + "\n" +
+                      "Dominant: " + String(result.dominantFrequency) + " MHz");
+            break;
+        }
+        case 11: { // Modulation Classifier
+            auto result = ModulationClassifier::classifyModulation();
+            showResult("Modulation Classifier",
+                      "Type: " + result.modulationType + "\n" +
+                      "Confidence: " + String((int)result.confidence) + "%");
+            break;
+        }
+        case 12: { // Auto Handshake Capture
+            auto result = AutoHandshakeCapture::autoCaptureHandshakes(30000);
+            showResult("Auto Handshake Capture",
+                      "Handshakes: " + String(result.handshakesRecovered) + "\n" +
+                      "Targets: " + String(result.targetCount));
+            break;
+        }
+        case 13: { // Generic Packet Tools
+            auto result = GenericPacketTools::injectCustomPacket("ATTACK", "auto", 10000);
+            showResult("Generic Packet Tools",
+                      "Packets sent: " + String(result.packetsSent) + "\n" +
+                      "Radio: " + result.radioType);
+            break;
+        }
+        case 14: { // Advanced WiFi Attacks
+            auto result = AdvancedWifiAttacks::executeKrackAttack(30000);
+            showResult("Advanced WiFi Attacks",
+                      "Success: " + String(result.success ? "Yes" : "No") + "\n" +
+                      "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+    }
+}
+
 void runSystemAction(int idx) {
     switch (idx) {
         case 0: { // TX Arm
@@ -639,6 +787,7 @@ void drawSimpleMenu(const std::vector<String> &items, int selection, const Strin
     if (title == "WIFI TOOLS") icon = "📡 ";
     else if (title == "BLE TOOLS") icon = "🔵 ";
     else if (title == "RF TOOLS") icon = "📶 ";
+    else if (title == "IOT/ADVANCED") icon = "🌐 ";
     else if (title == "SYSTEM") icon = "⚙️  ";
     else if (title.indexOf("HELP") >= 0) icon = "❓ ";
 
@@ -691,8 +840,9 @@ void loop() {
                     case 0: g_state = WIFI_SUBMENU; break;
                     case 1: g_state = BLE_SUBMENU; break;
                     case 2: g_state = RF_SUBMENU; break;
-                    case 3: g_state = SYSTEM_SUBMENU; break;
-                    case 4: g_state = HELP_SUBMENU; break;
+                    case 3: g_state = IOT_SUBMENU; break;
+                    case 4: g_state = SYSTEM_SUBMENU; break;
+                    case 5: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -744,6 +894,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "RF TOOLS");
             break;
 
+        case IOT_SUBMENU:
+            items = iotMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 3;
+                } else {
+                    runIotAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "IOT/ADVANCED");
+            break;
+
         case SYSTEM_SUBMENU:
             items = systemMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -751,7 +916,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 3;
+                    g_selection = 4;
                 } else {
                     runSystemAction(g_selection);
                 }
@@ -766,7 +931,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 4;
+                    g_selection = 5;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
