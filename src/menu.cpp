@@ -32,6 +32,7 @@
 #include "smart_lock_scanner.h"
 #include "subghz_protocol_analyzer.h"
 #include "ble_dos.h"
+#include "ble_beacon_spam.h"
 #include <vector>
 #include <set>
 
@@ -98,6 +99,7 @@ std::vector<String> bleMenuItems() {
         "BLE Address Spoof",
         "BLE Pairing Attack",
         "BLE DoS Attack",
+        "BLE Beacon Spam " + String(BLEBeaconSpam::isActive() ? "STOP" : "start"),
         "BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
         "Check Spam Alert",
         "Back",
@@ -245,7 +247,33 @@ void runBleAction(int idx) {
                       "Advertising as: " + result.targetDevice);
             break;
         }
-        case 3: { // Spam watch toggle
+        case 2: { // BLE Pairing Attack
+            auto result = BLEPairingAttack::attackPairing("Target", 10000);
+            showResult("BLE Pairing Attack",
+                      "Attempts: " + String(result.attemptsCount) + "\n" +
+                      "Method: " + result.method);
+            break;
+        }
+        case 3: { // BLE DoS Attack
+            auto result = BLE_DOS::launchDOS("AllDevices", 10000);
+            showResult("BLE DoS Attack",
+                      "Packets sent: " + String(result.packetsCount) + "\n" +
+                      "Method: " + result.method);
+            break;
+        }
+        case 4: { // BLE Beacon Spam
+            if (BLEBeaconSpam::isActive()) {
+                BLEBeaconSpam::stop();
+                showResult("BLE Beacon Spam", "STOPPED");
+            } else {
+                auto result = BLEBeaconSpam::spamBeacons("ALL", 15000);
+                showResult("BLE Beacon Spam",
+                          "Sent: " + String(result.beaconsCount) + " beacons\n" +
+                          "Rate: ~" + String((result.beaconsCount * 1000) / result.durationMs) + "/sec");
+            }
+            break;
+        }
+        case 5: { // Spam watch toggle
             if (BleSpamDetector::active()) {
                 BleSpamDetector::stop();
                 showResult("BLE Spam Watch", "STOPPED");
@@ -255,8 +283,15 @@ void runBleAction(int idx) {
             }
             break;
         }
-        case 4: { // Check alert
-            showResult("BLE Spam Alert", "No alerts detected");
+        case 6: { // Check alert
+            auto alert = BleSpamDetector::checkAlert();
+            if (alert.type.length() > 0) {
+                showResult("BLE Spam Alert", alert.type + "\n" +
+                          "MACs: " + String(alert.distinctMacs) + "\n" +
+                          "RSSI: " + String(alert.strongestRssi) + "dBm");
+            } else {
+                showResult("BLE Spam Alert", "No alerts detected");
+            }
             break;
         }
     }
