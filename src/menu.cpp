@@ -33,6 +33,9 @@
 #include "subghz_protocol_analyzer.h"
 #include "ble_dos.h"
 #include "ble_beacon_spam.h"
+#include "wifi_deauth.h"
+#include "ble_advertising_jammer.h"
+#include "gps_spoof.h"
 #include <vector>
 #include <set>
 
@@ -89,6 +92,7 @@ std::vector<String> wifiMenuItems() {
         "Frequency Analyzer",
         "Beacon Spam " + String(BeaconSpam::active() ? "STOP" : "start"),
         "Evil Portal " + String(EvilPortal::active() ? "STOP" : "start"),
+        "WiFi Deauth " + String(WiFiDeauth::isActive() ? "STOP" : "start"),
         "Back",
     };
 }
@@ -100,6 +104,7 @@ std::vector<String> bleMenuItems() {
         "BLE Pairing Attack",
         "BLE DoS Attack",
         "BLE Beacon Spam " + String(BLEBeaconSpam::isActive() ? "STOP" : "start"),
+        "BLE Advertising Jam " + String(BLEAdvertisingJammer::isActive() ? "STOP" : "start"),
         "BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
         "Check Spam Alert",
         "Back",
@@ -119,6 +124,7 @@ std::vector<String> rfMenuItems() {
         "IR: Bruteforce TV",
         "IR: Bruteforce AC",
         "IR: Bruteforce Light",
+        "GPS Spoofing (2.4GHz)",
         "Back",
     };
 }
@@ -190,14 +196,25 @@ void runWifiAction(int idx) {
             }
             break;
         }
-        case 3: { // Frequency Analyzer
+        case 3: { // Smart Lock Scanner
+            auto result = SmartLockScanner::scanSmartLocks(15000);
+            if (result.locksFound > 0) {
+                showResult("Smart Lock Scanner",
+                          "Found: " + String(result.locksFound) + " locks\n" +
+                          "Check logs for details");
+            } else {
+                showResult("Smart Lock Scanner", "No smart locks found");
+            }
+            break;
+        }
+        case 4: { // Frequency Analyzer
             auto result = FrequencyAnalyzer::analyzeBands(20000);
             showResult("Frequency Analysis",
                       "Signals: " + String(result.totalSignals) + "\n" +
                       "Bands analyzed: 2.4GHz + 433MHz");
             break;
         }
-        case 4: { // Beacon spam toggle
+        case 5: { // Beacon spam toggle
             if (BeaconSpam::active()) {
                 BeaconSpam::stop();
                 showResult("Beacon Spam", "STOPPED");
@@ -211,7 +228,7 @@ void runWifiAction(int idx) {
             }
             break;
         }
-        case 5: { // Evil Portal toggle
+        case 6: { // Evil Portal toggle
             if (EvilPortal::active()) {
                 EvilPortal::stop();
                 showResult("Evil Portal", "STOPPED");
@@ -221,6 +238,18 @@ void runWifiAction(int idx) {
                 } else {
                     showResult("Evil Portal", "Failed to start");
                 }
+            }
+            break;
+        }
+        case 7: { // WiFi Deauth
+            if (WiFiDeauth::isActive()) {
+                WiFiDeauth::stop();
+                showResult("WiFi Deauth", "STOPPED");
+            } else {
+                auto result = WiFiDeauth::sendDeauthFrames("FF:FF:FF:FF:FF:FF", 15000, true);
+                showResult("WiFi Deauth",
+                          "Sent: " + String(result.deauthCount) + " frames\n" +
+                          "Rate: " + String((result.deauthCount * 1000) / 15000) + "/sec");
             }
             break;
         }
@@ -273,7 +302,19 @@ void runBleAction(int idx) {
             }
             break;
         }
-        case 5: { // Spam watch toggle
+        case 5: { // BLE Advertising Jammer
+            if (BLEAdvertisingJammer::isActive()) {
+                BLEAdvertisingJammer::stop();
+                showResult("BLE Advertising Jam", "STOPPED");
+            } else {
+                auto result = BLEAdvertisingJammer::jamAdvertising(15000, "NOISE");
+                showResult("BLE Advertising Jam",
+                          "Sent: " + String(result.jamPacketsCount) + " jam packets\n" +
+                          "Rate: ~" + String((result.jamPacketsCount * 1000) / 15000) + "/sec");
+            }
+            break;
+        }
+        case 6: { // Spam watch toggle
             if (BleSpamDetector::active()) {
                 BleSpamDetector::stop();
                 showResult("BLE Spam Watch", "STOPPED");
@@ -283,7 +324,7 @@ void runBleAction(int idx) {
             }
             break;
         }
-        case 6: { // Check alert
+        case 7: { // Check alert
             auto alert = BleSpamDetector::checkAlert();
             if (alert.type.length() > 0) {
                 showResult("BLE Spam Alert", alert.type + "\n" +
@@ -395,6 +436,13 @@ void runRfAction(int idx) {
             showResult("IR: Light Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
                       "Check if light responded!");
+            break;
+        }
+        case 11: { // GPS Spoofing
+            auto result = GPSSpoof::spoofGPS(48.8566f, 2.3522f, 20000, "SIGNAL");
+            showResult("GPS Spoofing",
+                      "Packets: " + String(result.packetsCount) + "\n" +
+                      "Location: " + String(result.spoofedLat, 4) + ", " + String(result.spoofedLon, 4));
             break;
         }
     }
