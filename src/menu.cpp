@@ -18,6 +18,7 @@
 #include "help_content.h"
 #include "drone_tracker.h"
 #include "signal_sniffer.h"
+#include "subghz_bruteforce.h"
 #include <vector>
 #include <set>
 
@@ -88,7 +89,7 @@ std::vector<String> rfMenuItems() {
         "2.4GHz Spectrum Scan",
         "Drone Tracker (RSSI)",
         "Signal Sniffer (NRF24)",
-        "Sub-GHz Scan (433MHz)",
+        "Sub-GHz Bruteforce",
         "IR: TV Power Toggle",
         "IR: Bruteforce TV",
         "IR: Bruteforce AC",
@@ -240,8 +241,12 @@ void runRfAction(int idx) {
             }
             break;
         }
-        case 3: { // Sub-GHz scan
-            showResult("433MHz Scan", "Scanning RSSI...\n(requires CC1101)");
+        case 3: { // Sub-GHz bruteforce
+            auto result = SubghzBruteforce::bruteForce("GENERIC", 15000);
+            showResult("Sub-GHz Bruteforce",
+                      "Sent " + String(result.attemptsCount) + " codes\n" +
+                      "Freq: " + result.frequency + " OOK\n" +
+                      "Check device response!");
             break;
         }
         case 4: { // IR TV toggle
