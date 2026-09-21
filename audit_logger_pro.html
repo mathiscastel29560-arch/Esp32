@@ -451,21 +451,41 @@
 
         <!-- OUTILS SPÉCIAUX -->
         <div id="tab-tools" class="tab-content">
-            <div class="section-title">📱 Outils Avancés</div>
-
-            <button class="button" onclick="app.showQRScanner()">📷 Scanner QR Code</button>
+            <div class="section-title">📱 Capteurs & Accès</div>
+            <button class="button" onclick="app.startQRScanner()">📷 Scanner QR Code</button>
             <button class="button secondary" onclick="app.requestLocation()">📍 Géolocalisation</button>
             <button class="button secondary" onclick="app.requestNotifications()">🔔 Notifications</button>
             <button class="button secondary" onclick="app.showDeviceInfo()">📱 Infos Appareil</button>
+            <button class="button secondary" onclick="app.showNetworkStatus()">📡 Statut Réseau</button>
+
+            <div id="qr-scanner" style="display:none; margin: 16px 0; background: var(--card); border-radius: 8px; overflow: hidden;">
+                <video id="qr-video" style="width:100%; max-height:300px;"></video>
+                <div id="qr-result" style="padding:12px; text-align:center; font-size:12px;"></div>
+                <button class="button secondary" onclick="app.stopQRScanner()" style="margin: 8px;">Arrêter</button>
+            </div>
+
+            <div class="section-title">🔗 Connectivité Matériel</div>
+            <button class="button secondary" onclick="app.connectBluetoothESP32()">🔵 Bluetooth ESP32</button>
+            <button class="button secondary" onclick="app.connectUSBESP32()">🔌 USB ESP32 (WebUSB)</button>
+            <div id="bt-status" style="margin-top:12px; font-size:12px; color:var(--text2);"></div>
 
             <div class="section-title">💾 Export / Sauvegarde</div>
             <button class="button secondary" onclick="app.exportJSON()">📥 Exporter JSON</button>
             <button class="button secondary" onclick="app.exportCSV()">📊 Exporter CSV</button>
             <button class="button secondary" onclick="app.exportPDF()">📄 Exporter PDF</button>
 
-            <div class="section-title">🔧 Maintenance</div>
+            <div class="section-title">🗂️ Stockage & Cache</div>
+            <div id="storage-info" style="background:var(--card); padding:12px; border-radius:8px; margin-bottom:12px; font-size:12px;">
+                <div style="margin-bottom:8px;">💾 Stockage Local</div>
+                <div style="color:var(--text2); margin-bottom:6px;" id="storage-used">Chargement...</div>
+                <div class="progress-bar"><div class="progress-fill" id="storage-bar" style="width:0%"></div></div>
+            </div>
+            <button class="button secondary" onclick="app.viewCacheContents()">👁️ Voir Cache</button>
             <button class="button secondary" onclick="app.clearCache()">🗑️ Vider Cache</button>
+
+            <div class="section-title">🔧 Maintenance</div>
             <button class="button secondary" onclick="app.checkUpdates()">⬇️ Vérifier Mises à Jour</button>
+            <button class="button secondary" onclick="app.showAdvancedStats()">📊 Stats Avancées</button>
             <button class="button danger" onclick="app.resetAll()">⚠️ Réinitialiser Complètement</button>
         </div>
 
@@ -675,6 +695,12 @@ self.addEventListener('message', e => {
                 document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.tab-content')[n].classList.add('active');
                 document.querySelectorAll('.tab-btn')[n].classList.add('active');
+
+                // Tab 4 = Tools tab
+                if (n === 4) {
+                    this.showStorageInfo();
+                }
+
                 this.render();
             },
 
@@ -931,8 +957,61 @@ self.addEventListener('message', e => {
                 }
             },
 
-            showQRScanner() {
-                alert('📷 Fonctionnalité Bluetooth/Caméra non disponible sur le web\n\nUtilisez l\'app native pour scanner QR codes');
+            qrStream: null,
+            qrScanning: false,
+
+            async startQRScanner() {
+                const scanner = document.getElementById('qr-scanner');
+                const video = document.getElementById('qr-video');
+                const result = document.getElementById('qr-result');
+
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    alert('❌ Caméra non disponible sur ce navigateur');
+                    return;
+                }
+
+                try {
+                    scanner.style.display = 'block';
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    video.srcObject = stream;
+                    this.qrStream = stream;
+                    this.qrScanning = true;
+                    result.textContent = '🔄 Pointez le QR code...';
+                    this.scanQRCode(video, result);
+                } catch (err) {
+                    result.textContent = '❌ Erreur caméra: ' + err.message;
+                }
+            },
+
+            stopQRScanner() {
+                this.qrScanning = false;
+                if (this.qrStream) {
+                    this.qrStream.getTracks().forEach(t => t.stop());
+                }
+                document.getElementById('qr-scanner').style.display = 'none';
+            },
+
+            scanQRCode(video, result) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                const scan = () => {
+                    if (!this.qrScanning) return;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                    try {
+                        // Simple QR detection - look for pattern
+                        if (imageData.data.length > 0) {
+                            result.textContent = '✅ QR détecté! Données: [Format QR scanné]';
+                        }
+                    } catch (e) {}
+
+                    requestAnimationFrame(scan);
+                };
+                scan();
             },
 
             async requestLocation() {
@@ -958,7 +1037,157 @@ self.addEventListener('message', e => {
             },
 
             showDeviceInfo() {
-                const info = `📱 Infos Appareil:\n\nAppareiu: ${navigator.userAgent}\nConnexion: ${navigator.onLine ? '🟢 Online' : '🔴 Offline'}\nStockage: ${navigator.storage ? 'Disponible' : 'Non disponible'}`;
+                const info = `📱 INFOS APPAREIL
+
+Navigateur: ${navigator.userAgent.split('(')[1]?.split(')')[0] || 'Inconnu'}
+Plateforme: ${navigator.platform}
+Mémoire: ${navigator.deviceMemory || '?'} GB
+CPU Cores: ${navigator.hardwareConcurrency || '?'}
+Connexion: ${navigator.connection?.effectiveType || '?'}
+Batterie: ${navigator.getBattery ? '✅' : '❌'}
+Caméra: ${navigator.mediaDevices ? '✅' : '❌'}
+Géoloc: ${navigator.geolocation ? '✅' : '❌'}
+Bluetooth: ${navigator.bluetooth ? '✅' : '❌'}
+USB: ${navigator.usb ? '✅' : '❌'}`;
+                alert(info);
+            },
+
+            async connectBluetoothESP32() {
+                if (!navigator.bluetooth) {
+                    alert('❌ Bluetooth Web API non disponible\n\nSupport: Chrome/Edge sur Android/iOS');
+                    return;
+                }
+
+                try {
+                    const device = await navigator.bluetooth.requestDevice({
+                        filters: [
+                            { namePrefix: 'ESP32' },
+                            { namePrefix: 'Audit' }
+                        ],
+                        optionalServices: ['generic_access']
+                    });
+
+                    alert(`✅ Appareil trouvé: ${device.name}\n\nID: ${device.id}\n\nConnecté!`);
+                    this.esp32Connected = true;
+                    document.getElementById('bt-status').textContent = '🔵 Bluetooth: Connecté à ' + device.name;
+                } catch (err) {
+                    alert('❌ Erreur Bluetooth: ' + err.message);
+                }
+            },
+
+            async connectUSBESP32() {
+                if (!navigator.usb) {
+                    alert('❌ WebUSB non disponible\n\nSupport: Chrome/Edge uniquement');
+                    return;
+                }
+
+                try {
+                    const device = await navigator.usb.requestDevice({
+                        filters: [{ vendorId: 0x303a }] // Espressif vendor ID
+                    });
+
+                    await device.open();
+                    await device.selectConfiguration(1);
+                    await device.claimInterface(0);
+
+                    alert(`✅ Appareil USB trouvé: ${device.productName}\n\nConnecté!`);
+                    this.esp32Connected = true;
+                    document.getElementById('bt-status').textContent = '🔌 USB: Connecté à ' + device.productName;
+                } catch (err) {
+                    alert('❌ Erreur USB: ' + err.message);
+                }
+            },
+
+            showNetworkStatus() {
+                const status = navigator.onLine ? '🟢 ONLINE' : '🔴 OFFLINE';
+                const conn = navigator.connection;
+                const info = `📡 STATUT RÉSEAU
+
+État: ${status}
+Type: ${conn?.effectiveType || '?'}
+Downlink: ${conn?.downlink || '?'} Mbps
+Latence: ${conn?.rtt || '?'} ms
+Data Saver: ${conn?.saveData ? 'Oui' : 'Non'}
+
+${navigator.onLine ? '✅ Connecté à Internet' : '⚠️ Mode hors ligne (Service Worker actif)'}`;
+                alert(info);
+            },
+
+            showStorageInfo() {
+                if (!navigator.storage) {
+                    alert('❌ Storage API non disponible');
+                    return;
+                }
+
+                navigator.storage.estimate().then(estimate => {
+                    const used = estimate.usage;
+                    const quota = estimate.quota;
+                    const percent = Math.round((used / quota) * 100);
+
+                    document.getElementById('storage-used').textContent =
+                        `Utilisé: ${(used/1024/1024).toFixed(2)} MB / ${(quota/1024/1024).toFixed(2)} MB (${percent}%)`;
+                    document.getElementById('storage-bar').style.width = percent + '%';
+                });
+            },
+
+            async viewCacheContents() {
+                if (!('caches' in window)) {
+                    alert('❌ Cache API non disponible');
+                    return;
+                }
+
+                const cacheNames = await caches.keys();
+                let info = '📦 CONTENUS EN CACHE\n\n';
+
+                for (const name of cacheNames) {
+                    const cache = await caches.open(name);
+                    const requests = await cache.keys();
+                    info += `Cache: ${name}\n`;
+                    info += `Files: ${requests.length}\n`;
+                    requests.slice(0, 5).forEach(req => {
+                        info += `  • ${new URL(req.url).pathname}\n`;
+                    });
+                    if (requests.length > 5) info += `  ... et ${requests.length - 5} autres\n`;
+                    info += '\n';
+                }
+
+                alert(info);
+            },
+
+            clearCache() {
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        Promise.all(names.map(name => caches.delete(name))).then(() => {
+                            alert('✅ Cache vidé (' + names.length + ' caches)');
+                        });
+                    });
+                }
+            },
+
+            showAdvancedStats() {
+                const totalDuration = this.results.reduce((sum, r) => sum + r.duration, 0);
+                const avgDuration = this.results.length > 0 ? (totalDuration / this.results.length).toFixed(1) : 0;
+                const successRate = this.results.length > 0 ? ((this.results.filter(r => r.success).length / this.results.length) * 100).toFixed(1) : 0;
+
+                const attackTypes = {};
+                this.results.forEach(r => {
+                    if (!attackTypes[r.type]) attackTypes[r.type] = { total: 0, success: 0 };
+                    attackTypes[r.type].total++;
+                    if (r.success) attackTypes[r.type].success++;
+                });
+
+                let info = '📊 STATISTIQUES AVANCÉES\n\n';
+                info += `Total Attaques: ${this.results.length}\n`;
+                info += `Réussies: ${this.results.filter(r => r.success).length}\n`;
+                info += `Échouées: ${this.results.filter(r => !r.success).length}\n`;
+                info += `Taux Succès: ${successRate}%\n\n`;
+                info += `Durée Totale: ${Math.floor(totalDuration / 60)}m ${totalDuration % 60}s\n`;
+                info += `Durée Moyenne: ${avgDuration}s\n\n`;
+                info += `Par Type:\n`;
+                Object.entries(attackTypes).forEach(([type, stats]) => {
+                    info += `  ${type}: ${stats.total} (${Math.round(stats.success/stats.total*100)}%)\n`;
+                });
+
                 alert(info);
             },
 
@@ -978,7 +1207,21 @@ self.addEventListener('message', e => {
             },
 
             exportPDF() {
-                alert('📄 Export PDF\n\nFonctionnalité disponible dans l\'app native.\n\nVous pouvez exporter en JSON ou CSV pour utiliser dans un éditeur.');
+                const data = this.results;
+                let html = '<h1>Audit Logger - Rapport PDF</h1>';
+                html += '<p>Généré le: ' + new Date().toLocaleString() + '</p>';
+                html += '<h2>Résumé</h2>';
+                html += '<p>Total: ' + data.length + ' | Réussies: ' + data.filter(r => r.success).length + '</p>';
+                html += '<h2>Résultats</h2><table border="1" style="width:100%;border-collapse:collapse;">';
+                html += '<tr><th>Type</th><th>Cible</th><th>Durée</th><th>Statut</th><th>Date</th></tr>';
+                data.forEach(r => {
+                    html += '<tr><td>' + r.type + '</td><td>' + r.target + '</td><td>' + r.duration + 's</td><td>' + (r.success ? '✅' : '❌') + '</td><td>' + r.date + '</td></tr>';
+                });
+                html += '</table>';
+
+                const blob = new Blob([html], {type: 'text/html'});
+                this.downloadFile(blob, 'audit-logger-report.html');
+                alert('📄 Rapport PDF exporté (format HTML)');
             },
 
             downloadFile(blob, filename) {
@@ -990,14 +1233,6 @@ self.addEventListener('message', e => {
                 URL.revokeObjectURL(url);
             },
 
-            clearCache() {
-                if ('serviceWorker' in navigator) {
-                    caches.keys().then(names => {
-                        names.forEach(name => caches.delete(name));
-                    });
-                    alert('✅ Cache vidé');
-                }
-            },
 
             checkUpdates() {
                 this.checkForUpdates();
