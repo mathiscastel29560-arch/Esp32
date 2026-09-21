@@ -50,16 +50,20 @@ void handleRoot() {
 }
 
 void handleStatus() {
-    String json = "{";
-    json += "\"time\":\"" + jsonEscape(RtcClock::isoTimestamp()) + "\",";
-    json += "\"gpsFix\":" + String(GpsModule::hasFix() ? "true" : "false") + ",";
-    json += "\"sats\":" + String(GpsModule::satellites()) + ",";
-    json += "\"apClients\":" + String(WiFi.softAPgetStationNum()) + ",";
-    json += "\"battV\":" + String(Battery::voltage(), 2) + ",";
-    json += "\"battPct\":" + String(Battery::percent()) + ",";
-    json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false");
-    json += "}";
-    server.send(200, "application/json", json);
+    try {
+        String json = "{";
+        json += "\"time\":\"" + jsonEscape(RtcClock::isoTimestamp()) + "\",";
+        json += "\"gpsFix\":" + String(GpsModule::hasFix() ? "true" : "false") + ",";
+        json += "\"sats\":" + String(GpsModule::satellites()) + ",";
+        json += "\"apClients\":" + String(WiFi.softAPgetStationNum()) + ",";
+        json += "\"battV\":" + String(Battery::voltage(), 2) + ",";
+        json += "\"battPct\":" + String(Battery::percent()) + ",";
+        json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false");
+        json += "}";
+        server.send(200, "application/json", json);
+    } catch (...) {
+        server.send(500, "application/json", "{\"error\":\"status query failed\"}");
+    }
 }
 
 void handleWifiScan() {
@@ -111,47 +115,69 @@ void handleBleScan() {
 
 void handleBleGattAudit() {
     String address = server.arg("address");
-    auto rpt = BleGattAudit::audit(address);
-    String json = "{\"connected\":" + String(rpt.connected ? "true" : "false");
-    if (rpt.connected) {
-        int leaky = 0, weakWrite = 0;
-        for (auto &f : rpt.findings) {
-            if (f.readableWithoutPairing) leaky++;
-            if (f.writableWithoutAuth) weakWrite++;
-        }
-        json += ",\"chars\":" + String(rpt.findings.size());
-        json += ",\"readableWithoutPairing\":" + String(leaky);
-        json += ",\"writableWithoutAuth\":" + String(weakWrite);
-        json += ",\"bonded\":" + String(rpt.bonded ? "true" : "false");
-        json += ",\"authenticated\":" + String(rpt.authenticated ? "true" : "false");
-        json += ",\"deviceInfoLeaks\":[";
-        for (size_t i = 0; i < rpt.deviceInfoLeaks.size(); i++) {
-            if (i) json += ",";
-            json += "\"" + jsonEscape(rpt.deviceInfoLeaks[i]) + "\"";
-        }
-        json += "]";
+    if (address.length() == 0) {
+        note("BLE GATT audit error: missing address parameter");
+        server.send(400, "application/json", "{\"error\":\"address parameter required\"}");
+        return;
     }
-    json += "}";
-    note("BLE GATT audit: " + address);
-    server.send(200, "application/json", json);
+
+    try {
+        auto rpt = BleGattAudit::audit(address);
+        String json = "{\"connected\":" + String(rpt.connected ? "true" : "false");
+        if (rpt.connected) {
+            int leaky = 0, weakWrite = 0;
+            for (auto &f : rpt.findings) {
+                if (f.readableWithoutPairing) leaky++;
+                if (f.writableWithoutAuth) weakWrite++;
+            }
+            json += ",\"chars\":" + String(rpt.findings.size());
+            json += ",\"readableWithoutPairing\":" + String(leaky);
+            json += ",\"writableWithoutAuth\":" + String(weakWrite);
+            json += ",\"bonded\":" + String(rpt.bonded ? "true" : "false");
+            json += ",\"authenticated\":" + String(rpt.authenticated ? "true" : "false");
+            json += ",\"deviceInfoLeaks\":[";
+            for (size_t i = 0; i < rpt.deviceInfoLeaks.size(); i++) {
+                if (i) json += ",";
+                json += "\"" + jsonEscape(rpt.deviceInfoLeaks[i]) + "\"";
+            }
+            json += "]";
+        }
+        json += "}";
+        note("BLE GATT audit: " + address);
+        server.send(200, "application/json", json);
+    } catch (...) {
+        note("BLE GATT audit error: exception during audit");
+        server.send(500, "application/json", "{\"error\":\"audit failed\"}");
+    }
 }
 
 void handleBleFuzz() {
     String address = server.arg("address");
-    auto rpt = BleFuzzer::fuzz(address);
-    String json = "{\"connected\":" + String(rpt.connected ? "true" : "false");
-    if (rpt.connected) {
-        json += ",\"oversizedWritesAttempted\":" + String(rpt.oversizedWritesAttempted);
-        json += ",\"oversizedWritesAccepted\":" + String(rpt.oversizedWritesAccepted);
-        json += ",\"readOnlyWritesAttempted\":" + String(rpt.readOnlyWritesAttempted);
-        json += ",\"readOnlyWritesAccepted\":" + String(rpt.readOnlyWritesAccepted);
-        json += ",\"reconnectCyclesAttempted\":" + String(rpt.reconnectCyclesAttempted);
-        json += ",\"reconnectCyclesFailed\":" + String(rpt.reconnectCyclesFailed);
-        json += ",\"deviceUnresponsiveAtEnd\":" + String(rpt.deviceUnresponsiveAtEnd ? "true" : "false");
+    if (address.length() == 0) {
+        note("BLE fuzz error: missing address parameter");
+        server.send(400, "application/json", "{\"error\":\"address parameter required\"}");
+        return;
     }
-    json += "}";
-    note("BLE fuzz: " + address);
-    server.send(200, "application/json", json);
+
+    try {
+        auto rpt = BleFuzzer::fuzz(address);
+        String json = "{\"connected\":" + String(rpt.connected ? "true" : "false");
+        if (rpt.connected) {
+            json += ",\"oversizedWritesAttempted\":" + String(rpt.oversizedWritesAttempted);
+            json += ",\"oversizedWritesAccepted\":" + String(rpt.oversizedWritesAccepted);
+            json += ",\"readOnlyWritesAttempted\":" + String(rpt.readOnlyWritesAttempted);
+            json += ",\"readOnlyWritesAccepted\":" + String(rpt.readOnlyWritesAccepted);
+            json += ",\"reconnectCyclesAttempted\":" + String(rpt.reconnectCyclesAttempted);
+            json += ",\"reconnectCyclesFailed\":" + String(rpt.reconnectCyclesFailed);
+            json += ",\"deviceUnresponsiveAtEnd\":" + String(rpt.deviceUnresponsiveAtEnd ? "true" : "false");
+        }
+        json += "}";
+        note("BLE fuzz: " + address);
+        server.send(200, "application/json", json);
+    } catch (...) {
+        note("BLE fuzz error: exception during fuzzing");
+        server.send(500, "application/json", "{\"error\":\"fuzz failed\"}");
+    }
 }
 
 void handleBleSpamStart() {
@@ -227,7 +253,22 @@ void handleWardriveSnapshot() {
 void handleDeauth() {
     String bssid = server.arg("bssid");
     String client = server.arg("client");
-    uint8_t channel = (uint8_t)server.arg("channel").toInt();
+    String channelStr = server.arg("channel");
+
+    // Validate parameters
+    if (bssid.length() == 0 || client.length() == 0 || channelStr.length() == 0) {
+        note("Deauth error: missing parameters (bssid, client, channel required)");
+        server.send(400, "application/json", "{\"ok\":false,\"error\":\"missing parameters\"}");
+        return;
+    }
+
+    uint8_t channel = (uint8_t)channelStr.toInt();
+    if (channel < 1 || channel > 11) {
+        note("Deauth error: invalid channel " + String(channel));
+        server.send(400, "application/json", "{\"ok\":false,\"error\":\"invalid channel\"}");
+        return;
+    }
+
     uint16_t frames = server.hasArg("frames") ? server.arg("frames").toInt() : 30;
     bool ok = Deauth::send(bssid, client, channel, frames);
     note(ok ? ("Deauth sent to " + bssid) : "Deauth blocked: hold BACK to confirm, or bad BSSID");
@@ -235,7 +276,13 @@ void handleDeauth() {
 }
 
 void handleBeaconStart() {
-    String ssidsArg = server.arg("ssids"); // comma-separated, user-supplied only
+    String ssidsArg = server.arg("ssids");
+    if (ssidsArg.length() == 0) {
+        note("Beacon spam error: missing ssids parameter");
+        server.send(400, "application/json", "{\"ok\":false,\"error\":\"ssids parameter required\"}");
+        return;
+    }
+
     bool hop = server.arg("hop") != "false";
     std::vector<String> ssids;
     int start = 0;
@@ -243,9 +290,19 @@ void handleBeaconStart() {
         int comma = ssidsArg.indexOf(',', start);
         if (comma < 0) comma = ssidsArg.length();
         String s = ssidsArg.substring(start, comma);
-        if (s.length()) ssids.push_back(s);
+        s.trim();
+        if (s.length() > 0 && s.length() <= 32) { // SSID max length 32
+            ssids.push_back(s);
+        }
         start = comma + 1;
     }
+
+    if (ssids.empty()) {
+        note("Beacon spam error: no valid SSIDs after parsing");
+        server.send(400, "application/json", "{\"ok\":false,\"error\":\"no valid SSIDs\"}");
+        return;
+    }
+
     bool ok = BeaconSpam::start(ssids, hop);
     note(ok ? ("Beacon spam started: " + String(ssids.size()) + " SSIDs")
             : "Beacon spam blocked: hold BACK to confirm, or no SSIDs given");
