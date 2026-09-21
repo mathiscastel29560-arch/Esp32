@@ -297,6 +297,20 @@
             border-left: 3px solid #3498db;
             color: #3498db;
         }
+        .alert button {
+            background: var(--primary);
+            color: var(--bg);
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 8px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .alert button:active {
+            opacity: 0.8;
+        }
         .section-title {
             font-size: 14px;
             font-weight: bold;
@@ -551,15 +565,108 @@
             currentFilter: 'all',
             currentSort: 'recent',
 
+            swReg: null,
+            updateAvailable: false,
+
             init() {
                 this.load();
                 this.render();
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('data:text/javascript,self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>self.clients.claim());').catch(err => console.log('SW failed:', err));
-                }
-                // Listener for notifications
+                this.initServiceWorker();
+                this.startAutoUpdateCheck();
                 if ('Notification' in window) {
                     Notification.requestPermission();
+                }
+            },
+
+            initServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    const swCode = `
+const CACHE_NAME = 'audit-logger-v2.0';
+const urlsToCache = ['/', '/index.html', '/manifest.json'];
+
+self.addEventListener('install', e => {
+    e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+    e.waitUntil(caches.keys().then(names =>
+        Promise.all(names.map(name => name !== CACHE_NAME && caches.delete(name)))
+    ));
+    self.clients.claim();
+});
+
+self.addEventListener('fetch', e => {
+    if (e.request.method !== 'GET') return;
+    e.respondWith(
+        caches.match(e.request).then(resp =>
+            resp || fetch(e.request).then(resp => {
+                if (!resp || resp.status !== 200) return resp;
+                const cloned = resp.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(e.request, cloned));
+                return resp;
+            })
+        )
+    );
+});
+
+self.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+`;
+                    const blob = new Blob([swCode], {type: 'application/javascript'});
+                    const swUrl = URL.createObjectURL(blob);
+                    navigator.serviceWorker.register(swUrl).then(reg => {
+                        this.swReg = reg;
+                        reg.addEventListener('updatefound', () => this.handleSWUpdate(reg));
+                        this.checkForUpdates();
+                    }).catch(err => console.log('SW failed:', err));
+                }
+            },
+
+            handleSWUpdate(reg) {
+                const newSW = reg.installing;
+                newSW.addEventListener('statechange', () => {
+                    if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                        this.updateAvailable = true;
+                        this.showUpdateNotification();
+                        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                            newSW.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    }
+                });
+            },
+
+            startAutoUpdateCheck() {
+                setInterval(() => this.checkForUpdates(), 300000);
+            },
+
+            checkForUpdates() {
+                if (this.swReg) {
+                    this.swReg.update().catch(err => console.log('Update check failed:', err));
+                }
+            },
+
+            showUpdateNotification() {
+                const msg = '🔄 Nouvelle version disponible!';
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Audit Logger', {
+                        body: msg,
+                        icon: '🛡️'
+                    });
+                }
+                this.updateCheckAlert();
+            },
+
+            updateCheckAlert() {
+                if (this.updateAvailable) {
+                    const alert = document.getElementById('esp32-status-alert');
+                    if (alert && !alert.querySelector('.update-alert')) {
+                        const div = document.createElement('div');
+                        div.className = 'alert info update-alert';
+                        div.innerHTML = '🔄 Mise à jour disponible! <button onclick="location.reload()" style="background:var(--primary);color:var(--bg);border:none;padding:4px 8px;border-radius:4px;cursor:pointer;margin-left:8px;font-weight:600;">Recharger</button>';
+                        alert.parentNode.insertBefore(div, alert.nextSibling);
+                    }
                 }
             },
 
@@ -893,7 +1000,12 @@
             },
 
             checkUpdates() {
-                alert('⬇️ Vous avez la dernière version (v2.0 PRO)');
+                this.checkForUpdates();
+                if (this.updateAvailable) {
+                    alert('🔄 Une mise à jour est disponible!\n\nRecharger pour appliquer les changements.');
+                } else {
+                    alert('✅ Vous avez la dernière version (v2.0 PRO)');
+                }
             },
 
             resetAll() {
