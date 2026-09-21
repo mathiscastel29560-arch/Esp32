@@ -27,6 +27,11 @@
 #include "iot_device_hunter.h"
 #include "ble_spoof.h"
 #include "frequency_analyzer.h"
+#include "ble_pairing_attack.h"
+#include "nrf24_injection.h"
+#include "smart_lock_scanner.h"
+#include "subghz_protocol_analyzer.h"
+#include "ble_dos.h"
 #include <vector>
 #include <set>
 
@@ -79,6 +84,7 @@ std::vector<String> wifiMenuItems() {
         "Scan Networks",
         "Reveal Hidden Networks",
         "IoT Device Hunter",
+        "Smart Lock Scanner",
         "Frequency Analyzer",
         "Beacon Spam " + String(BeaconSpam::active() ? "STOP" : "start"),
         "Evil Portal " + String(EvilPortal::active() ? "STOP" : "start"),
@@ -90,6 +96,8 @@ std::vector<String> bleMenuItems() {
     return {
         "Scan Devices (5s)",
         "BLE Address Spoof",
+        "BLE Pairing Attack",
+        "BLE DoS Attack",
         "BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
         "Check Spam Alert",
         "Back",
