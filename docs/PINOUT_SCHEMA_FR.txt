@@ -1,0 +1,610 @@
+================================================================================
+                        SCHÉMA DE CÂBLAGE ESP32-S3-N16R8
+                          Audit Tool Complet
+                     Prêt à imprimer sur papier A4
+================================================================================
+
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                         RÉFÉRENCE PINS ESP32-S3                            ║
+║                                                                            ║
+║  Vue du dessus (connecteurs latéraux)                                      ║
+║                                                                            ║
+║   [USB]                                  [ANTENNA]                         ║
+║   GND    3V3    3V3    5V  18   8    17   16   4   2   1   44   43  3V3   ║
+║   |      |      |      |   |    |    |    |    |   |   |   |    |   |     ║
+║  GND    3V3    3V3    5V  TX  SDA   RX  GPS GND D0 D1 GND  D2   D3  3V3   ║
+║   |      |      |      |   |    |    |    |    |   |   |   |    |   |     ║
+║   GND    3V3    3V3   VUSB TX  SDA   RX  GPS D4  D5  D6  D7   D8  D9      ║
+║                                                                            ║
+║   45   46   0    19   20   10   11   12   13   14   6   7    5    9    8   ║
+║   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |  ║
+║  D10  D11  GND  D12  D13  SPI2 SPI3 SPI4 SPI5 SPI6 CS1  BAT  TFT  GND INT ║
+║   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |  ║
+║  D10  D11  GND  D12  D13 MOSI MISO  SCK  D+   D-  NRF  ADC   CS  I2C I2C  ║
+║   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |  ║
+║  GND  GND  GND  GND  GND  GND  GND  GND  GND  GND GND  GND  GND  SCL SDA  ║
+║                                                                            ║
+║   RST                                                                      ║
+║   |                                                                        ║
+║  RESET                                                                     ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+
+================================================================================
+1. RÉCAPITULATIF PINS UTILISÉS - RÉFÉRENCE RAPIDE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ AFFICHAGE TFT ILI9341 (SPI + GPIO)                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GPIO 5   → TFT CS    (Chip Select)                                        │
+│  GPIO 6   → TFT DC    (Data/Command)                                       │
+│  GPIO 46  → TFT RST   (Reset)                                              │
+│  GPIO 12  → TFT BL    (Backlight)                                          │
+│  GPIO 11  → TFT MOSI  (Data out - partagé SPI)                             │
+│  GPIO 13  → TFT SCK   (Clock - partagé SPI)                                │
+│  GPIO 12  → TFT MISO  (Data in - partagé SPI)                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BUS SPI PARTAGÉ (TFT + NRF24 + CC1101)                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GPIO 11  → MOSI      (Master Out Slave In - données vers modules)         │
+│  GPIO 12  → MISO      (Master In Slave Out - données vers ESP32)           │
+│  GPIO 13  → SCK       (Serial Clock - horloge)                             │
+│                                                                             │
+│  CS (Chip Select) individuels :                                            │
+│  GPIO 5   → TFT CS                                                         │
+│  GPIO 10  → NRF24 CS                                                       │
+│  GPIO 14  → CC1101 CS                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BUS I2C (RTC + OLED optionnel)                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GPIO 8   → I2C SDA   (Serial Data Line)                                   │
+│  GPIO 9   → I2C SCL   (Serial Clock Line)                                  │
+│  Pull-up : 10kΩ sur chaque ligne (vers 3.3V)                               │
+│  Adresse RTC DS3231 : 0x68                                                 │
+│  Adresse OLED SSD1306 : 0x3C                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ GESTION ALIMENTATION                                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GPIO 7   → ADC BATTERIE   (Mesure tension batterie)                       │
+│  GND      → Référence (commun)                                             │
+│  3.3V     → Alimentation ESP32                                             │
+│  5V       → Alimentation modules RF (via MT3608)                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ENTRÉES UTILISATEUR (BOUTONS TACTILES)                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GPIO 1   → BTN UP    (Navigation vers le haut)                            │
+│  GPIO 2   → BTN DOWN  (Navigation vers le bas)                             │
+│  GPIO 6   → BTN SELECT (Validation/Sélection)                              │
+│  GPIO 42  → BTN BACK  (Retour menu)                                        │
+│  Tous vers GND via push-button (normally open)                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ COMMUNICATION SÉRIE (GPS + DEBUG)                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GPIO 17  → UART1 TX  (Transmission GPS)                                   │
+│  GPIO 18  → UART1 RX  (Réception GPS)                                      │
+│  Baud rate : 9600 bps (GPS NEO-6M)                                         │
+│                                                                             │
+│  GPIO 3   → UART0 TX  (Debug serial monitor - CH340G adapter)             │
+│  GPIO 1   → UART0 RX  (Debug serial monitor - CH340G adapter)             │
+│  Baud rate : 115200 bps                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ SORTIES ADDITIONNELLES                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GPIO 15  → BUZZER    (Buzzer piézo 5V)                                    │
+│  GPIO 16  → LED RGB   (Optionnel)                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+2. DIAGRAMME DE CÂBLAGE - AFFICHAGE TFT ILI9341
+================================================================================
+
+TFT ILI9341 (connecteur SPI 7 broches) :
+─────────────────────────────────────────
+
+  Vue de face du connecteur TFT :
+
+  [VCC] [GND] [CS]  [RST] [DC] [MOSI] [SCK] [MISO] [BL]
+    5V   GND  GPIO5  GPIO46 GPIO6 GPIO11 GPIO13 GPIO12 GPIO12
+
+  Diagramme détaillé :
+
+  TFT Pin     │ Nom     │ ESP32 GPIO │ Description
+  ────────────┼─────────┼────────────┼──────────────────────────────────
+  1 (rouge)   │ VCC     │ 5V         │ Alimentation (via MT3608 5V stable)
+  2 (noir)    │ GND     │ GND        │ Masse
+  3           │ CS      │ GPIO 5     │ Chip Select (SPI bus)
+  4           │ RST     │ GPIO 46    │ Reset (actif bas)
+  5           │ DC      │ GPIO 6     │ Data/Command (0=cmd, 1=data)
+  6 (jaune)   │ MOSI    │ GPIO 11    │ Master Out Slave In (SPI data)
+  7           │ SCK     │ GPIO 13    │ Serial Clock (SPI clock)
+  8 (vert)    │ MISO    │ GPIO 12    │ Master In Slave Out (SPI)
+  9 (bleu)    │ BL      │ GPIO 12    │ Backlight (via transistor)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+3. DIAGRAMME DE CÂBLAGE - BUS SPI PARTAGÉ
+================================================================================
+
+                              ESP32-S3
+        ┌──────────────────────┬──────────────────────┐
+        │                      │                      │
+    GPIO 11 (MOSI) ────────┬───┴───┬──────────────────┤
+                           │       │                  │
+                      [TFT ├───────┤ NRF24]  [CC1101] │
+                      [PIN6│       │ [PIN7]  [PIN7]   │
+                           │       │                  │
+    GPIO 13 (SCK)  ────────┼───┬───┼──────────────────┤
+                           │   │   │                  │
+                      [TFT ├───┴─┬─┤ NRF24]  [CC1101] │
+                      [PIN7│     │ │ [PIN5]  [PIN5]   │
+                           │     │ │                  │
+    GPIO 12 (MISO) ────────┼──────┼┼──────────────────┤
+                           │      ││                  │
+                      [TFT ├──────┼┤ NRF24]  [CC1101] │
+                      [PIN8│      ││ [PIN1]  [PIN1]   │
+                           │      ││                  │
+        ┌─────────────────┬─┴──────┴┴──────────────────┴─────────────┐
+        │                 │        │ │                              │
+    GPIO 5 (TFT CS) ──────┤        │ │                              │
+    GPIO 10 (NRF CS) ─────┤    All GND/VCC Common                   │
+    GPIO 14 (CC CS) ──────┤                                          │
+                          │                                          │
+                     [GND] [VCC:5V ou 3.3V selon module]            │
+                     [GND] [VCC:5V ou 3.3V selon module]            │
+                     [GND] [VCC:5V ou 3.3V selon module]            │
+                          │                                          │
+        └──────────────────┴──────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+4. DIAGRAMME DE CÂBLAGE - BUS I2C (RTC DS3231 + OLED SSD1306)
+================================================================================
+
+                            ESP32-S3
+        ┌───────────────────────────────────┐
+        │                                   │
+  GPIO 8 (SDA) ───────────┬────────────────┤
+                          │                │
+                     [RTC]│               ┌┴─────────────┐
+                     [Pin │               │OLED (opt)   │
+                     [SDA]│  (Pull-up)    │Pin 5 (SDA)  │
+                          │   10kΩ        │              │
+                          │   │           │              │
+                          └───┼───────────┤              │
+                              │           │              │
+                           [3.3V]      [3.3V]            │
+                                                         │
+  GPIO 9 (SCL) ───────────┬────────────────┤             │
+                          │                │             │
+                     [RTC]│               ┌┴─────────────┤
+                     [Pin │               │OLED (opt)   │
+                     [SCL]│  (Pull-up)    │Pin 4 (SCL)  │
+                          │   10kΩ        │              │
+                          │   │           │              │
+                          └───┼───────────┤              │
+                              │           │              │
+                           [3.3V]      [3.3V]            │
+                                                         │
+  GND  ────────────────────────────────────┼─────────────┤
+                     [RTC]            [OLED]           GND
+                     [GND]            [GND]
+
+
+Adresses I2C :
+  • RTC DS3231  : 0x68
+  • OLED SSD1306 : 0x3C (standard) ou 0x3D
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+5. DIAGRAMME DE CÂBLAGE - BATTERIE & ALIMENTATION
+================================================================================
+
+                         ┌────────────────────┐
+                         │   BATTERIE LIPO    │
+                         │  1S 3.7V 1000mAh   │
+                         │   JST-PH 2-pin     │
+                         │                    │
+                         │  [RED]  [BLACK]    │
+                         │   +       -        │
+                         └────┬───────┬───────┘
+                              │       │
+                              │       │
+                    ┌──────────┘       └──────────┐
+                    │                             │
+                    V                             │
+         ┌─────────────────┐                      │
+         │    TP4056       │                      │
+         │ USB-C Charging  │                      │
+         │    Module       │                      │
+         │                 │                      │
+         │  [+]    [-]     │                      │
+         │  VIN    GND ────┼──────────────────────┼────────┐
+         │  |              │                      │        │
+         │  [USB] ─────────┘                      │        │
+         │  Power                                 │        │
+         └──────────────────────────────────────┐ │        │
+                        │                       │ │        │
+                        │                       V V        V
+                    ┌───┴────┐          ┌──────────────────────┐
+                    │Switch  │          │    MT3608 Boost      │
+                    │ SPDT   │          │  3.7V → 5.0V         │
+                    │        │          │                      │
+                    └───┬────┘          │  VIN(+)  VIN(-)  OUT │
+                        │               │  (+)      (-)    (+) │
+                        │               │  │        │      │   │
+                        └───────────────┼──┴────────┴──────┴───┤
+                                        │                      │
+                        ┌───────────────┴──────────────────┐   │
+                        │                                  │   │
+                        V                                  V   V
+                    ┌─────────┐                      ┌────────┐
+                    │ ESP32   │                      │  5.0V  │
+                    │  3.3V   │                      │  Rail  │
+                    │         │                      │(TFT,RF)│
+                    │         │                      │        │
+                    └─────────┘                      └────────┘
+
+
+Circuit MT3608 (réglage 5V) :
+  1. Mesurer VOut avec multimètre → doit être 5.0V exactement
+  2. Potentiomètre petit (vis jaune) sur le module
+  3. Tourner lentement jusqu'à 5.0V
+  4. ⚠️ NE PAS DÉPASSER 5.1V (risque endommager TFT)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+6. DIAGRAMME DE CÂBLAGE - BOUTONS TACTILES
+================================================================================
+
+Tous les boutons utilisent le même schéma (pull-up interne) :
+
+                              ESP32-S3
+                    ┌─────────────────────┐
+                    │                     │
+  GPIO 1  (UP)  ────┤ avec pull-up        │
+  GPIO 2  (DOWN)────┤ interne             │
+  GPIO 6  (SEL)─────┤ 10kΩ → 3.3V         │
+  GPIO 42 (BACK)────┤                     │
+                    │                     │
+                    └─────────────────────┘
+                            │
+                   ┌────────┴─────────┐
+                   │                  │
+            ┌──────┴──────┐    ┌──────┴──────┐
+            │   Button    │    │   Button    │
+            │  Push-Down  │    │  Push-Down  │
+            │             │    │             │
+            │   [normal]  │    │   [normal]  │
+            │ (normally   │    │ (normally   │
+            │   open)     │    │   open)     │
+            └──────┬──────┘    └──────┬──────┘
+                   │                  │
+                   └────────┬─────────┘
+                            │
+                           GND
+
+
+Logique d'activation :
+  Repos        : GPIO = HIGH (3.3V via pull-up)
+  Appui        : GPIO = LOW  (0V via GND)
+  Debounce     : 20ms logiciel
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+7. DIAGRAMME DE CÂBLAGE - BATTERIE ADC (GPIO 7)
+================================================================================
+
+                          BATTERIE 3.7V
+                                │
+                                V
+                        ┌───────────────┐
+                        │  TP4056 OUT   │
+                        │   (3.7V)      │
+                        └───────┬───────┘
+                                │
+                    ┌───────────┴──────────┐
+                    │                      │
+                    │  (R1)            (R2)│
+                    │  100kΩ            47kΩ
+                    │  │                 │
+                    V V                 V
+                 ┌──────┐               │
+                 │      │───────────────┴────────────┐
+                 │      │ (diviseur tension)         │
+                 └──────┘                            │
+                    │                                V
+                    │                      ┌──────────────┐
+                    │                      │ ESP32 GPIO 7 │
+                    │                      │ (ADC_BATT)   │
+                    │                      │ ADC1_CH0     │
+                    │                      │              │
+                    │                      └──────┬───────┘
+                    │                             │
+                    │                          Vref=3.3V
+                    │                             │
+                    └─────────────────────────────┴─────────┐
+                                                            │
+                                                           GND
+
+
+Formule lecture tension batterie :
+  Vbatt = (ADC_value / 4095) * 3.3V * ((100 + 47) / 47)
+  Vbatt = (ADC_value / 4095) * 3.3V * 3.13
+
+Calibration :
+  • Batterie 3.7V = ADC value ~1570
+  • Batterie 4.2V = ADC value ~1795
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+8. DIAGRAMME DE CÂBLAGE - MODULES RF (NRF24L01+ & CC1101)
+================================================================================
+
+NRF24L01+ (8 broches) :
+┌────────────────────────────────────────────────────────────────────┐
+│  NRF24 Pin │ Nom      │ ESP32 GPIO    │ Notes                      │
+├────────────┼──────────┼───────────────┼────────────────────────────┤
+│  1         │ GND      │ GND           │ Masse                      │
+│  2         │ VCC      │ 3.3V          │ ⚠️ MAX 3.6V - CRITIQUE!   │
+│  3         │ CE       │ GPIO 44       │ Chip Enable                │
+│  4         │ CSN      │ GPIO 10       │ Chip Select (SPI)          │
+│  5         │ SCK      │ GPIO 13       │ Serial Clock (SPI partagé) │
+│  6         │ MOSI     │ GPIO 11       │ Data Out (SPI partagé)     │
+│  7         │ MISO     │ GPIO 12       │ Data In (SPI partagé)      │
+│  8         │ IRQ      │ GPIO 21       │ Interrupt (optionnel)      │
+│  —         │ C BYPASS │ 10µF près VCC │ ⚠️ CRITIQUE - proche VCC   │
+└────────────┴──────────┴───────────────┴────────────────────────────┘
+
+CC1101 (8 broches) :
+┌────────────────────────────────────────────────────────────────────┐
+│  CC1101 Pin│ Nom      │ ESP32 GPIO    │ Notes                      │
+├────────────┼──────────┼───────────────┼────────────────────────────┤
+│  1         │ GND      │ GND           │ Masse                      │
+│  2         │ VCC      │ 3.3V          │ Alimentation               │
+│  3         │ SI       │ GPIO 11       │ MOSI (SPI partagé)         │
+│  4         │ SO       │ GPIO 12       │ MISO (SPI partagé)         │
+│  5         │ SCK      │ GPIO 13       │ Clock (SPI partagé)        │
+│  6         │ CSN      │ GPIO 14       │ Chip Select (SPI)          │
+│  7         │ GDO0     │ GPIO 36       │ Digital Out (interrupt)    │
+│  8         │ ANT      │ —             │ Antenne externe (433MHz)   │
+│  —         │ C BYPASS │ 100nF près VCC│ Découplage                 │
+└────────────┴──────────┴───────────────┴────────────────────────────┘
+
+⚠️ IMPORTANT : Condensateur de découplage
+  • NRF24 : 10µF céramique TRÈS PROCHE du VCC
+  • CC1101 : 100nF céramique TRÈS PROCHE du VCC
+  • Distance < 5cm recommandée
+  • → Instabilité réseau sans ça
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+9. DIAGRAMME DE CÂBLAGE - RTC DS3231 (I2C)
+================================================================================
+
+DS3231 I2C Real Time Clock (4 broches) :
+┌─────────────────────────────────────────────────────────────┐
+│  DS3231 Pin │ Nom    │ ESP32 GPIO / Composant │ Notes      │
+├─────────────┼────────┼────────────────────────┼────────────┤
+│  1          │ GND    │ GND                    │ Masse      │
+│  2          │ VCC    │ 3.3V                   │ Alim       │
+│  3          │ SDA    │ GPIO 8 + 10kΩ → 3.3V │ I2C Data   │
+│  4          │ SCL    │ GPIO 9 + 10kΩ → 3.3V │ I2C Clock  │
+│  —          │ BAT    │ —                     │ Batterie   │
+│             │ (cell) │ (non utilisée)        │ 32.768kHz  │
+└─────────────┴────────┴────────────────────────┴────────────┘
+
+Connecteur typique DS3231 :
+  ┌────────┐
+  │ 4  3  2│  (vue du dessus)
+  │ 1     │
+  └────────┘
+
+  Câblage :
+  1 → GND
+  2 → 3.3V
+  3 → GPIO 8 (SDA) via 10kΩ pull-up
+  4 → GPIO 9 (SCL) via 10kΩ pull-up
+
+Adresse I2C : 0x68 (fixe)
+Fréquence I2C : 100kHz standard (400kHz max)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+10. DIAGRAMME DE CÂBLAGE - GPS NEO-6M (UART1)
+================================================================================
+
+NEO-6M GPS Module (4 broches) :
+┌──────────────────────────────────────────────────────┐
+│  NEO-6M Pin │ Nom    │ ESP32 GPIO    │ Notes        │
+├──────────────┼────────┼───────────────┼──────────────┤
+│  1           │ GND    │ GND           │ Masse        │
+│  2           │ VCC    │ 3.3V          │ Alimentation │
+│  3           │ RX     │ GPIO 17 (TX1) │ Réception    │
+│  4           │ TX     │ GPIO 18 (RX1) │ Transmission │
+└──────────────┴────────┴───────────────┴──────────────┘
+
+Protocole : UART
+Baud rate : 9600 bps (par défaut)
+Acquisition : ~1-2 secondes après allumage
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+11. RÉSUMÉ CONNECTEURS & CONNECTIVITÉ
+================================================================================
+
+[SPI Partagé - 3 périphériques]
+  • TFT ILI9341 (SPI+GPIO) → Affichage
+  • NRF24L01+ (SPI) → Scan 2.4GHz
+  • CC1101 (SPI) → Scan 433MHz
+
+[I2C Bus - 2 périphériques]
+  • DS3231 (I2C) → RTC
+  • SSD1306 (I2C optionnel) → Affichage OLED fallback
+
+[UART - 2 connexions]
+  • UART0 → Serial monitor Debug (via adaptateur USB)
+  • UART1 → GPS NEO-6M
+
+[GPIO Entrées]
+  • 4 boutons tactiles
+  • 1 mesure batterie ADC
+
+[GPIO Sorties]
+  • 1 backlight TFT
+  • 1 buzzer piézo
+
+[Alimentation]
+  • TP4056 (charge batterie LiPo via USB-C)
+  • MT3608 (boost 3.7V → 5.0V stable)
+  • Interrupteur principal
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+================================================================================
+12. CHECKLIST PRÉ-ASSEMBLAGE
+================================================================================
+
+Avant de commencer le câblage :
+
+  [ ] Tous les composants disponibles
+  [ ] Multimètre en bon état
+  [ ] Pinces, peigne connecteur, fils striés prêts
+  [ ] Workspace propre et bien éclairé
+  [ ] Batterie chargée (ou power bank 3.3V)
+  [ ] Respirateur/ventilation si soudage
+
+
+Ordre de câblage recommandé :
+  1. Alimentation (GND commun d'abord)
+  2. TFT (affichage prioritaire)
+  3. Boutons (tests rapides)
+  4. Batterie ADC (monitoring)
+  5. I2C bus (RTC + OLED)
+  6. Modules RF (NRF24 + CC1101)
+  7. GPS (optionnel)
+  8. Buzzer/LED (cosmétique)
+
+
+Tests après chaque étape :
+  • Inspirer les connexions (court-circuit?)
+  • Vérifier continuité au multimètre
+  • Tester avec l'ESP32 allumée (LED check)
+
+
+================================================================================
+13. CODES COULEUR STANDARD (optionnel)
+================================================================================
+
+Si utiliser des fils de couleur :
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  Alimentation                                           │
+  │  • ROUGE      = +5V ou +3.3V                            │
+  │  • NOIR       = GND / Masse                             │
+  │  • MARRON/OR  = Référence alimentation                  │
+  │                                                         │
+  │  Signaux                                                │
+  │  • JAUNE      = SPI MOSI/MISO                           │
+  │  • VERT       = SPI SCK                                 │
+  │  • BLANC      = I2C SDA                                 │
+  │  • BLEU       = I2C SCL                                 │
+  │                                                         │
+  │  Commandes                                              │
+  │  • ORANGE     = CS (Chip Select)                        │
+  │  • ROSE       = DC (Data Command)                       │
+  │  • POURPRE    = Reset                                   │
+  │  • GRIS       = Chip Enable (CE)                        │
+  │                                                         │
+  │  UART                                                   │
+  │  • ROUGE      = TX (out)                                │
+  │  • BLEU CIEL  = RX (in)                                 │
+  └─────────────────────────────────────────────────────────┘
+
+
+================================================================================
+14. POINTS CRITIQUES À VÉRIFIER
+================================================================================
+
+⚠️ AVANT DE BRANCHER LA BATTERIE :
+
+  1. MULTIMÈTRE CHECK
+     [ ] GND et VCC bien séparés (pas de court-circuit)
+     [ ] MT3608 output = 5.0V exactement (± 0.1V)
+     [ ] Pas de continuité entre VCC et GND
+
+  2. CONDENSATEURS
+     [ ] 10µF NRF24 en place et bien soudé
+     [ ] 100nF CC1101 en place et bien soudé
+     [ ] Rien n'y manque sinon = crash/instabilité
+
+  3. SPI BUS
+     [ ] CS pins bien séparés (GPIO 5, 10, 14)
+     [ ] Pas de mélange MOSI/MISO
+     [ ] SCK bien connecté partout
+
+  4. I2C BUS
+     [ ] Pull-up 10kΩ présents (TRÈS IMPORTANT)
+     [ ] Pas de court-circuit SDA-SCL
+     [ ] Adresses I2C correctes (0x68 RTC, 0x3C OLED)
+
+  5. BOUTONS
+     [ ] Tous connectés à GND
+     [ ] Pas inversés (GPIO au bouton, pas batterie)
+
+  6. BATTERIE
+     [ ] Connecteur JST correct (non inversé)
+     [ ] Polarité respectée (+/-)
+
+
+================================================================================
+
+FIN DU SCHÉMA DE CÂBLAGE
+
+Prêt à imprimer ! 📄
+Pour des questions : vérifier docs/BUILD_AND_VALIDATION.md
+
+================================================================================
