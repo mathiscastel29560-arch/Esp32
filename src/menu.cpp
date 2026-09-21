@@ -10,6 +10,7 @@
 #include "beacon_spam.h"
 #include "evil_portal.h"
 #include "ir_tools.h"
+#include "ir_bruteforce.h"
 #include "ble_spam_detector.h"
 #include "rtc_clock.h"
 #include "gps_module.h"
@@ -85,6 +86,9 @@ std::vector<String> rfMenuItems() {
         "2.4GHz Spectrum Scan",
         "Sub-GHz Scan (433MHz)",
         "IR: TV Power Toggle",
+        "IR: Bruteforce TV",
+        "IR: Bruteforce AC",
+        "IR: Bruteforce Light",
         "Back",
     };
 }
@@ -213,6 +217,27 @@ void runRfAction(int idx) {
         }
         case 2: { // IR TV toggle
             showResult("IR: TV Power", "Sending codes...\n(requires IR LED)");
+            break;
+        }
+        case 3: { // IR Bruteforce TV
+            IRBruteforce::BruteResult result = IRBruteforce::bruteForce("TV", 10000);
+            showResult("IR: TV Bruteforce",
+                      "Sent " + String(result.attemptsCount) + " codes\n" +
+                      "Check if TV responded!");
+            break;
+        }
+        case 4: { // IR Bruteforce AC
+            IRBruteforce::BruteResult result = IRBruteforce::bruteForce("AC", 10000);
+            showResult("IR: AC Bruteforce",
+                      "Sent " + String(result.attemptsCount) + " codes\n" +
+                      "Check if AC responded!");
+            break;
+        }
+        case 5: { // IR Bruteforce Light
+            IRBruteforce::BruteResult result = IRBruteforce::bruteForce("LIGHT", 10000);
+            showResult("IR: Light Bruteforce",
+                      "Sent " + String(result.attemptsCount) + " codes\n" +
+                      "Check if light responded!");
             break;
         }
     }
