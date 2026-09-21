@@ -24,6 +24,7 @@
 #include "custom_module.h"
 #include "dualboot.h"
 #include "ui/ui.h"
+#include "boot_screen.h"
 
 namespace {
 String apSsid;
@@ -66,8 +67,7 @@ void setup() {
     Menu::begin();
     CustomModule::begin();
 
-    Ui::showSplash(apSsid, rtcOk ? "RTC ok - 192.168.4.1" : "RTC MISSING!");
-    Buzzer::chirpOk();
+    BootScreen::show("ESP32-S3 AUDIT TOOL v1.0", apSsid);
 
     // Everything above came up without hanging or crashing -- tell the
     // bootloader this boot is good, so app rollback never reverts us
