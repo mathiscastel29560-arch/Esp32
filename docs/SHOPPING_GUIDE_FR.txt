@@ -1,0 +1,416 @@
+================================================================================
+                    GUIDE COMPLET : FAIRE LE PROJET ESP32-S3
+
+Comment acheter les composants + récupérer et déployer le code
+
+Mis à jour : 2026-09-21 | Temps total : 2-4 heures d'assemblage
+================================================================================
+
+
+═══════════════════════════════════════════════════════════════════════════════
+1. COMPOSANTS PRINCIPAUX
+═══════════════════════════════════════════════════════════════════════════════
+
+Composant                    | Référence              | Quantité | Prix Unit. | Total     | Fournisseur
+────────────────────────────┼────────────────────────┼──────────┼────────────┼───────────┼──────────────────
+ESP32-S3-N16R8              | ESP32-S3-DevKitC-1     |    1     |  25-35€    |  25-35€   | AliExpress, Amazon
+TFT ILI9341 320x240         | 2.8" SPI TFT Display   |    1     |  10-15€    |  10-15€   | AliExpress, eBay
+Batterie LiPo               | 1S 3.7V 1000mAh JST    |    1     |   8-12€    |   8-12€   | AliExpress, Amazon
+Module TP4056               | USB-C Charge           |    1     |   3-5€     |   3-5€    | AliExpress
+Module MT3608               | DC-DC Boost 5V         |    1     |   2-4€     |   2-4€    | AliExpress
+NRF24L01+                   | 2.4GHz + Antenne       |    1     |   2-4€     |   2-4€    | AliExpress
+CC1101                      | 433MHz Module          |    1     |   3-6€     |   3-6€    | AliExpress
+RTC DS3231                  | I2C Real-Time Clock    |    1     |   2-4€     |   2-4€    | AliExpress, Amazon
+GPS NEO-6M                  | UART GPS Module        |    1     |   8-12€    |   8-12€   | AliExpress, Amazon
+OLED SSD1306                | 0.96" 128x64 I2C (opt) |    1     |   2-4€     |   2-4€    | AliExpress
+
+                                    ───────────────────────────────────────
+                            SOUS-TOTAL COMPOSANTS : 65-105€
+
+
+═══════════════════════════════════════════════════════════════════════════════
+2. PASSIFS & CONNECTIQUES
+═══════════════════════════════════════════════════════════════════════════════
+
+Composant                           | Valeur/Type            | Quantité | Prix
+────────────────────────────────────┼────────────────────────┼──────────┼───────
+Résistances pull-up I2C             | 10kΩ 1/4W              |    2     | 0.20€
+Résistance diviseur tension         | 100kΩ + 47kΩ           |    2     | 0.20€
+Résistance base transistor          | 10kΩ                  |    1     | 0.10€
+Condensateur bypass NRF24           | 10µF céramique         |    1     | 0.30€
+Condensateurs découplage            | 100nF (0.1µF)         |    5     | 0.50€
+Transistor NPN                      | 2N2222 ou BC547        |    1     | 0.20€
+Connecteur JST-PH                   | 2-pin JST             |    2     | 1.00€
+Interrupteur                        | SPDT ou simple         |    1     | 0.50€
+Boutons tactiles                    | Push-button 6mm        |    4     | 0.80€
+Buzzer                              | Piézo buzzer 5V        |    1     | 1.00€
+Câblage                             | Fil 0.5mm² multi       |   10m    | 3.00€
+Connecteurs Dupont                  | Connecteurs + boîtier  |   50     | 2.00€
+Gaine thermique                     | Gaine thermo 2:1       |    1m    | 1.00€
+
+                                    ───────────────────────────────────────
+                        SOUS-TOTAL PASSIFS & CONNECTIQUES : 10-15€
+
+
+═══════════════════════════════════════════════════════════════════════════════
+3. MATÉRIEL DE DÉVELOPPEMENT & OUTILS
+═══════════════════════════════════════════════════════════════════════════════
+
+Outil/Logiciel              | Type                   | Prix        | Remarques
+────────────────────────────┼────────────────────────┼─────────────┼──────────────────────────────
+Adaptateur USB Série        | CP2102 ou PL2303 3.3V  |  3-8€       | Pour flasher le firmware (3.3V)
+VS Code                     | Éditeur (gratuit)      |  0€         | code.visualstudio.com
+PlatformIO IDE              | Extension VS Code      |  0€         | Installer via Extensions
+Git                         | Gestionnaire version   |  0€         | git-scm.com
+Arduino IDE                 | Alternative optionnel  |  0€         | Pour dev supplémentaire
+Multimètre numérique        | Testeur électrique     | 10-30€      | ⚠️ CRITIQUE pour MT3608 5.0V
+Fer à souder                | 30W soldering iron     | 15-40€      | Optionnel (connecteurs Dupont ok)
+Fil de soudure              | Sn/Pb ou sans plomb    |  5-10€      | Si vous souder
+Pince à dénuder             | Wire stripper          |  5-15€      | Pour préparer les câbles
+Câble USB                   | USB-A vers Micro/C     |  3-8€       | Pour connexion à ordinateur
+
+                                    ───────────────────────────────────────
+                            SOUS-TOTAL OUTILS : Gratuit à 150€
+
+
+═══════════════════════════════════════════════════════════════════════════════
+4. RÉSUMÉ BUDGÉTAIRE
+═══════════════════════════════════════════════════════════════════════════════
+
+Catégorie                           | Coût Minimum | Coût Recommandé
+────────────────────────────────────┼──────────────┼─────────────────
+Composants électroniques            |     65€      |      105€
+Passifs & connectiques              |     10€      |       15€
+Logiciels (tous gratuits)           |      0€      |        0€
+Outils matériel (minimum)           |      5€      |       50€
+────────────────────────────────────┼──────────────┼─────────────────
+TOTAL                               |     80€      |      170€
+
+
+💡 Conseil :
+- AliExpress : 2-4 semaines, moins cher
+- Amazon : 1-2 jours, plus cher
+Pour urgence, préférer Amazon.
+
+
+================================================================================
+5. PRÉREQUIS LOGICIELS
+================================================================================
+
+✅ Vous devez avoir :
+   • Un ordinateur Windows, Mac ou Linux
+   • Connexion Internet (pour télécharger code et outils)
+   • VS Code installé (gratuit)
+   • Git installé (gratuit)
+   • Au minimum 2 Go d'espace disque libre
+
+
+================================================================================
+6. INSTALLER VS CODE & PLATFORMIO
+================================================================================
+
+Étape 6.1 : Télécharger VS Code
+─────────────────────────────────
+1. Aller sur : https://code.visualstudio.com
+2. Télécharger la version pour votre OS (Windows/Mac/Linux)
+3. Installer et lancer VS Code
+
+
+Étape 6.2 : Installer PlatformIO
+─────────────────────────────────
+1. Dans VS Code, cliquer sur "Extensions" (Ctrl+Shift+X)
+2. Rechercher : "PlatformIO IDE"
+3. Cliquer "Install" (premier résultat)
+4. Attendre la fin de l'installation (~2 minutes)
+5. Recharger VS Code (Ctrl+Shift+P → "Reload")
+6. Une nouvelle icône "PlatformIO" apparaît dans la barre latérale ✓
+
+
+Étape 6.3 : Installer Git
+──────────────────────────
+1. Aller sur : https://git-scm.com
+2. Télécharger et installer
+3. Redémarrer votre ordinateur après installation
+
+
+================================================================================
+7. CLONER LE DÉPÔT (RÉCUPÉRER LE CODE)
+================================================================================
+
+Option A : Avec Git (Recommandé)
+─────────────────────────────────
+
+Ouvrir un terminal/invite de commande :
+  • Windows : Touche Windows → taper "cmd" → Entrée
+  • Mac/Linux : Ctrl+Alt+T ou terminal via menu
+
+Puis exécuter ces commandes :
+
+  git clone https://github.com/mathiscastel29560-arch/Esp32.git
+  cd Esp32
+  git checkout claude/handshake-wpa2-eapol-capture-r6yp2u
+
+Explication :
+  • Ligne 1 : Télécharge le dépôt complet (~200 MB)
+  • Ligne 2 : Entre dans le dossier créé
+  • Ligne 3 : Bascule sur la branche correcte (dernière version working)
+
+
+Option B : Sans Git (Download ZIP)
+───────────────────────────────────
+
+Si Git non disponible :
+1. Aller sur : https://github.com/mathiscastel29560-arch/Esp32
+2. Cliquer le bouton vert "Code"
+3. Cliquer "Download ZIP"
+4. Extraire le ZIP dans un dossier (ex: C:\Users\Votre\Esp32)
+5. ⚠️ Vous devez ensuite basculer manuellement sur la bonne branche
+
+
+================================================================================
+8. OUVRIR LE PROJET DANS PLATFORMIO
+================================================================================
+
+Étape 8.1 : Ouvrir le dossier
+──────────────────────────────
+1. Dans VS Code : File → Open Folder (Ctrl+K Ctrl+O)
+2. Naviguer et sélectionner le dossier "Esp32" que vous venez de cloner
+3. Cliquer "Select Folder"
+
+
+Étape 8.2 : Attendre la détection
+──────────────────────────────────
+VS Code détecte automatiquement qu'c'est un projet PlatformIO :
+  • La barre de statut en bas affiche : "PlatformIO | env:esp32-s3-audit"
+  • Les fichiers de configuration sont reconnus
+  • Les dépendances commencent à télécharger automatiquement
+
+⏳ Cela peut prendre 2-5 minutes la première fois (dépendances, libraries)
+
+
+Étape 8.3 : Vérifier la configuration
+──────────────────────────────────────
+1. Ouvrir le fichier "platformio.ini" à la racine
+2. Vérifier la section "[env:esp32-s3-audit]"
+3. Confirmer que "board = esp32-s3-devkitc-1"
+
+
+================================================================================
+9. FICHIER CONFIG.H
+================================================================================
+
+Le fichier "include/config.h" contient tous les pins et configurations.
+
+⚠️ Ne pas modifier sauf si :
+  • Vous changez le brochage matériel
+  • Vous utilisez une carte différente (ESP32 classique, ESP32-C3, etc.)
+  • Vous changez le modèle d'affichage
+
+Pins principaux (déjà configurés) :
+
+Composant           | Pins                  | Ligne config.h
+────────────────────┼───────────────────────┼────────────────────
+TFT SPI             | GPIO 5,6,7,11,12,13   | #define TFT_CS 5
+I2C (RTC/OLED)      | GPIO 8,9              | #define I2C_SDA 8
+Boutons             | GPIO 1,2,6,42         | #define PIN_BTN_UP 1
+Batterie ADC        | GPIO 7                | #define ADC_BATT 7
+GPS UART1           | GPIO 17,18            | Serial1.begin(9600)
+
+⚠️ IMPORTANT : Si vous utilisez une ESP32-S3 DIFFÉRENTE (ESP32, ESP32-C3, etc.),
+les pins changeront complètement. Consulter la datasheet de votre carte.
+
+
+================================================================================
+10. FIRMWARE RELEASE NOTES
+================================================================================
+
+Avant de compiler, lire les notes de version :
+  docs/FIRMWARE_RELEASE_NOTES.md
+
+Ce fichier contient :
+  ✓ Utilisation mémoire (RAM 25%, Flash 62%)
+  ✓ Liste des 27+ outils disponibles
+  ✓ Composants testés au démarrage
+  ✓ Limitations connues
+  ✓ Procédure de test complète
+
+
+================================================================================
+11. COMPILER LE FIRMWARE
+================================================================================
+
+Étape 11.1 : Vérifier la compilation
+─────────────────────────────────────
+
+Dans VS Code :
+  1. Cliquer sur l'icône "PlatformIO" (éclair) à gauche
+  2. Développer "esp32-s3-audit"
+  3. Cliquer "Build"
+
+Ou en ligne de commande :
+  pio run
+
+Sortie attendue :
+  ✅ [SUCCESS] Took 90 seconds
+  RAM: [===       ] 25.1% (82,396 / 327,680 bytes)
+  Flash: [======  ] 61.9% (1,947,285 / 3,145,728 bytes)
+
+❌ Si compilation échoue :
+  • Vérifier que PlatformIO est bien installé
+  • Supprimer le dossier ".pio" et réessayer
+  • Vérifier connexion Internet (téléchargement dépendances)
+  • Consulter les erreurs : elles indiquent fichier/ligne du problème
+
+
+================================================================================
+12. FLASHER LE FIRMWARE DANS L'ESP32
+================================================================================
+
+Étape 12.1 : Préparer le matériel
+──────────────────────────────────
+
+Connecter l'adaptateur USB Série à l'ESP32 :
+(Voir le fichier guide câblage pour les pins)
+  • Adaptateur GND → ESP32 GND
+  • Adaptateur RX (in) → ESP32 GPIO 3 (TX)
+  • Adaptateur TX (out) → ESP32 GPIO 1 (RX)
+  • NE PAS connecter 5V - utiliser batterie ou 3.3V uniquement
+
+
+Étape 12.2 : Brancher l'USB
+────────────────────────────
+1. Brancher l'adaptateur USB Série à votre ordinateur
+2. Ouvrir le Gestionnaire des périphériques (Windows) ou lsusb (Linux)
+3. Noter le port COM (ex: COM3 sur Windows, /dev/ttyUSB0 sur Linux)
+
+
+Étape 12.3 : Mettre l'ESP32 en mode bootloader
+─────────────────────────────────────────────────
+1. Maintenir GPIO 0 appuyé vers GND
+2. Appuyer sur RESET (ou couper/reconnecter l'alimentation)
+3. Relâcher le bouton GPIO 0
+4. L'ESP32 passe en mode bootloader (prêt pour flash)
+
+
+Étape 12.4 : Uploader le firmware
+──────────────────────────────────
+
+Dans VS Code :
+  1. Cliquer PlatformIO → "Upload" (sous esp32-s3-audit)
+  2. Attendre le message de succès (~20-30 secondes)
+
+Ou en ligne de commande :
+  pio run -t upload
+
+Sortie attendue :
+  ✅ Connecting...
+  ✅ Erasing flash...
+  ✅ Writing at 0x00000000... (10%)
+  ✅ Verifying...
+  Hard resetting via RTS pin...
+
+
+Étape 12.5 : Vérifier le démarrage
+───────────────────────────────────
+
+Ouvrir le moniteur série :
+  1. PlatformIO → "Device Monitor"
+  2. Vérifier le baud rate : 115200
+
+Vous devriez voir :
+  ========== SYSTEM DIAGNOSTICS START ==========
+  [✓] RTC (DS3231): OK
+  [✓] GPS (NEO-6M): OK (UART1 ready for polling)
+  [✓] Display (TFT ILI9341): OK (320x240 color)
+  [✓] NRF24L01+ (2.4GHz): OK (CONFIG 0x0E)
+  [✓] Battery Monitor (ADC): OK (reading 87%)
+  ========== SYSTEM DIAGNOSTICS END ==========
+
+💡 Composants affichant MISSING : c'est normal s'ils ne sont pas câblés.
+Les composants optionnels (RTC, GPS, CC1101, NRF24) peuvent manquer.
+Seul l'affichage est obligatoire.
+
+
+================================================================================
+13. VALIDER LE SETUP
+================================================================================
+
+✅ Checklist à faire sur la carte physique :
+
+  [ ] L'écran TFT s'allume (affiche le menu)
+  [ ] Les boutons UP/DOWN/SELECT/BACK fonctionnent
+  [ ] La batterie charge via TP4056 (LED indicatrice)
+  [ ] Le MT3608 sort 5V stable (mesurer au multimètre)
+  [ ] Les modules RF (NRF24, CC1101) répondent dans les diagnostiques
+  [ ] Le GPS indique prêt pour polling (message serial)
+  [ ] Le RTC maintient l'heure
+
+
+================================================================================
+14. RÉSOUDRE LES PROBLÈMES COURANTS
+================================================================================
+
+Problème                       | Cause                          | Solution
+───────────────────────────────┼────────────────────────────────┼──────────────────────────────
+L'écran est noir               | TFT non câblé ou mauvais pins  | Vérifier 7 pins du TFT
+Compilation échoue             | Dépendances manquantes         | Supprimer .pio, relancer Build
+Upload échoue "Port not found" | Adaptateur USB non détecté     | Essayer autre port, réinstaller
+ESP32 redémarre aléatoirement  | Tension instable (MT3608)      | Mesurer MT3608 = exactement 5.0V
+NRF24 diagnostic "MISSING"     | Condensateur 10µF manquant     | Ajouter 10µF très proche du VCC
+Batterie ne charge pas         | TP4056 non connecté ou USB     | Vérifier câble, LED TP4056
+
+
+================================================================================
+15. COMMENT MODIFIER LE CODE
+================================================================================
+
+Le projet est organisé comme ceci :
+
+  Esp32/
+  ├── src/
+  │   ├── main.cpp (Point d'entrée)
+  │   ├── menu.cpp (Système de menu)
+  │   ├── wifi_tools.cpp (Outils WiFi)
+  │   ├── ble_tools.cpp (Outils BLE)
+  │   └── ... (autres tools)
+  ├── include/
+  │   ├── config.h (Configuration pins)
+  │   ├── iot_device_hunter.h
+  │   ├── ui/ (Interface utilisateur)
+  │   └── ... (headers)
+  ├── docs/
+  │   ├── FIRMWARE_RELEASE_NOTES.md
+  │   └── BUILD_AND_VALIDATION.md
+  └── platformio.ini (Config PlatformIO)
+
+Pour ajouter une nouvelle fonction :
+  1. Créer un nouveau fichier "src/my_tool.cpp"
+  2. Créer un header "include/my_tool.h"
+  3. Ajouter include dans "src/main.cpp"
+  4. Recompiler : PlatformIO → Build
+  5. Uploader : PlatformIO → Upload
+
+
+================================================================================
+16. RESSOURCES UTILES
+================================================================================
+
+  • Documentation PlatformIO : https://docs.platformio.org
+  • Référence Arduino ESP32 : https://docs.espressif.com
+  • GitHub du projet : https://github.com/mathiscastel29560-arch/Esp32
+  • Documentation locale : docs/BUILD_AND_VALIDATION.md (dans le dépôt)
+
+
+================================================================================
+
+✅ FÉLICITATIONS ! 🎉
+
+Si vous avez suivi toutes les étapes, vous avez maintenant :
+  ✅ Tous les composants commandés
+  ✅ Le code cloné et configuré
+  ✅ Le firmware compilé et uploadé
+  ✅ L'ESP32 prêt à l'emploi
+
+Profitez de votre Audit Tool ! 🚀
+
+================================================================================
