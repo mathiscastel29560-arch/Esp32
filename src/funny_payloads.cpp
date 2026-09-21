@@ -90,9 +90,9 @@ ChaosResult launchChaosMode() {
 
     // Lancer tous les 11 outils en même temps
     // 0: SubGhz Replay
-    auto r1 = SubGhzReplay::capture(433);
+    auto r1 = SubghzReplay::recordSignal(433.92f, 2000);
     result.toolsExecuted++;
-    result.summary += "SubGHz: " + String(r1.success ? "OK" : "FAIL") + " | ";
+    result.summary += "SubGHz: " + String(r1.pulsesUs.size() > 0 ? "OK" : "FAIL") + " | ";
 
     // 1: IR Learning
     auto r2 = IRLearning::learn(5000);

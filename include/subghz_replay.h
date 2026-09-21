@@ -1,32 +1,30 @@
 #pragma once
 #include <Arduino.h>
+#include <vector>
 
-namespace SubGhzReplay {
+namespace SubghzReplay {
 
-struct CaptureResult {
-    bool success;
-    uint32_t frequency;    // MHz (433, 868, etc.)
-    uint16_t duration;     // ms
-    uint32_t bitrate;      // bps
-    uint16_t capturedBits; // nombre de bits capturés
-    String error;
+struct SignalCapture {
+    float frequency;
+    std::vector<uint16_t> pulsesUs;  // Timing of pulses in microseconds
+    uint32_t captureTimeMs;
+    uint32_t timestamp;
 };
 
 struct ReplayResult {
     bool success;
-    uint8_t repeatCount;   // nombre de fois rejoué
-    uint32_t totalDurationMs;
-    String message;
-    String error;
+    uint32_t pulsesCount;
+    uint32_t replayCount;
+    float frequency;
 };
 
-// Enregistre un signal sub-GHz (433/868 MHz) pour 5 secondes
-CaptureResult capture(uint32_t frequencyMhz = 433);
+// Record Sub-GHz signal for specified duration
+SignalCapture recordSignal(float freqMHz = 433.92f, uint32_t durationMs = 5000);
 
-// Rejoue un signal capturé N fois avec délai entre chaque
-ReplayResult replay(uint8_t repeatCount = 10, uint16_t delayMs = 100);
+// Replay previously recorded signal
+ReplayResult replaySignal(const SignalCapture &capture, uint8_t repeatCount = 1);
 
-// Analyse le pattern du signal (modulation, bitrate)
-String analyzePattern(uint16_t samples);
+// Get current RSSI at frequency
+int8_t getRSSI(float freqMHz = 433.92f);
 
-} // namespace SubGhzReplay
+}  // namespace SubghzReplay

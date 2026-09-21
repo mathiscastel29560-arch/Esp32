@@ -19,6 +19,9 @@
 #include "drone_tracker.h"
 #include "signal_sniffer.h"
 #include "subghz_bruteforce.h"
+#include "subghz_replay.h"
+#include "subghz_scanner.h"
+#include "gps_wardriving.h"
 #include <vector>
 #include <set>
 
@@ -89,7 +92,9 @@ std::vector<String> rfMenuItems() {
         "2.4GHz Spectrum Scan",
         "Drone Tracker (RSSI)",
         "Signal Sniffer (NRF24)",
+        "Sub-GHz Scanner",
         "Sub-GHz Bruteforce",
+        "Sub-GHz Replay",
         "IR: TV Power Toggle",
         "IR: Bruteforce TV",
         "IR: Bruteforce AC",
@@ -241,7 +246,19 @@ void runRfAction(int idx) {
             }
             break;
         }
-        case 3: { // Sub-GHz bruteforce
+        case 3: { // Sub-GHz Scanner
+            auto result = SubghzScanner::scanBand(8000);
+            if (result.detectionCount > 0) {
+                showResult("Sub-GHz Scanner",
+                          "Signals: " + String(result.detectionCount) + "\n" +
+                          "Strongest: " + String(result.strongestSignal) + "dBm @ " +
+                          String(result.busyFrequency, 2) + "MHz");
+            } else {
+                showResult("Sub-GHz Scanner", "No signals detected");
+            }
+            break;
+        }
+        case 4: { // Sub-GHz bruteforce
             auto result = SubghzBruteforce::bruteForce("GENERIC", 15000);
             showResult("Sub-GHz Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
@@ -249,25 +266,30 @@ void runRfAction(int idx) {
                       "Check device response!");
             break;
         }
-        case 4: { // IR TV toggle
+        case 5: { // Sub-GHz Replay
+            showResult("Sub-GHz Replay",
+                      "Record mode not yet\nconfigured in menu\n(see source code)");
+            break;
+        }
+        case 6: { // IR TV toggle
             showResult("IR: TV Power", "Sending codes...\n(requires IR LED)");
             break;
         }
-        case 5: { // IR Bruteforce TV
+        case 7: { // IR Bruteforce TV
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("TV", 10000);
             showResult("IR: TV Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
                       "Check if TV responded!");
             break;
         }
-        case 6: { // IR Bruteforce AC
+        case 8: { // IR Bruteforce AC
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("AC", 10000);
             showResult("IR: AC Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
                       "Check if AC responded!");
             break;
         }
-        case 7: { // IR Bruteforce Light
+        case 9: { // IR Bruteforce Light
             IRBruteforce::BruteResult result = IRBruteforce::bruteForce("LIGHT", 10000);
             showResult("IR: Light Bruteforce",
                       "Sent " + String(result.attemptsCount) + " codes\n" +
