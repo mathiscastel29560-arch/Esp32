@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <vector>
+#include <IRrecv.h>
+#include <IRutils.h>
 
 namespace IrSniffer {
 
@@ -33,17 +35,19 @@ struct SnifferResult {
 
 class IrSniffer {
 public:
-  IrSniffer();
+  IrSniffer(uint8_t rxPin = 15); // GPIO15 default for IR receiver
   SnifferResult captureIrCodes(const SnifferConfig& config);
-  String identifyProtocol(const std::vector<uint16_t>& timings);
+  String identifyProtocol(const decode_results& results);
   void stop();
   bool isRunning() const { return isRunning_; }
 
 private:
+  IRrecv irrecv_;
   bool isRunning_;
   unsigned long startTime_;
 
   void logCode(const IrCode& code);
+  String decodeTypeToString(decode_type_t type);
 };
 
 } // namespace IrSniffer

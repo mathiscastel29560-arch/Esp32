@@ -3,52 +3,55 @@
 
 namespace IrSniffer {
 
-IrSniffer::IrSniffer() : isRunning_(false), startTime_(0) {}
+IrSniffer::IrSniffer(uint8_t rxPin) : irrecv_(rxPin, 256), isRunning_(false), startTime_(0) {
+  irrecv_.enableIRIn(); // Start IR receiver
+}
 
 SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
   SnifferResult result;
   result.success = false;
   result.codesCapTured = 0;
 
-  pinMode(config.rxPin, INPUT);
-
   isRunning_ = true;
   startTime_ = millis();
 
-  uint32_t lastLevel = LOW;
-  uint32_t lastTime = micros();
   uint32_t codeCount = 0;
+  std::vector<String> protocolCounts;
 
   while (isRunning_ && (millis() - startTime_) < config.captureTimeMs) {
-    uint32_t currentLevel = digitalRead(config.rxPin);
-    uint32_t currentTime = micros();
+    decode_results results;
 
-    if (currentLevel != lastLevel) {
-      uint32_t timing = currentTime - lastTime;
+    if (irrecv_.decode(&results)) {
+      IrCode code;
+      code.timestamp = millis();
+      code.protocol = identifyProtocol(results);
+      code.rssi = -55; // Simulated RSSI for IR
 
-      // Simulate IR code capture
-      if (timing > 100) { // Filter out noise (< 100µs)
-        IrCode code;
-        code.timestamp = millis();
-        code.timings.push_back(timing);
-
-        // Generate simulated code
-        if (codeCount == 0 || random(0, 100) < 5) {
-          code.protocol = "NEC";
-          code.address = random(0, 256);
-          code.command = random(0, 256);
-          code.rssi = random(-60, -20);
-
-          result.codes.push_back(code);
-          result.codesCapTured++;
-          codeCount++;
-
-          logCode(code);
-        }
+      // Extract timing data from decode results
+      for (uint16_t i = 1; i < results.rawlen; i++) {
+        code.timings.push_back(results.rawbuf[i] * kRawTick);
       }
 
-      lastLevel = currentLevel;
-      lastTime = currentTime;
+      // Decode protocol-specific fields
+      if (results.decode_type == decode_type_t::NEC) {
+        code.address = (results.value >> 16) & 0xFF;
+        code.command = results.value & 0xFF;
+      } else if (results.decode_type == decode_type_t::RC5 ||
+                 results.decode_type == decode_type_t::RC6_M57) {
+        code.address = (results.value >> 8) & 0x1F;
+        code.command = results.value & 0xFF;
+      } else if (results.decode_type == decode_type_t::SONY) {
+        code.address = (results.value >> 16) & 0xFF;
+        code.command = results.value & 0xFF;
+      }
+
+      result.codes.push_back(code);
+      result.codesCapTured++;
+      codeCount++;
+      logCode(code);
+      protocolCounts.push_back(code.protocol);
+
+      irrecv_.resume();
     }
 
     if (config.continuousCapture) {
@@ -58,8 +61,25 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
     }
   }
 
-  // Identify dominant protocol
-  result.dominantProtocol = "NEC"; // Default to NEC (most common)
+  // Find dominant protocol
+  result.dominantProtocol = "UNKNOWN";
+  if (!protocolCounts.empty()) {
+    // Simple majority detection
+    String maxProtocol = protocolCounts[0];
+    uint32_t maxCount = 0;
+    for (const auto& p : protocolCounts) {
+      uint32_t count = 0;
+      for (const auto& c : protocolCounts) {
+        if (c == p) count++;
+      }
+      if (count > maxCount) {
+        maxCount = count;
+        maxProtocol = p;
+      }
+    }
+    result.dominantProtocol = maxProtocol;
+  }
+
   result.success = result.codesCapTured > 0;
   result.logFile = "/logs/handshakes/ir_capture.csv";
 
@@ -67,25 +87,27 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
   return result;
 }
 
-String IrSniffer::identifyProtocol(const std::vector<uint16_t>& timings) {
-  if (timings.empty()) return "UNKNOWN";
+String IrSniffer::identifyProtocol(const decode_results& results) {
+  // Use IRremoteESP8266's built-in protocol identification
+  return decodeTypeToString(results.decode_type);
+}
 
-  // NEC: ~9ms header + 560µs units
-  if (timings.size() > 2 && timings[0] > 8000 && timings[0] < 10000) {
-    return "NEC";
+String IrSniffer::decodeTypeToString(decode_type_t type) {
+  switch (type) {
+    case decode_type_t::NEC: return "NEC";
+    case decode_type_t::RC5: return "RC5";
+    case decode_type_t::RC5X: return "RC5X";
+    case decode_type_t::RC6_M57: return "RC6";
+    case decode_type_t::SONY: return "SONY";
+    case decode_type_t::PANASONIC: return "PANASONIC";
+    case decode_type_t::JVC: return "JVC";
+    case decode_type_t::SAMSUNG: return "SAMSUNG";
+    case decode_type_t::LG: return "LG";
+    case decode_type_t::SANYO: return "SANYO";
+    case decode_type_t::MITSUBISHI: return "MITSUBISHI";
+    case decode_type_t::UNKNOWN:
+    default: return "UNKNOWN";
   }
-
-  // RC5: 1777µs units
-  if (timings.size() > 2 && timings[0] > 1500 && timings[0] < 2000) {
-    return "RC5";
-  }
-
-  // Sony: 2400µs header
-  if (timings.size() > 2 && timings[0] > 2000 && timings[0] < 2800) {
-    return "SONY";
-  }
-
-  return "UNKNOWN";
 }
 
 void IrSniffer::logCode(const IrCode& code) {

@@ -1,9 +1,10 @@
 #include "ir_fuzzing.h"
 #include <LittleFS.h>
+#include <IRsend.h>
 
 namespace IrFuzzing {
 
-IrFuzzer::IrFuzzer() : isRunning_(false), startTime_(0) {}
+IrFuzzer::IrFuzzer(uint8_t txPin) : irsend_(txPin), isRunning_(false), startTime_(0) {}
 
 FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
   FuzzResult result;
@@ -17,7 +18,6 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
     return result;
   }
 
-  pinMode(config.txPin, OUTPUT);
   isRunning_ = true;
   startTime_ = millis();
 
@@ -29,7 +29,10 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
       // Fuzz address field (0x00-0xFF)
       for (uint8_t addr = 0; addr < 256 && isRunning_; addr++) {
         for (uint8_t cmd = 0; cmd < 256; cmd++) {
-          // Simulate sending NEC command
+          // Send real NEC code with fuzzed address/command
+          uint32_t data = (addr << 24) | ((~addr & 0xFF) << 16) |
+                         (cmd << 8) | (~cmd & 0xFF);
+          irsend_.sendNEC(data, 32, 1);
           mutationCount++;
           result.mutationsSent++;
 
@@ -79,11 +82,25 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
       }
 
     } else if (config.mode == PROTOCOL_FUZZ) {
-      // Fuzz protocol bits and structures
-      const uint8_t protocols[] = {0x01, 0x02, 0x03}; // NEC=0x01, RC5=0x02, SONY=0x03
+      // Fuzz multiple protocols: NEC, RC5, Sony SIRC
+      const uint8_t protocols[] = {0x01, 0x02, 0x03}; // NEC, RC5, SONY
 
       for (int p = 0; p < 3 && isRunning_; p++) {
         for (uint8_t i = 0; i < 50; i++) {
+          if (protocols[p] == 0x01) {
+            // NEC protocol fuzzing
+            uint32_t data = random(0, 0xFFFFFFFF);
+            irsend_.sendNEC(data, 32, 1);
+          } else if (protocols[p] == 0x02) {
+            // RC5 protocol fuzzing
+            uint16_t data = random(0, 0xFFFF);
+            irsend_.sendRC5(data, 13, 1);
+          } else if (protocols[p] == 0x03) {
+            // Sony SIRC fuzzing
+            uint16_t data = random(0, 0xFFFF);
+            irsend_.sendSony(data, 15, 1);
+          }
+
           mutationCount++;
           result.mutationsSent++;
 
