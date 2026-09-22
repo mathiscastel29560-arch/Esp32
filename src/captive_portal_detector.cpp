@@ -84,32 +84,66 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
   portal.ssid = ssid;
   portal.rssi = WiFi.RSSI();
 
-  // Common captive portal detection URLs
+  // Comprehensive captive portal detection URLs (real world tests)
   const char* testUrls[] = {
-    "http://captive.apple.com/hotspot-detect.html",
-    "http://msftncsi.com/ncsi.txt",
-    "http://clients3.google.com/generate_204"
+    "http://captive.apple.com/hotspot-detect.html",      // Apple
+    "http://msftncsi.com/ncsi.txt",                       // Microsoft
+    "http://clients3.google.com/generate_204",            // Google
+    "http://connectivity-check.ubuntu.com/",              // Ubuntu
+    "http://example.com/",                                // Generic
+    "http://detectportal.firefox.com/success.txt",        // Firefox
+    "http://httpbin.org/status/200"                       // Generic HTTP test
   };
 
   for (const char* testUrl : testUrls) {
     HTTPClient http;
-    http.begin(testUrl);
-    int httpCode = http.GET();
+    http.setConnectTimeout(3000);
+    http.setTimeout(5000);
 
-    if (httpCode == 302 || httpCode == 307 || httpCode == 200) {
-      String location = http.getHeader("Location");
-      if (!location.isEmpty()) {
-        portal.redirectUrl = location;
-        portal.portalUrl = location;
-        result.portals.push_back(portal);
-        result.portalsFound++;
-        result.success = true;
-        logPortal(portal);
-        break;
+    if (http.begin(testUrl)) {
+      int httpCode = http.GET();
+
+      // Captive portal signs: redirect (30x) or unexpected content
+      if (httpCode > 0) {
+        String location = http.getHeader("Location");
+        String contentType = http.header("Content-Type");
+
+        // Redirect detected
+        if ((httpCode >= 301 && httpCode <= 307) && !location.isEmpty()) {
+          portal.redirectUrl = location;
+          portal.portalUrl = location;
+          portal.requiresAuth = true;
+          result.portals.push_back(portal);
+          result.portalsFound++;
+          result.success = true;
+          logPortal(portal);
+          http.end();
+          break;
+        }
+
+        // Unexpected content for connectivity test
+        if (httpCode == 200) {
+          String payload = http.getString();
+
+          // Check for portal indicators in HTML
+          if (payload.indexOf("login") >= 0 ||
+              payload.indexOf("password") >= 0 ||
+              payload.indexOf("authenticate") >= 0) {
+            portal.portalUrl = testUrl;
+            portal.requiresAuth = true;
+            result.portals.push_back(portal);
+            result.portalsFound++;
+            result.success = true;
+            logPortal(portal);
+            http.end();
+            break;
+          }
+        }
       }
+
+      http.end();
     }
 
-    http.end();
     delay(100);
   }
 
