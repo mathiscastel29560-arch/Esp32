@@ -5,6 +5,7 @@
 #include "drivers/gps_driver.h"
 #include "drivers/rtc_driver.h"
 #include "drivers/gpio_driver.h"
+#include <HardwareSerial.h>
 
 namespace Hardware {
 
@@ -40,13 +41,19 @@ bool initAll() {
         Serial.println("  ✗ RTC initialization failed (non-critical)");
     }
 
-    // GPS (UART)
-    Serial.println("[Hardware] 3/6 Initializing GPS (UART)...");
-    gps_ready = GPSDriver::init();
-    if (gps_ready) {
-        Serial.println("  ✓ GPS ready - waiting for satellite fix...");
+    // GPS (UART1) - Skip if GpsModule already initialized
+    Serial.println("[Hardware] 3/6 Initializing GPS (UART1)...");
+    // Guard: Check if GpsModule (existing) is using UART1
+    if (Serial1.baudRate() > 0) {
+        Serial.println("  ⚠️  UART1 already in use (GpsModule active) - skipping GPSDriver");
+        gps_ready = false;  // Disable driver, use existing GpsModule instead
     } else {
-        Serial.println("  ✗ GPS initialization failed");
+        gps_ready = GPSDriver::init();
+        if (gps_ready) {
+            Serial.println("  ✓ GPS ready - waiting for satellite fix...");
+        } else {
+            Serial.println("  ✗ GPS initialization failed");
+        }
     }
 
     // PN532 NFC (I2C)
@@ -61,6 +68,9 @@ bool initAll() {
 
     // CC1101 RF (SPI, 433 MHz)
     Serial.println("[Hardware] 5/6 Initializing CC1101 (433 MHz)...");
+    Serial.println("  ⚠️  Guard: Ensure SubGhz module is NOT active");
+    Serial.println("  (RadioLib and CC1101Driver conflict on same hardware)");
+
     CC1101Driver::Config cc1101_cfg = {
         .frequency = 433000000,
         .baudrate = 1000,

@@ -80,6 +80,11 @@ bool init(const Config& config) {
 
     Serial.println("[NRF24] Initializing SPI...");
 
+    // Guard: Warn about SPI bus sharing
+    Serial.println("[NRF24] ⚠️  WARNING: SPI bus shared with TFT, CC1101");
+    Serial.println("[NRF24]  Ensure Display and CC1101 are compatible or not active simultaneously");
+
+    // Use HSPI to share with CC1101 (TFT uses its own SPI management)
     spi = new SPIClass(HSPI);
     spi->begin(SPI_CLK, SPI_MISO, SPI_MOSI, NRF24_CS);
     spi->setFrequency(5000000);  // 5 MHz

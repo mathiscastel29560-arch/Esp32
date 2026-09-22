@@ -45,7 +45,12 @@ bool init(const Config& config) {
 
     Serial.println("[CC1101] Initializing SPI...");
 
-    // Initialize SPI
+    // Guard: Warn if RadioLib CC1101 is already in use (SubGhz module)
+    // SubGhz uses RadioLib which creates its own CC1101 instance
+    Serial.println("[CC1101] ⚠️  WARNING: Ensure SubGhz module is NOT active");
+    Serial.println("[CC1101]  Conflicts possible if SubGhz and CC1101Driver used simultaneously");
+
+    // Initialize SPI - use HSPI to avoid conflicts with TFT
     spi = new SPIClass(HSPI);
     spi->begin(SPI_CLK, SPI_MISO, SPI_MOSI, CC1101_CS);
     spi->setFrequency(1000000);  // 1 MHz SPI clock
