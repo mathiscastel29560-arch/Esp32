@@ -19,9 +19,7 @@ int initCC1101(float freq) {
         }
 
         radio.setOOK(true);
-        radio.setModulation(RADIOLIB_CC1101_MOD_OOK);
         radio.setRxBandwidth(58.0f);
-        radio.setRSSIThreshold(-100);
         radio.setBitRate(4.8f);
         g_radioInitialized = true;
     }
@@ -90,11 +88,6 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
     g_jamCount = 0;
     uint32_t startTime = millis();
 
-    while (millis() - startTime < durationMs && g_jamActive) {
-        // Send random reset/jam codes
-        uint32_t jamCode = (esp_random() % 0xFFFFFFFF);
-        sendResetCode(jamCode);
-
     if (initCC1101(433.92f) != RADIOLIB_ERR_NONE) {
         Serial.println("✗ CC1101 initialization failed");
         g_jamActive = false;
@@ -104,6 +97,7 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
     Serial.println("Transmitting Sub-GHz jamming signal...");
 
     while (millis() - startTime < durationMs && g_jamActive && TxArm::isArmed()) {
+        // Send jam carrier signal
         sendJamCarrier(433.92f, 1000);
 
         delay(5);

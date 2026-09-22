@@ -133,9 +133,9 @@ void displayScanResults(const String &title, const std::vector<ScanEntry> &resul
 
         // Signal indicator
         int signalVal = results[i].signal.toInt();
-        if (signalVal > 75) Serial.print(COLOR_GREEN + "███░░" + COLOR_RESET);
-        else if (signalVal > 50) Serial.print(COLOR_YELLOW + "██░░░" + COLOR_RESET);
-        else Serial.print(COLOR_RED + "█░░░░" + COLOR_RESET);
+        if (signalVal > 75) Serial.print(String(COLOR_GREEN) + "███░░" + COLOR_RESET);
+        else if (signalVal > 50) Serial.print(String(COLOR_YELLOW) + "██░░░" + COLOR_RESET);
+        else Serial.print(String(COLOR_RED) + "█░░░░" + COLOR_RESET);
 
         Serial.print(" ");
         Serial.print(results[i].signal);
@@ -214,7 +214,7 @@ void updateProgress(uint8_t step, const String &description) {
 
     Serial.print("║ [");
     for (uint8_t i = 0; i < 10; i++) {
-        if (i < step) Serial.print(COLOR_GREEN + "█" + COLOR_RESET);
+        if (i < step) Serial.print(String(COLOR_GREEN) + "█" + COLOR_RESET);
         else Serial.print("░");
     }
     Serial.println("] " + String(step * 10) + "%                  ║");
@@ -268,7 +268,7 @@ void displaySummary(const String &title, uint32_t total, uint32_t success,
     Serial.println("╠═════════════════════════════════════════╣");
     Serial.print("║ ");
     for (uint8_t i = 0; i < 10; i++) {
-        if (i < (percent / 10)) Serial.print(COLOR_GREEN + "█" + COLOR_RESET);
+        if (i < (percent / 10)) Serial.print(String(COLOR_GREEN) + "█" + COLOR_RESET);
         else Serial.print("░");
     }
     Serial.print(" " + String(percent) + "%");

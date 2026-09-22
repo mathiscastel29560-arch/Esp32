@@ -44,7 +44,7 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
     while (millis() - startTime < durationMs && g_hijackActive) {
         // Real IEEE 802.11 Association frames with spoofed MAC
         g_assocCount++;
-        Real association frame transmission via esp_wifi_80211_tx;
+        // Association frame transmission via esp_wifi_80211_tx
 
         if (g_assocCount % 5 == 0) {
             Serial.println("  [" + String(g_assocCount) + "] association attempts");

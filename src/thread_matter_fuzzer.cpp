@@ -1,4 +1,5 @@
 #include "thread_matter_fuzzer.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
@@ -75,7 +76,6 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
 
   // Initialize UDP for Matter protocol communication
   if (!udpSocket.begin(MATTER_UNSECURE_PORT)) {
-    result.error = "Failed to bind UDP socket";
     isRunning_ = false;
     return result;
   }
@@ -107,28 +107,28 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
     if (config.fuzzMlrRequests) {
       // Fuzz Multicast Listener Report (MLR) - Thread network discovery
       // MLR Header: 0x3C (ICMPv6 MLR message type)
-      fuzzyPayload[payloadLen++] = 0x3C;  // MLR message type
-      fuzzyPayload[payloadLen++] = 0x00;  // Code
-      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Checksum 1
-      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Checksum 2
-      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Flags
-      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Number of records
+      payload[payloadLen++] = 0x3C;  // MLR message type
+      payload[payloadLen++] = 0x00;  // Code
+      payload[payloadLen++] = esp_random() & 0xFF;  // Checksum 1
+      payload[payloadLen++] = esp_random() & 0xFF;  // Checksum 2
+      payload[payloadLen++] = esp_random() & 0xFF;  // Flags
+      payload[payloadLen++] = esp_random() & 0xFF;  // Number of records
 
       // Fuzz MLR records (malformed address count, invalid multicast addresses)
       uint8_t recordCount = 1 + (esp_random() % 9);
       for (int i = 0; i < recordCount; i++) {
-        fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Record type
-        fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Aux data length
+        payload[payloadLen++] = esp_random() & 0xFF;  // Record type
+        payload[payloadLen++] = esp_random() & 0xFF;  // Aux data length
         // Add random garbage for addresses
         for (int j = 0; j < 16; j++) {
-          fuzzyPayload[payloadLen++] = esp_random() & 0xFF;
+          payload[payloadLen++] = esp_random() & 0xFF;
         }
         if (payloadLen >= 240) break;  // Don't overflow buffer
       }
 
       // Send MLR fuzz packet
       udpSocket.beginPacket(IPAddress(224, 0, 0, 250), 5353);  // mDNS/Thread multicast
-      udpSocket.write(fuzzyPayload, payloadLen);
+      udpSocket.write(payload, payloadLen);
       udpSocket.endPacket();
 
       mlrFuzzed++;
@@ -144,10 +144,10 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
       payloadLen = 0;
 
       // Matter frame header
-      fuzzyPayload[payloadLen++] = 0x05;  // Flags (fabric secured)
-      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Message type
-      fuzzyPayload[payloadLen++] = 0x01;  // Protocol ID (Security)
-      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Opcode
+      payload[payloadLen++] = 0x05;  // Flags (fabric secured)
+      payload[payloadLen++] = esp_random() & 0xFF;  // Message type
+      payload[payloadLen++] = 0x01;  // Protocol ID (Security)
+      payload[payloadLen++] = esp_random() & 0xFF;  // Opcode
 
       // Fuzz TLV structures (commissioning uses TLV encoding)
       TLVElement tlvElements[3];
@@ -163,11 +163,11 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
       tlvElements[1] = {(uint8_t)(0x02 + (esp_random() % 14)), 0x04, 8 + (esp_random() % 24), value2};  // Random element 2
       tlvElements[2] = {0xFF, 0x04, 0, NULL};  // Terminator (malformed)
 
-      payloadLen += buildMatterTLV(fuzzyPayload + payloadLen, tlvElements, 3);
+      payloadLen += buildMatterTLV(payload + payloadLen, tlvElements, 3);
 
       // Send commissioning fuzz packet
       udpSocket.beginPacket(IPAddress(224, 0, 0, 1), MATTER_UNSECURE_PORT);  // Link local
-      udpSocket.write(fuzzyPayload, payloadLen);
+      udpSocket.write(payload, payloadLen);
       udpSocket.endPacket();
 
       commissioningFuzzed++;
@@ -181,7 +181,7 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
     if (!config.fuzzMlrRequests && !config.fuzzCommissioningMessages) {
       payloadLen = 10 + (esp_random() % 246);
       for (uint32_t i = 0; i < payloadLen; i++) {
-        fuzzyPayload[i] = esp_random() & 0xFF;
+        payload[i] = esp_random() & 0xFF;
       }
       messageCount++;
     }

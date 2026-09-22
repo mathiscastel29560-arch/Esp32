@@ -1,6 +1,7 @@
 #include "visual_notifications.h"
 #include "debug_logger.h"
 #include "menu_enhanced.h"
+#include <vector>
 
 namespace VisualNotifications {
 

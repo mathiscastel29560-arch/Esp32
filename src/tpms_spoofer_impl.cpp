@@ -32,7 +32,7 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
     };
 
     // Configure CC1101 for reception
-    CC1101Driver::setRX();
+    CC1101Driver::setRX(true);
 
     uint32_t startTime = millis();
     std::vector<TPMSSensor> captured;
@@ -41,7 +41,8 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
     while ((millis() - startTime) < captureDurationMs) {
         if (CC1101Driver::isRXReady()) {
             uint8_t frameData[32];
-            uint16_t frameLen = CC1101Driver::receive(frameData, sizeof(frameData));
+            uint8_t frameLen = 0;
+            if (CC1101Driver::receive(frameData, &frameLen, sizeof(frameData))) {
 
             if (frameLen >= 7) {  // Minimum TPMS frame size
                 // Parse TPMS frame: [Header:1] [ID:4] [Pressure:1] [Temp:1] [CRC:1+]
@@ -63,6 +64,7 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
                                  sensor.sensorID, sensor.pressure, sensor.temperature, rssi);
                 }
             }
+            }
         }
         delay(100);
     }
@@ -77,7 +79,7 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
         result.error = "No TPMS signals detected";
     }
 
-    CC1101Driver::setTX();  // Return to TX mode
+    CC1101Driver::setTX(true);  // Return to TX mode
     return result;
 }
 
@@ -100,7 +102,7 @@ TPMSResult spoofTPMSLow(const TPMSConfig& config) {
                   config.targetSensors.size(), config.durationMs);
 
     CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
-    CC1101Driver::setTX();
+    CC1101Driver::setTX(true);
 
     uint32_t startTime = millis();
 
@@ -160,7 +162,7 @@ TPMSResult spoofTPMSHigh(const TPMSConfig& config) {
                   config.targetSensors.size());
 
     CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
-    CC1101Driver::setTX();
+    CC1101Driver::setTX(true);
 
     uint32_t startTime = millis();
 
@@ -220,7 +222,7 @@ TPMSResult replayTPMSFrame(const TPMSConfig& config, const TPMSSensor& targetSen
                   targetSensor.sensorID, config.durationMs);
 
     CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
-    CC1101Driver::setTX();
+    CC1101Driver::setTX(true);
 
     uint32_t startTime = millis();
 
@@ -269,7 +271,7 @@ TPMSResult fuzzyTPMSFrames(const TPMSConfig& config) {
     Serial.printf("[TPMS Fuzz] Fuzzing TPMS subsystem for %lums\n", config.durationMs);
 
     CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
-    CC1101Driver::setTX();
+    CC1101Driver::setTX(true);
 
     uint32_t startTime = millis();
 

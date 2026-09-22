@@ -4,11 +4,24 @@
 
 namespace Settings {
 
-Config g_config = {true, true, true, 100, 50, false, false, 300, true};
+Config g_config;
+
+void initDefaultConfig() {
+    g_config.audioEffects = true;
+    g_config.achievements = true;
+    g_config.chaosMode = true;
+    g_config.brightness = 100;
+    g_config.contrast = 50;
+    g_config.invertColors = false;
+    g_config.autoLock = false;
+    g_config.lockTimeout = 300;
+    g_config.enableLogging = true;
+}
 
 const char* SETTINGS_FILE = "/config/settings.json";
 
 void initSettings() {
+    initDefaultConfig();
     if (!LittleFS.begin()) {
         Serial.println("LittleFS mount failed");
         return;

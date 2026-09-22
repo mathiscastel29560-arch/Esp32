@@ -15,6 +15,7 @@ ScannerResult MqttScanner::scanMqttBrokers(const ScannerConfig& config) {
 
   // Standard MQTT ports to probe
   const uint16_t ports[] = {1883, 8883, 9001, 8000, 8080};
+  const char* commonTopics[] = {"sensor", "device", "status", "data", "command", "update"};
 
   while (isRunning_ && (millis() - startTime) < config.scanDurationMs) {
     // Simulate broker discovery
@@ -28,7 +29,7 @@ ScannerResult MqttScanner::scanMqttBrokers(const ScannerConfig& config) {
       // Simulate topic discovery
       uint32_t topicCount = ((esp_random() % 6) + 2);
       for (uint32_t i = 0; i < topicCount; i++) {
-        String topic = commonTopics[(esp_random() % 6)];
+        String topic = String(commonTopics[(esp_random() % 6)]);
         topic += "/" + String((esp_random() % 100));
         broker.topics.push_back(topic);
         result.topicsDiscovered++;

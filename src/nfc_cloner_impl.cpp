@@ -17,10 +17,9 @@ ReadResult readNfcTag(uint32_t durationMs) {
     Serial.println("[NFC Cloner] Scanning for NFC tags...");
 
     while ((millis() - startTime) < durationMs) {
-        PN532Driver::Card card = PN532Driver::scanCard();
-
-        if (card.hasCard) {
-            result.tagUid = PN532Driver::getUIDString(card.uid, card.uidLength);
+        PN532Driver::Card card;
+        if (PN532Driver::scanCard(card)) {
+            result.tagUid = PN532Driver::getUIDString(card);
             result.tagContent = String("Detected: MIFARE Classic\n");
             result.tagContent += "UID: " + result.tagUid + "\n";
             result.tagContent += "Type: " + String(card.cardType) + "\n";
@@ -55,15 +54,14 @@ CloneResult cloneNfcTag(const char* sourceUid, uint32_t durationMs) {
     Serial.printf("[NFC Cloner] Attempting to scan and clone: %s\n", sourceUid);
 
     // First, scan for a writable card
-    PN532Driver::Card targetCard = PN532Driver::scanCard();
-
-    if (!targetCard.hasCard) {
+    PN532Driver::Card targetCard;
+    if (!PN532Driver::scanCard(targetCard)) {
         result.durationMs = millis() - startTime;
         return result;
     }
 
     result.sourceUid = String(sourceUid);
-    result.clonedUid = PN532Driver::getUIDString(targetCard.uid, targetCard.uidLength);
+    result.clonedUid = PN532Driver::getUIDString(targetCard);
     result.success = true;
     result.durationMs = millis() - startTime;
 
@@ -84,19 +82,21 @@ WriteResult writeNdefPayload(const char* tagUid, const char* maliciousPayload, u
     Serial.printf("[NFC Cloner] Writing NDEF payload to %s\n", tagUid);
 
     // Scan for the target card
-    PN532Driver::Card card = PN532Driver::scanCard();
-
-    if (!card.hasCard) {
+    PN532Driver::Card card;
+    if (!PN532Driver::scanCard(card)) {
         result.durationMs = millis() - startTime;
         return result;
     }
 
     // Write NDEF message to first block (block 1-3 for MIFARE Classic)
     // NDEF format: [length:1] [payload:n]
-    uint8_t ndefBlock[16] = {0};
+    uint8_t ndefBlockData[16] = {0};
     uint8_t payloadLen = strlen(maliciousPayload);
-    ndefBlock[0] = payloadLen;
-    memcpy(&ndefBlock[1], maliciousPayload, min((size_t)payloadLen, (size_t)15));
+    ndefBlockData[0] = payloadLen;
+    memcpy(&ndefBlockData[1], maliciousPayload, min((size_t)payloadLen, (size_t)15));
+
+    PN532Driver::BlockData ndefBlock;
+    memcpy(ndefBlock.data, ndefBlockData, 16);
 
     if (PN532Driver::writeBlock(card, 4, ndefBlock)) {
         result.payload = String(maliciousPayload);

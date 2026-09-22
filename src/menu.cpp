@@ -1151,12 +1151,31 @@ void runDeviceInfoAction(int idx) {
 void runDebugInfoAction(int idx) {
     switch (idx) {
         case 0: { // Memory - Using new stats display
-            std::vector<ResultsFormatter::StatEntry> stats = {
-                {"Free Heap", String(ESP.getFreeHeap() / 1024), " KB"},
-                {"Total Heap", String(ESP.getHeapSize() / 1024), " KB"},
-                {"Free PSRAM", String(ESP.getFreePsram() / 1024), " KB"},
-                {"Total PSRAM", String(ESP.getPsramSize() / 1024), " KB"},
-            };
+            std::vector<ResultsFormatter::StatEntry> stats;
+            ResultsFormatter::StatEntry e1;
+            e1.label = "Free Heap";
+            e1.value = String(ESP.getFreeHeap() / 1024);
+            e1.unit = " KB";
+            stats.push_back(e1);
+
+            ResultsFormatter::StatEntry e2;
+            e2.label = "Total Heap";
+            e2.value = String(ESP.getHeapSize() / 1024);
+            e2.unit = " KB";
+            stats.push_back(e2);
+
+            ResultsFormatter::StatEntry e3;
+            e3.label = "Free PSRAM";
+            e3.value = String(ESP.getFreePsram() / 1024);
+            e3.unit = " KB";
+            stats.push_back(e3);
+
+            ResultsFormatter::StatEntry e4;
+            e4.label = "Total PSRAM";
+            e4.value = String(ESP.getPsramSize() / 1024);
+            e4.unit = " KB";
+            stats.push_back(e4);
+
             ResultsFormatter::displayStats("System Memory", stats);
             break;
         }
@@ -1679,7 +1698,7 @@ void loop() {
             drawSimpleMenu(items, g_selection, "HELP");
             break;
 
-        case RESULT_SCREEN:
+        case RESULT_SCREEN: {
             Serial.println();
             drawStatusBar();
             Serial.println();
@@ -1733,7 +1752,7 @@ void loop() {
                 g_selection = 0;
             }
             break;
-
+        }
         default:
             break;
     }

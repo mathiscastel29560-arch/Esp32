@@ -82,9 +82,6 @@ PatternResult detectSignalPattern(uint32_t durationMs) {
     Serial.printf("  Analyzing signal patterns...\n");
     delay(durationMs);
 
-    result.patternLength = patternLength;
-    result.repetitions = repetitions;
-    result.patternType = patterns[patternIdx % 4];
     result.success = true;
 
     Serial.printf("✓ Pattern detected: %s (length: %u, reps: %u)\n",

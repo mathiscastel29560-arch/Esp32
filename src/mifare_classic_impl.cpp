@@ -141,8 +141,8 @@ CloneResult cloneMifareCard(const char* sourceUid, uint32_t durationMs) {
     bool allWritten = true;
     for (uint8_t sector = 0; sector < 4; sector++) {
         uint8_t block = sector * 4;
-        uint8_t sectorData[16];
-        memset(sectorData, 0xFF, 16);
+        PN532Driver::BlockData sectorData;
+        memset(sectorData.data, 0xFF, 16);
 
         // In real scenario, read from source card first, then write to target
         if (!PN532Driver::writeBlock(targetCard, block, sectorData)) {

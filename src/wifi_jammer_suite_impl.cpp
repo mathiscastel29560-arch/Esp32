@@ -13,59 +13,44 @@ void sendJamPacket() {
     for (int i = 0; i < 64; i++) {
         jamData[i] = (esp_random() % 256);
     }
-    return crc;
 }
 
 void sendBeaconJamFrame(const String& method) {
     uint8_t jamFrame[128];
-    ieee80211_frame_t* frame = (ieee80211_frame_t*)jamFrame;
+    for (int i = 0; i < 128; i++) {
+        jamFrame[i] = esp_random() & 0xFF;
+    }
 
+    // Send jam frame (simplified - just transmit random data pattern)
     if (method == "CHANNEL") {
-        frame->frameCtrl[0] = 0x80;
-        frame->frameCtrl[1] = 0x00;
-        frame->duration[0] = 0x00;
-        frame->duration[1] = 0x00;
+        jamFrame[0] = 0x80;  // Frame control
+        jamFrame[1] = 0x00;
 
-        memset(frame->addr1, 0xFF, 6);
-        for (int i = 0; i < 6; i++) {
-            frame->addr2[i] = esp_random() & 0xFF;
-            frame->addr3[i] = esp_random() & 0xFF;
+        // Fill with random data
+        for (int i = 2; i < 60; i++) {
+            jamFrame[i] = esp_random() & 0xFF;
         }
 
-        frame->seqCtrl[0] = esp_random() & 0xFF;
-        frame->seqCtrl[1] = esp_random() & 0xFF;
-
-        uint32_t len = sizeof(ieee80211_frame_t);
-        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, len, false);
+        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 60, false);
     }
     else if (method == "BEACON") {
-        frame->frameCtrl[0] = 0x80;
-        frame->frameCtrl[1] = 0x00;
-        memset(frame->addr1, 0xFF, 6);
-        for (int i = 0; i < 6; i++) {
-            frame->addr2[i] = esp_random() & 0xFF;
-            frame->addr3[i] = esp_random() & 0xFF;
-        }
+        jamFrame[0] = 0x80;  // Frame control
+        jamFrame[1] = 0x00;
 
-        uint8_t payload[50];
-        for (int i = 0; i < 50; i++) {
-            payload[i] = esp_random() & 0xFF;
+        // Fill with random data
+        for (int i = 2; i < 128; i++) {
+            jamFrame[i] = esp_random() & 0xFF;
         }
-
-        uint32_t frameLen = sizeof(ieee80211_frame_t);
-        memcpy(jamFrame + frameLen, payload, 50);
-        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, frameLen + 50, false);
+        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 128, false);
     }
     else {
         for (int attempt = 0; attempt < 3; attempt++) {
-            frame->frameCtrl[0] = 0x80 + attempt;
-            frame->frameCtrl[1] = 0x00;
-            memset(frame->addr1, 0xFF, 6);
-            for (int i = 0; i < 6; i++) {
-                frame->addr2[i] = esp_random() & 0xFF;
-                frame->addr3[i] = esp_random() & 0xFF;
+            jamFrame[0] = 0x80 + attempt;
+            jamFrame[1] = 0x00;
+            for (int i = 2; i < 128; i++) {
+                jamFrame[i] = esp_random() & 0xFF;
             }
-            esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, sizeof(ieee80211_frame_t), false);
+            esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 128, false);
             delayMicroseconds(50);
         }
     }

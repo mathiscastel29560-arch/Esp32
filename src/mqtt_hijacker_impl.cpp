@@ -40,15 +40,16 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
             broker.requiresAuth = ((esp_random() % 100) < 60);
             broker.timestamp = millis();
 
-        discoveredBrokers.push_back(broker);
-        brokerCount++;
+            discoveredBrokers.push_back(broker);
+            brokerCount++;
 
-        Serial.printf("  [Broker %u] %s:%u %s\n", brokerCount, broker.ipAddress.c_str(),
-                     broker.port, broker.requiresAuth ? "(Auth)" : "(No Auth)");
+            Serial.printf("  [Broker %u] %s:%u %s\n", brokerCount, broker.ipAddress.c_str(),
+                         broker.port, broker.requiresAuth ? "(Auth)" : "(No Auth)");
 
-        if (broker.rssi > strongestRssi) {
-            strongestRssi = broker.rssi;
-            strongestBroker = broker.ipAddress;
+            if (broker.rssi > strongestRssi) {
+                strongestRssi = broker.rssi;
+                strongestBroker = broker.ipAddress;
+            }
         }
         delay(100);
     }
@@ -124,17 +125,13 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
     Serial.printf("Duration: %lums\n", durationMs);
 
     const char* payloadTypes[] = {"COMMAND_INJECT", "CREDENTIAL_STEAL", "DEVICE_DISABLE", "STATE_MANIPULATION"};
+    const char* payloadType = "";
 
     uint32_t typeIndex = 0;
     while (millis() - startTime < durationMs) {
         // Different payload types
         int type = (esp_random() % 4);
-        switch(type) {
-            case 0: payloadType = "COMMAND_INJECT"; break;
-            case 1: payloadType = "CREDENTIAL_STEAL"; break;
-            case 2: payloadType = "DEVICE_DISABLE"; break;
-            case 3: payloadType = "STATE_MANIPULATION"; break;
-        }
+        payloadType = payloadTypes[type];
 
         injected += ((esp_random() % 15) + 5);
         delay(100);

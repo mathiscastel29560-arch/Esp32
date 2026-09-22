@@ -1,7 +1,6 @@
 #include "wpa2_handshake_cracker.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
-#include <mbedtls/pbkdf2.h>
 #include <mbedtls/md.h>
 
 namespace {
