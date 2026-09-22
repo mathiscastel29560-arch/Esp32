@@ -16,6 +16,7 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
     }
 
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
     frequencyPeaks.clear();
 
     int8_t dominantAmp = -100;
@@ -24,9 +25,9 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
 
     float freqRange = endFreq - startFreq;
     float step = freqRange / 20.0f;
-    if (step <= 0.0f) step = freqRange;  // Fallback if step is too small
+    if (step <= 0.0f) step = freqRange;
 
-    for (float freq = startFreq; freq <= endFreq && millis() - startTime < durationMs; freq += step) {
+    for (float freq = startFreq; freq <= endFreq && (int32_t)(millis() - deadline) < 0; freq += step) {
         if ((esp_random() % 100) < 25) {
             FrequencyPeak peak;
             peak.frequency = freq;
