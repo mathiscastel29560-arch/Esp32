@@ -33,9 +33,6 @@ bool init() {
     // Battery ADC
     analogReadResolution(12);  // 12-bit ADC
 
-    // Power switch
-    pinMode(SWITCH_POWER, INPUT_PULLUP);
-
     initialized = true;
     Serial.println("[GPIO] ✓ Initialized");
     return true;

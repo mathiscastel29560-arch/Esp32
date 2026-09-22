@@ -1,63 +1,63 @@
 #pragma once
+#include "config.h"
 
-// ============ GPIO PIN CONFIGURATION ============
-// Centralized hardware pin definitions for ESP32-S3 DevKit
+// ============ HARDWARE DRIVER PIN CONFIGURATION ============
+// Maps from config.h to driver-specific constants
+// All pins are locked to project HARDWARE.md pinout
 
-// ---- SPI Bus (for CC1101, NRF24L01, TFT) ----
-#define SPI_CLK   18
-#define SPI_MOSI  23
-#define SPI_MISO  19
+// ---- SPI Bus (Shared by TFT, CC1101, NRF24L01) ----
+#define SPI_CLK    PIN_SPI_SCK     // 12
+#define SPI_MOSI   PIN_SPI_MOSI    // 11
+#define SPI_MISO   PIN_SPI_MISO    // 13
 
 // ---- CC1101 Radio Module (433 MHz) ----
-#define CC1101_CS    5
-#define CC1101_GDO0  9    // Interrupt pin for RX
-#define CC1101_GDO2  10   // Optional second interrupt
+#define CC1101_CS    PIN_CC1101_CS      // 10
+#define CC1101_GDO0  PIN_CC1101_GDO0    // 4 (interrupt pin for RX)
+#define CC1101_GDO2  PIN_CC1101_GDO2    // 40
+#define CC1101_FREQ  CC1101_FREQ_MHZ    // 433.92 MHz
 
-// ---- NRF24L01 Radio Module (2.4 GHz) ----
-#define NRF24_CS   8
-#define NRF24_CE   12
+// ---- NRF24L01+PA/LNA Radio Module (2.4 GHz) ----
+#define NRF24_CS   PIN_NRF24_CS    // 14
+#define NRF24_CE   PIN_NRF24_CE    // 15
+#define NRF24_IRQ  PIN_NRF24_IRQ   // 41
 
-// ---- PN532 NFC/RFID Module ----
-// I2C Address: 0x24
-#define PN532_I2C_SDA  20
-#define PN532_I2C_SCL  21
+// ---- PN532 NFC/RFID Module (I2C) ----
+// Uses shared I2C bus with RTC
+#define PN532_I2C_SDA   PIN_I2C_SDA    // 8
+#define PN532_I2C_SCL   PIN_I2C_SCL    // 9
+#define PN532_I2C_ADDR  0x24           // PN532 I2C address
 
-// ---- GPS NEO-6M Module ----
-// UART2 (GPS uses Serial2 on ESP32)
-#define GPS_RX  16
-#define GPS_TX  17
-#define GPS_BAUD 9600
+// ---- GPS NEO-6M Module (UART1) ----
+#define GPS_RX     PIN_GPS_RX      // 18 (ESP32 RX <- GPS TX)
+#define GPS_TX     PIN_GPS_TX      // 17 (ESP32 TX -> GPS RX)
+#define GPS_UART   1               // UART1 (Serial1)
+#define GPS_BAUD   GPS_BAUD        // 9600
 
-// ---- RTC DS3231 Module ----
-// I2C Address: 0x68 (shares I2C with PN532)
-#define RTC_I2C_SDA  20
-#define RTC_I2C_SCL  21
+// ---- RTC DS3231 Module (I2C) ----
+// Shares I2C bus 0 with PN532 (SDA=8, SCL=9)
+#define RTC_I2C_SDA   PIN_I2C_SDA    // 8
+#define RTC_I2C_SCL   PIN_I2C_SCL    // 9
+#define RTC_I2C_ADDR  RTC_I2C_ADDR   // 0x68
 
 // ---- IR Receiver/Transmitter (GPIO) ----
-#define IR_RX_PIN  4    // Receiver (input)
-#define IR_TX_PIN  11   // Transmitter (output)
+#define IR_RX_PIN  PIN_IR_RX    // 39 (receiver input)
+#define IR_TX_PIN  PIN_IR_TX    // 38 (transmitter output)
 
 // ---- Buzzer (GPIO PWM) ----
-#define BUZZER_PIN  13
-#define BUZZER_CHANNEL 0
-#define BUZZER_FREQ 1000
+#define BUZZER_PIN      PIN_BUZZER     // 21
+#define BUZZER_CHANNEL  0              // PWM channel 0
+#define BUZZER_FREQ     1000           // Base frequency 1 kHz
 
 // ---- Button Controls (GPIO Input) ----
-#define BTN_UP    14    // Navigation up
-#define BTN_DOWN  15    // Navigation down
-#define BTN_OK    6     // Select/OK
-#define BTN_BACK  7     // Back/Return
-
-// ---- Slide Switch (Power/Mode) ----
-#define SWITCH_POWER  2
+#define BTN_UP     PIN_BTN_UP        // 1
+#define BTN_DOWN   PIN_BTN_DOWN      // 2
+#define BTN_OK     PIN_BTN_SELECT    // 6
+#define BTN_BACK   PIN_BTN_BACK      // 42
 
 // ---- Battery Monitoring (ADC) ----
-#define BATTERY_ADC_PIN  3   // GPIO3 = ADC1_CH2
-#define BATTERY_ADC_CH   ADC1_CHANNEL_2
-#define BATTERY_VOLTAGE_DIVIDER 2.0  // Voltage divider ratio (measure formula)
-
-// ---- TFT Display (SPI) ----
-#define TFT_CS   46
+#define BATTERY_ADC_PIN  PIN_BATTERY_ADC    // 7
+#define BATTERY_VOLTAGE_DIVIDER 2.0         // 2:1 voltage divider
+#define BATTERY_SAMPLES  4                  // Average 4 ADC samples
 #define TFT_DC   47
 #define TFT_RST  48
 #define TFT_BL   -1    // No backlight PWM (always on)

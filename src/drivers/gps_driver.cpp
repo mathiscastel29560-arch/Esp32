@@ -69,9 +69,9 @@ void parseGPGGA(const String& sentence) {
 bool init() {
     if (initialized) return true;
 
-    Serial.println("[GPS] Initializing UART2...");
+    Serial.println("[GPS] Initializing UART1...");
 
-    gpsSerial = new HardwareSerial(2);  // UART2
+    gpsSerial = new HardwareSerial(1);  // UART1 (pin 18 RX, 17 TX)
     gpsSerial->begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);
 
     delay(500);
