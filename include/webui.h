@@ -154,15 +154,28 @@ async function j(url, opts) {
   return r.json();
 }
 
+// Escape HTML special characters to prevent XSS
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 async function refreshStatus() {
   try {
     const s = await j('/api/status');
-    document.getElementById('status').innerHTML =
-      `<span class="badge">${s.time}</span>` +
+    let html = `<span class="badge">${escapeHtml(s.time)}</span>` +
       `<span class="badge">GPS: ${s.gpsFix ? ('fix, sats=' + s.sats) : 'no fix'}</span>` +
       `<span class="badge">AP clients: ${s.apClients}</span>` +
       `<span class="badge">Batt: ${s.battV}V (${s.battPct}%)</span>` +
       `<span class="badge ${s.safetyArmed ? 'armed' : 'safe'}">TX arm (BACK): ${s.safetyArmed ? 'HELD' : 'off'}</span>`;
+    document.getElementById('status').innerHTML = html;
     document.getElementById('warningBanner').hidden = !s.defaultApPassword;
   } catch (e) {}
 }
@@ -171,9 +184,21 @@ refreshStatus();
 
 async function wifiScan() {
   const rows = await j('/api/wifi/scan');
-  let html = '<tr><th>SSID</th><th>BSSID</th><th>RSSI</th><th>Ch</th><th>Enc</th></tr>';
-  rows.forEach(a => html += `<tr><td>${a.ssid}</td><td>${a.bssid}</td><td>${a.rssi}</td><td>${a.channel}</td><td>${a.enc}</td></tr>`);
-  document.getElementById('wifiTable').innerHTML = html;
+  const table = document.getElementById('wifiTable');
+  table.innerHTML = '';
+  const headerRow = table.insertRow();
+  ['SSID', 'BSSID', 'RSSI', 'Ch', 'Enc'].forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    headerRow.appendChild(th);
+  });
+  rows.forEach(a => {
+    const row = table.insertRow();
+    [escapeHtml(a.ssid), escapeHtml(a.bssid), a.rssi, a.channel, escapeHtml(a.enc)].forEach(cell => {
+      const td = row.insertCell();
+      td.textContent = cell;
+    });
+  });
 }
 
 async function wifiSniff() {
@@ -186,9 +211,21 @@ async function wifiSniff() {
 
 async function bleScan() {
   const rows = await j('/api/ble/scan?seconds=5');
-  let html = '<tr><th>Address</th><th>Name</th><th>RSSI</th><th>Fabricant</th></tr>';
-  rows.forEach(d => html += `<tr><td>${d.address}</td><td>${d.name}</td><td>${d.rssi}</td><td>${d.manufacturer}</td></tr>`);
-  document.getElementById('bleTable').innerHTML = html;
+  const table = document.getElementById('bleTable');
+  table.innerHTML = '';
+  const headerRow = table.insertRow();
+  ['Address', 'Name', 'RSSI', 'Fabricant'].forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    headerRow.appendChild(th);
+  });
+  rows.forEach(d => {
+    const row = table.insertRow();
+    [escapeHtml(d.address), escapeHtml(d.name), d.rssi, escapeHtml(d.manufacturer)].forEach(cell => {
+      const td = row.insertCell();
+      td.textContent = cell;
+    });
+  });
 }
 
 async function bleGattAudit() {
