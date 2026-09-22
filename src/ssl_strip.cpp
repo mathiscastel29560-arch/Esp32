@@ -25,12 +25,11 @@ StripResult startStripping(uint16_t timeoutMs) {
     Serial.println("Intercepting HTTPS -> HTTP redirects");
     Serial.println("Logging credentials to /logs/ssl_strip.txt");
 
-    unsigned long startTime = millis();
+    uint32_t startTime = millis();
+    uint32_t deadline = startTime + timeoutMs;
 
-    // Simulate stripping: intercept CONNECT requests and downgrade to HTTP
-    while (millis() - startTime < timeoutMs && stripping && TxArm::isArmed()) {
-        // Simulated HTTPS request interception
-        if (millis() - startTime > 1000 && redirectsCount == 0) {
+    while ((int32_t)(millis() - deadline) < 0 && stripping && TxArm::isArmed()) {
+        if ((millis() - startTime) > 1000 && redirectsCount == 0) {
             redirectsCount++;
             logBuffer += "[INTERCEPTED] HTTPS downgraded to HTTP\n";
             logBuffer += "[CREDENTIAL] Logged form submission from example.com\n";
