@@ -10,6 +10,7 @@
 #include "subghz.h"
 #include "wardriving.h"
 #include "deauth.h"
+#include "handshake_capture.h"
 #include "beacon_spam.h"
 #include "evil_portal.h"
 #include "ir_tools.h"
@@ -27,6 +28,7 @@ namespace {
 WebServer server(8080); // port 80 is reserved for EvilPortal's captive-portal page
 String g_lastAction = "booted";
 String g_lastCaptureFile = "";
+String g_lastHandshakeFile = "";
 IrTools::IrCapture g_lastIrCapture;
 bool g_haveIrCapture = false;
 
@@ -90,6 +92,30 @@ void handleWifiSniff() {
     json += "]";
     note("Sniffed " + String(clients.size()) + " clients on " + bssid);
     server.send(200, "application/json", json);
+}
+
+void handleHandshakeCapture() {
+    String bssid = server.arg("bssid");
+    uint8_t channel = (uint8_t)server.arg("channel").toInt();
+    uint32_t ms = server.hasArg("ms") ? server.arg("ms").toInt() : 9000;
+    auto result = HandshakeCapture::capture(bssid, channel, ms);
+    g_lastHandshakeFile = result.filePath;
+    note(result.eapolFrames > 0
+             ? ("Handshake capture: " + String(result.eapolFrames) + " EAPOL frames from " + bssid)
+             : ("Handshake capture: nothing seen on " + bssid));
+    server.send(200, "application/json",
+                "{\"eapolFrames\":" + String(result.eapolFrames) + ",\"file\":\"" +
+                    jsonEscape(result.filePath) + "\"}");
+}
+
+void handleHandshakeDownload() {
+    if (g_lastHandshakeFile.length() == 0 || !LittleFS.exists(g_lastHandshakeFile)) {
+        server.send(404, "text/plain", "no capture yet");
+        return;
+    }
+    File f = LittleFS.open(g_lastHandshakeFile, FILE_READ);
+    server.streamFile(f, "application/octet-stream");
+    f.close();
 }
 
 void handleBleScan() {
@@ -339,6 +365,8 @@ void begin() {
     server.on("/api/status", handleStatus);
     server.on("/api/wifi/scan", handleWifiScan);
     server.on("/api/wifi/sniff", handleWifiSniff);
+    server.on("/api/wifi/handshake", HTTP_POST, handleHandshakeCapture);
+    server.on("/api/wifi/handshake/download", handleHandshakeDownload);
     server.on("/api/ble/scan", handleBleScan);
     server.on("/api/nrf24/scan", handleNrfScan);
     server.on("/api/subghz/rssi", handleSubRssi);

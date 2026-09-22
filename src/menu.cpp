@@ -8,6 +8,7 @@
 #include "nrf24_tools.h"
 #include "subghz.h"
 #include "deauth.h"
+#include "handshake_capture.h"
 #include "beacon_spam.h"
 #include "evil_portal.h"
 #include "wardriving.h"
@@ -328,7 +329,18 @@ void runApAction(int idx) {
             showResult("Clients", body, WIFI_RESULTS);
             break;
         }
-        case 2: // Back
+        case 2: { // Capture Handshake
+            auto result = HandshakeCapture::capture(ap.bssid, ap.channel, 9000);
+            String body;
+            if (result.eapolFrames == 0) {
+                body = "No EAPOL frames seen.\nHold BACK to also\ntrigger a deauth.";
+            } else {
+                body = String(result.eapolFrames) + " EAPOL frame(s)\nsaved:\n" + result.filePath;
+            }
+            showResult("Handshake Capture", body, WIFI_RESULTS);
+            break;
+        }
+        case 3: // Back
             g_state = WIFI_RESULTS;
             break;
     }
@@ -390,7 +402,7 @@ void loop() {
         }
 
         case WIFI_AP_ACTION: {
-            std::vector<String> actions = {"Deauth this AP", "Sniff clients", "Back"};
+            std::vector<String> actions = {"Deauth this AP", "Sniff clients", "Capture Handshake", "Back"};
             if (btn == Buttons::UP) g_apActionSel = (g_apActionSel + actions.size() - 1) % actions.size();
             else if (btn == Buttons::DOWN) g_apActionSel = (g_apActionSel + 1) % actions.size();
             else if (btn == Buttons::SELECT) runApAction(g_apActionSel); // hold BACK while pressing SELECT to arm "Deauth this AP"

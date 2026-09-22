@@ -47,6 +47,7 @@ réservé à un environnement RF isolé sur un appareil que tu possèdes — voi
 | Wi-Fi | Deauth ciblé (BSSID + MAC client au choix) | **oui — maintenir RETOUR** |
 | Wi-Fi | Beacon spam (SSID que tu fournis, test WIDS/rogue-AP) | **oui — maintenir RETOUR** |
 | Wi-Fi | Faux portail captif (page générique, logs locaux uniquement) | **oui — maintenir RETOUR** |
+| Wi-Fi | Capture handshake WPA2/EAPOL (.pcap, cassage hors ligne) — deauth déclencheur optionnel | passif seul / **oui si RETOUR** |
 | BLE (M1) | Scan/inventaire : adresse, RSSI, nom, UUID services, fabricant | non |
 | BLE (M2) | Audit GATT d'un appareil (lecture sans appairage, écriture sans auth, Just Works, fuites Device Info) | non* |
 | BLE (M3) | Détecteur de BLE-spam (Continuity/Fast Pair/Swift Pair), défensif | non |
@@ -167,8 +168,8 @@ pour un module 128x64 (`OLED_WIDTH`/`OLED_HEIGHT` dans `config.h` — passe à
 - Pour une action marquée "maintenir RETOUR" : maintiens RETOUR enfoncé
   puis appuie sur OK pendant que tu le maintiens — un appui bref sur
   RETOUR seul reste juste de la navigation.
-- Le menu couvre : scan Wi-Fi (avec, par AP, deauth ciblé ou sniff des
-  clients), scan BLE (avec, par appareil, audit GATT ou fuzz), scan
+- Le menu couvre : scan Wi-Fi (avec, par AP, deauth ciblé, sniff des
+  clients ou capture de handshake WPA2/EAPOL), scan BLE (avec, par appareil, audit GATT ou fuzz), scan
   2.4GHz, scan/capture/rejeu sub-GHz, bascule beacon-spam et faux-portail
   (SSID par défaut dans `config.h` — `DEFAULT_BEACON_SSIDS` /
   `DEFAULT_PORTAL_SSID`, à éditer puisque taper du texte libre avec 4
@@ -307,7 +308,7 @@ FEATURES.md      spec de la suite d'audit BLE (modules 1-4)
 include/         headers + config.h (pinout) + webui.h (page HTML embarquée)
 src/             un module par domaine :
                  rtc_clock, gps_module, battery, display, buzzer, tx_arm,
-                 buttons, menu, wifi_tools, deauth, beacon_spam,
+                 buttons, menu, wifi_tools, deauth, handshake_capture, beacon_spam,
                  evil_portal, ble_tools, ble_gatt_audit, ble_spam_detector,
                  ble_fuzzer, nrf24_tools, subghz, ir_tools, wardriving,
                  web_ctrl, mascot, skull, dualboot, main.cpp

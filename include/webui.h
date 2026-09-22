@@ -97,6 +97,16 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 </div>
 
 <div class="card">
+  <h2>Capture Handshake (EAPOL / WPA2)</h2>
+  <p style="font-size:12px;color:#9ecbff">Ecoute passive. Maintiens RETOUR au clic pour aussi forcer un deauth (reconnexion = nouvelle poignée de main).</p>
+  <input id="hsBssid" placeholder="BSSID AP">
+  <input id="hsChannel" placeholder="canal" size="3" value="1">
+  <button onclick="handshakeCapture()">Capturer (9s)</button>
+  <div id="hsOut"></div>
+  <a id="hsDownload" href="/api/wifi/handshake/download" style="display:none">Télécharger le .pcap</a>
+</div>
+
+<div class="card">
   <h2>&#9888; Beacon spam (SSID de test que tu fournis)</h2>
   <p style="font-size:12px;color:#9ecbff">Maintiens le bouton RETOUR sur l'appareil au moment de cliquer "Démarrer".</p>
   <input id="beaconSsids" placeholder="ssid1,ssid2,ssid3">
@@ -241,6 +251,21 @@ async function deauth() {
   const channel = document.getElementById('deauthChannel').value || 1;
   const res = await j(`/api/wifi/deauth?bssid=${encodeURIComponent(bssid)}&client=${encodeURIComponent(client)}&channel=${channel}`, {method: 'POST'});
   document.getElementById('deauthOut').textContent = res.ok ? 'envoyé' : 'bloqué (interrupteur de sécurité désarmé ?)';
+}
+
+async function handshakeCapture() {
+  const bssid = document.getElementById('hsBssid').value;
+  const channel = document.getElementById('hsChannel').value || 1;
+  document.getElementById('hsOut').textContent = 'capture en cours (9s)...';
+  const res = await j(`/api/wifi/handshake?bssid=${encodeURIComponent(bssid)}&channel=${channel}`, {method: 'POST'});
+  const dl = document.getElementById('hsDownload');
+  if (res.eapolFrames > 0) {
+    document.getElementById('hsOut').textContent = `${res.eapolFrames} trame(s) EAPOL -> ${res.file}`;
+    dl.style.display = 'inline';
+  } else {
+    document.getElementById('hsOut').textContent = 'aucune trame EAPOL vue';
+    dl.style.display = 'none';
+  }
 }
 
 async function beaconStart() {
