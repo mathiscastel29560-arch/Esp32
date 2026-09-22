@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 
 #include "config.h"
+#include "rollback_safety.h"
 #include "rtc_clock.h"
 #include "gps_module.h"
 #include "display.h"
@@ -39,6 +40,8 @@ void setup() {
         Serial.println("    This is a SECURITY RISK in field use.");
         Serial.println("    Edit config.h line 78 before compiling for deployment.\n");
     }
+
+    RollbackSafety::begin();
 
     LittleFS.begin(true); // format on first boot if no filesystem is found
 
@@ -84,6 +87,8 @@ void setup() {
 }
 
 void loop() {
+    RollbackSafety::confirmBoot();
+
     GpsModule::poll();
     WebCtrl::loop();
     BeaconSpam::loop();
