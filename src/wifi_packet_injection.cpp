@@ -1,10 +1,25 @@
 #include "wifi_packet_injection.h"
 #include <LittleFS.h>
 #include <esp_wifi.h>
+#include <WiFi.h>
 
 namespace WifiPacketInjection {
 
 PacketInjector::PacketInjector() : isRunning_(false), seqNum_(0), startTime_(0) {}
+
+void PacketInjector::setupWifiInjectionMode(uint8_t channel) {
+  // Initialize WiFi in STA mode for packet injection
+  WiFi.mode(WIFI_STA);
+
+  // Disconnect from any AP
+  WiFi.disconnect(false); // false = keep RF on
+
+  // Set to specific channel
+  esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+
+  // Enable promiscuous mode for monitoring
+  esp_wifi_set_promiscuous(true);
+}
 
 InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
   InjectionResult result;
@@ -15,6 +30,9 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
     result.error = "TX not armed";
     return result;
   }
+
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
 
   isRunning_ = true;
   startTime_ = millis();
@@ -49,7 +67,7 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
   return result;
 }
 
-InjectionResult PacketInjection::injectProbe(const InjectionConfig& config) {
+InjectionResult PacketInjector::injectProbe(const InjectionConfig& config) {
   InjectionResult result;
   result.success = false;
   result.packetsSent = 0;
@@ -58,6 +76,9 @@ InjectionResult PacketInjection::injectProbe(const InjectionConfig& config) {
     result.error = "TX not armed";
     return result;
   }
+
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
 
   isRunning_ = true;
   startTime_ = millis();
@@ -97,6 +118,9 @@ InjectionResult PacketInjector::injectAuth(const InjectionConfig& config) {
     result.error = "TX not armed";
     return result;
   }
+
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
 
   isRunning_ = true;
   startTime_ = millis();
@@ -139,6 +163,9 @@ InjectionResult PacketInjector::injectAssoc(const InjectionConfig& config) {
     return result;
   }
 
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
+
   isRunning_ = true;
   startTime_ = millis();
 
@@ -175,6 +202,9 @@ InjectionResult PacketInjector::fuzzFrames(const InjectionConfig& config) {
     result.error = "TX not armed";
     return result;
   }
+
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
 
   isRunning_ = true;
   startTime_ = millis();
