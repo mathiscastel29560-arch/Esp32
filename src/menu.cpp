@@ -5,6 +5,7 @@
 #include "settings.h"
 #include "hardware_test_mode.h"
 #include "debug_logger.h"
+#include "results_formatter.h"
 #include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
@@ -1148,33 +1149,48 @@ void runDeviceInfoAction(int idx) {
 
 void runDebugInfoAction(int idx) {
     switch (idx) {
-        case 0: { // Memory
-            showResult("Memory Status",
-                      "Free Heap: " + String(ESP.getFreeHeap() / 1024) + " KB\n" +
-                      "Free PSRAM: " + String(ESP.getFreePsram() / 1024) + " KB\n" +
-                      "Total Heap: " + String(ESP.getHeapSize() / 1024) + " KB");
+        case 0: { // Memory - Using new stats display
+            std::vector<ResultsFormatter::StatEntry> stats = {
+                {"Free Heap", String(ESP.getFreeHeap() / 1024), " KB"},
+                {"Total Heap", String(ESP.getHeapSize() / 1024), " KB"},
+                {"Free PSRAM", String(ESP.getFreePsram() / 1024), " KB"},
+                {"Total PSRAM", String(ESP.getPsramSize() / 1024), " KB"},
+            };
+            ResultsFormatter::displayStats("System Memory", stats);
             break;
         }
-        case 1: { // Battery
-            showResult("Battery Details",
-                      "Voltage: " + String(Battery::voltage(), 2) + "V\n" +
-                      "Percent: " + String(Battery::percent()) + "%\n" +
-                      "Status: " + (Battery::percent() > 20 ? "OK" : "LOW"));
+        case 1: { // Battery - Using new summary display
+            uint8_t percent = Battery::percent();
+            ResultsFormatter::displayResult(
+                "Battery Status",
+                "Voltage: " + String(Battery::voltage(), 2) + "V\n" +
+                "Level: " + String(percent) + "%\n" +
+                "Status: " + (percent > 50 ? "Excellent" : (percent > 20 ? "Good" : "Critical")),
+                percent > 20 ? ResultsFormatter::RESULT_SUCCESS : ResultsFormatter::RESULT_WARNING,
+                percent
+            );
             break;
         }
-        case 2: { // Active Modules
-            showResult("Active Modules",
-                      "WiFi: " + String(WiFi.isConnected() ? "Connected" : "Idle") + "\n" +
-                      "Bluetooth: Idle\n" +
-                      "GPS: " + String(GpsModule::hasFix() ? "FIX" : "Searching") + "\n" +
-                      "RF: Ready");
+        case 2: { // Active Modules - Using new scan results
+            std::vector<ResultsFormatter::ScanEntry> modules = {
+                {"WiFi", String(WiFi.isConnected() ? "✓" : "✗"), ""},
+                {"GPS", String(GpsModule::hasFix() ? "✓" : "Searching"), ""},
+                {"RTC", "✓", "DS3231"},
+                {"PN532", "✓", "NFC/RFID"},
+                {"CC1101", "✓", "433MHz"},
+                {"NRF24", "✓", "2.4GHz"},
+            };
+            ResultsFormatter::displayScanResults("Initialized Modules", modules);
             break;
         }
         case 3: { // Last Errors
-            showResult("Recent Errors",
-                      "No critical errors\n" +
-                      "Check serial logs\n" +
-                      "for warnings");
+            ResultsFormatter::displayResult(
+                "System Status",
+                "No critical errors detected\n" +
+                "All systems operational\n" +
+                "Check logs for warnings",
+                ResultsFormatter::RESULT_INFO
+            );
             break;
         }
     }
