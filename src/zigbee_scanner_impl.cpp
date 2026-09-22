@@ -22,18 +22,18 @@ ScanResult scanZigbeeDevices(uint32_t durationMs) {
         // Scan this channel for ~300ms
         while (millis() - channelStartTime < 300 && millis() - startTime < durationMs) {
             // Simulate finding devices (probability-based)
-            if (random(100) < 15) {  // 15% chance to find device
+            if ((esp_random() % 100) < 15) {  // 15% chance to find device
                 ZigbeeDevice dev;
-                dev.panId = random(0x0001, 0xFFFE);
-                dev.shortAddr = random(0x0001, 0xFFFE);
-                dev.ieeeAddr = ((uint64_t)random(0, 0xFFFF) << 32) | random(0, 0xFFFFFFFF);
-                dev.rssi = -30 - random(0, 60);  // -30 to -90 dBm
+                dev.panId = ((esp_random() % 65533) + 1);
+                dev.shortAddr = ((esp_random() % 65533) + 1);
+                dev.ieeeAddr = ((uint64_t)(esp_random() % 65535) << 32) | (esp_random() % 4294967295);
+                dev.rssi = -30 - (esp_random() % 60);  // -30 to -90 dBm
                 dev.channel = channel;
                 dev.timestamp = millis();
 
                 // Classify device type
-                if (random(100) < 30) dev.deviceType = "Coordinator";
-                else if (random(100) < 50) dev.deviceType = "Router";
+                if ((esp_random() % 100) < 30) dev.deviceType = "Coordinator";
+                else if ((esp_random() % 100) < 50) dev.deviceType = "Router";
                 else dev.deviceType = "EndDevice";
 
                 discoveredDevices.push_back(dev);
@@ -74,25 +74,25 @@ InjectionResult injectZigbeeFrames(uint32_t durationMs, const char* attackType) 
     if (type == "BEACON_FLOOD") {
         // Flood Zigbee beacons to disrupt discovery
         while (millis() - startTime < durationMs) {
-            framesSent += random(10, 50);  // Send 10-50 frames per iteration
+            framesSent += ((esp_random() % 40) + 10);  // Send 10-50 frames per iteration
             delay(100);
         }
     } else if (type == "PERMIT_JOIN") {
         // Exploit permit join mode for unauthorized device pairing
         while (millis() - startTime < durationMs) {
-            framesSent += random(5, 15);
+            framesSent += ((esp_random() % 10) + 5);
             delay(200);
         }
     } else if (type == "LEAVE_NETWORK") {
         // Force devices to leave network
         while (millis() - startTime < durationMs) {
-            framesSent += random(3, 10);
+            framesSent += ((esp_random() % 7) + 3);
             delay(300);
         }
     } else if (type == "KEY_REQUEST") {
         // Intercept key establishment frames
         while (millis() - startTime < durationMs) {
-            framesSent += random(2, 8);
+            framesSent += ((esp_random() % 6) + 2);
             delay(500);
         }
     }
@@ -118,12 +118,12 @@ KeyRecoveryResult attemptKeyRecovery(uint32_t durationMs) {
         attempts++;
 
         // Simulate key recovery success after enough attempts
-        if (attempts > 1000 && random(100) < 5) {  // Small chance after many attempts
+        if (attempts > 1000 && (esp_random() % 100) < 5) {  // Small chance after many attempts
             // Generate fake recovered key
             char keyBuf[33] = {0};
             snprintf(keyBuf, sizeof(keyBuf), "%016llX%016llX",
-                    random(0, 0xFFFFFFFF) | ((uint64_t)random(0, 0xFFFFFFFF) << 32),
-                    random(0, 0xFFFFFFFF) | ((uint64_t)random(0, 0xFFFFFFFF) << 32));
+                    (esp_random() % 4294967295) | ((uint64_t)(esp_random() % 4294967295) << 32),
+                    (esp_random() % 4294967295) | ((uint64_t)(esp_random() % 4294967295) << 32));
             result.keyRecovered = String(keyBuf);
             result.success = true;
             break;

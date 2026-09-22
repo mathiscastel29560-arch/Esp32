@@ -108,8 +108,8 @@ AnalysisResult Analyzer::scanChannel(uint8_t channel, uint32_t durationMs) {
   scan.channel = channel;
   scan.rssi = avgRssi;
   scan.networkCount = networkCount;
-  scan.packetCount = networkCount * (random(5, 50)); // Simulated packet count
-  scan.interferenceLevel = random(0, 100);
+  scan.packetCount = networkCount * (((esp_random() % 45) + 5)); // Simulated packet count
+  scan.interferenceLevel = (esp_random() % 100);
 
   channelStats_[channel] = scan;
   logAnalysis(scan);
@@ -169,7 +169,7 @@ String Analyzer::generateReport(const AnalysisResult& result) {
 
 void Analyzer::updateChannelStats(uint8_t channel, int32_t rssi) {
   if (channelStats_.find(channel) == channelStats_.end()) {
-    channelStats_[channel] = ChannelScan{channel, rssi, 1, 0, random(0, 100)};
+    channelStats_[channel] = ChannelScan{channel, rssi, 1, 0, (esp_random() % 100)};
   } else {
     channelStats_[channel].rssi = (channelStats_[channel].rssi + rssi) / 2;
     channelStats_[channel].networkCount++;

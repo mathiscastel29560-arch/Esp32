@@ -43,8 +43,8 @@ AnalysisResult analyzeBands(uint32_t durationMs) {
     BandAnalysis band_433{
         "433MHz (Sub-GHz)",
         433.0f, 435.0f,
-        (int8_t)random(-100, -50),
-        (uint32_t)random(0, 5)
+        (int8_t)((esp_random() % 50) + -100),
+        (uint32_t)(esp_random() % 5)
     };
     result.bands.push_back(band_433);
     result.totalSignals += band_433.signalsDetected;

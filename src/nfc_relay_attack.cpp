@@ -19,14 +19,14 @@ RelayResult NfcRelay::performRelay(const RelayConfig& config) {
 
   while (isRunning_ && (millis() - startTime) < config.durationMs) {
     // Simulate NFC relay attack
-    if (random(0, 100) < 20) { // 20% detection rate
+    if ((esp_random() % 100) < 20) { // 20% detection rate
       relayCount++;
 
       if (config.capturePayload) {
         // Simulate payload capture
         uint8_t payload[64];
         for (int i = 0; i < 64; i++) {
-          payload[i] = random(0, 256);
+          payload[i] = (esp_random() % 256);
         }
         capturedCount++;
       }

@@ -24,21 +24,21 @@ DebugResult Debugger::scanDebugInterfaces(const DebugConfig& config) {
       // Simulate debug interface detection
       if (config.interface == UART) {
         // Look for TX/RX patterns (alternating 1s and 0s)
-        if (random(0, 100) < 15) {
+        if ((esp_random() % 100) < 15) {
           result.interfaceFound = true;
           result.deviceInfo = "UART found on GPIO" + String(pin);
           break;
         }
       } else if (config.interface == JTAG) {
         // Look for TCK/TMS patterns
-        if (random(0, 100) < 10) {
+        if ((esp_random() % 100) < 10) {
           result.interfaceFound = true;
           result.deviceInfo = "JTAG found on GPIO" + String(pin);
           break;
         }
       } else if (config.interface == SWD) {
         // Look for SWCLK/SWDIO patterns
-        if (random(0, 100) < 12) {
+        if ((esp_random() % 100) < 12) {
           result.interfaceFound = true;
           result.deviceInfo = "SWD found on GPIO" + String(pin);
           break;
@@ -52,7 +52,7 @@ DebugResult Debugger::scanDebugInterfaces(const DebugConfig& config) {
     delay(100);
   }
 
-  result.registersRead = random(10, 100);
+  result.registersRead = ((esp_random() % 90) + 10);
   result.success = result.interfaceFound;
   result.logFile = "/logs/handshakes/gpio_debug.csv";
 
@@ -78,7 +78,7 @@ DebugResult Debugger::dumpFirmware() {
   result.success = false;
 
   // Simulate firmware extraction via JTAG/SWD
-  result.registersRead = random(1000, 5000);
+  result.registersRead = ((esp_random() % 4000) + 1000);
   result.success = true;
   result.logFile = "/logs/handshakes/firmware_dump.csv";
 

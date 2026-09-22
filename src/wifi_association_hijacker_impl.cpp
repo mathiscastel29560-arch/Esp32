@@ -34,7 +34,7 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
     // Generate spoofed MAC
     uint8_t spoofMAC[6];
     for (int i = 0; i < 6; i++) {
-        spoofMAC[i] = random(0, 256);
+        spoofMAC[i] = (esp_random() % 256);
     }
     char macStr[18];
     sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",

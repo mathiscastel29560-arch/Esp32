@@ -67,7 +67,7 @@ AttackResult bruteforcePin(const ClassicConfig &config) {
         delay(300);  // Realistic pairing attempt delay
 
         // Simulate occasional success (1 in 100 attempts)
-        if (random(0, 100) == 0) {
+        if ((esp_random() % 100) == 0) {
             result.validPin = pin;
             result.success = true;
             Serial.printf("\n[BLE Classic] SUCCESS: PIN %04d works!\n", pin);
@@ -118,7 +118,7 @@ AttackResult fuzz(const ClassicConfig &config) {
         }
 
         // Generate random malformed L2CAP packets
-        uint16_t len = random(1, 100);
+        uint16_t len = ((esp_random() % 99) + 1);
 
         Serial.printf("[BLE Classic] Fuzz packet #%d: %d bytes\r", g_attemptCount, len);
 

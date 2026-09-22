@@ -25,12 +25,12 @@ FuzzResult FuzzingEngine::fuzzSubGhz(const FuzzConfig& config) {
 
     uint32_t freq = config.baseFreq;
     if (config.randomizeFreq) {
-      freq += random(-100000, 100000);
+      freq += ((esp_random() % 200000) + -100000);
     }
 
     uint32_t modulation = config.modulation;
     if (config.varyModulation) {
-      modulation = random(0, 3);
+      modulation = (esp_random() % 3);
       mutations++;
     }
 
@@ -48,9 +48,9 @@ FuzzResult FuzzingEngine::fuzzSubGhz(const FuzzConfig& config) {
 }
 
 void FuzzingEngine::generateFuzzVector(std::vector<uint8_t>& payload) {
-  uint32_t len = random(8, 64);
+  uint32_t len = ((esp_random() % 56) + 8);
   for (uint32_t i = 0; i < len; i++) {
-    payload.push_back(random(0, 256));
+    payload.push_back((esp_random() % 256));
   }
 }
 

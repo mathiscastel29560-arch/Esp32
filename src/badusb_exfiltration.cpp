@@ -19,15 +19,15 @@ UsbResult BadUsb::executePayload(const UsbConfig& config) {
   uint32_t exfiltratedBytes = 0;
 
   while (isRunning_ && (millis() - startTime) < config.durationMs) {
-    if (config.captureScreenshots && random(0, 100) < 10) {
+    if (config.captureScreenshots && (esp_random() % 100) < 10) {
       // Simulate screenshot capture
       screenshotCount++;
-      exfiltratedBytes += random(100000, 500000); // Simulated screenshot size
+      exfiltratedBytes += ((esp_random() % 400000) + 100000); // Simulated screenshot size
     }
 
-    if (config.logKeypresses && random(0, 100) < 30) {
+    if (config.logKeypresses && (esp_random() % 100) < 30) {
       // Simulate keylogger
-      keystrokeCount += random(1, 10);
+      keystrokeCount += ((esp_random() % 9) + 1);
     }
 
     if (config.exfiltrateData && keystrokeCount > 0) {
@@ -66,7 +66,7 @@ UsbResult BadUsb::captureScreenshot() {
 
   // Simulate screenshot capture
   result.screenshotsCaptured = 1;
-  result.bytesExfiltrated = random(100000, 500000);
+  result.bytesExfiltrated = ((esp_random() % 400000) + 100000);
   result.success = true;
 
   return result;

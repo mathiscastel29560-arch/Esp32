@@ -61,8 +61,8 @@ void sendSpoofSignal(float lat, float lon, const String &method) {
         generateRawSignal(lat + drift, lon + drift);
     } else if (method == "RANDOM") {
         // Random jitter
-        float jitter_lat = (random(-100, 100) / 100000.0f);
-        float jitter_lon = (random(-100, 100) / 100000.0f);
+        float jitter_lat = (((esp_random() % 200) + -100) / 100000.0f);
+        float jitter_lon = (((esp_random() % 200) + -100) / 100000.0f);
         generateRawSignal(lat + jitter_lat, lon + jitter_lon);
     }
 }

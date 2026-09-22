@@ -8,10 +8,10 @@ InjectionResult injectCustomPacket(const char* payload, const char* radioType, u
 
     String radio = String(radioType);
     if (radio == "auto") {
-        radio = (random(100) < 50) ? "cc1101" : "nrf24";
+        radio = ((esp_random() % 100) < 50) ? "cc1101" : "nrf24";
     }
 
-    result.packetsSent = random(100, 1000);
+    result.packetsSent = ((esp_random() % 900) + 100);
     result.radioType = radio;
 
     delay(durationMs);
@@ -23,8 +23,8 @@ ReplayResult replayPackets(const uint8_t* capturedData, uint32_t dataLength, uin
     ReplayResult result = {true, 0, 0, ""};
     uint32_t startTime = millis();
 
-    result.packetsReplayed = (dataLength > 0) ? random(5, 50) : 0;
-    result.radioUsed = (random(100) < 70) ? "CC1101" : "NRF24";
+    result.packetsReplayed = (dataLength > 0) ? ((esp_random() % 45) + 5) : 0;
+    result.radioUsed = ((esp_random() % 100) < 70) ? "CC1101" : "NRF24";
 
     if (dataLength > 0) delay(durationMs);
 
@@ -36,8 +36,8 @@ FuzzResult fuzzPackets(const char* radioType, uint32_t durationMs) {
     FuzzResult result = {true, 0, 0, 0};
     uint32_t startTime = millis();
 
-    result.fuzzedPackets = random(1000, 10000);
-    result.crashesFound = random(0, 3);
+    result.fuzzedPackets = ((esp_random() % 9000) + 1000);
+    result.crashesFound = (esp_random() % 3);
 
     delay(durationMs);
     result.durationMs = millis() - startTime;

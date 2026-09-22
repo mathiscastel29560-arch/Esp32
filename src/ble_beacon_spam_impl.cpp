@@ -21,7 +21,7 @@ uint8_t msSwiftPairPayload[] = {0x05, 0xFF, 0x06, 0x00, 0x01, 0x00, 0x00};
 
 void generateRandomMAC(uint8_t *mac) {
     for (int i = 0; i < 6; i++) {
-        mac[i] = random(0, 256);
+        mac[i] = (esp_random() % 256);
     }
     mac[0] &= 0xFE;  // Clear bit 0 to make it valid
 }

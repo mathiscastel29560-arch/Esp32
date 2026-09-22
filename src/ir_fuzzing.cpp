@@ -33,7 +33,7 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
           mutationCount++;
           result.mutationsSent++;
 
-          if (config.targetSpecificDevice && random(0, 100) < 5) {
+          if (config.targetSpecificDevice && (esp_random() % 100) < 5) {
             successCount++;
           }
 
@@ -51,13 +51,13 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
 
     } else if (config.mode == COMMAND_FUZZ) {
       // Fuzz command field only (fixed address)
-      uint8_t fixedAddr = random(0, 256);
+      uint8_t fixedAddr = (esp_random() % 256);
 
       for (uint8_t cmd = 0; cmd < 256 && isRunning_; cmd++) {
         mutationCount++;
         result.mutationsSent++;
 
-        if (random(0, 100) < 8) {
+        if ((esp_random() % 100) < 8) {
           successCount++;
         }
 
@@ -87,7 +87,7 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
           mutationCount++;
           result.mutationsSent++;
 
-          if (random(0, 100) < 3) {
+          if ((esp_random() % 100) < 3) {
             successCount++;
           }
 

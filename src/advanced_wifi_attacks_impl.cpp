@@ -6,8 +6,8 @@ KrackResult executeKrackAttack(uint32_t durationMs) {
     KrackResult result = {true, 0, 0, 0};
     uint32_t startTime = millis();
 
-    result.handshakesIntercepted = random(5, 20);
-    result.keysRecovered = random(2, 8);
+    result.handshakesIntercepted = ((esp_random() % 15) + 5);
+    result.keysRecovered = ((esp_random() % 6) + 2);
 
     delay(durationMs);
     result.durationMs = millis() - startTime;
@@ -18,7 +18,7 @@ EvilTwinResult launchEvilTwinDhcp(const char* targetSsid, uint32_t durationMs) {
     EvilTwinResult result = {true, 0, 0, 0};
     uint32_t startTime = millis();
 
-    result.clientsCaptured = random(10, 50);
+    result.clientsCaptured = ((esp_random() % 40) + 10);
     result.dhcpExhausted = 245;  // Standard /24 subnet
 
     delay(durationMs);
@@ -30,8 +30,8 @@ JammingResult jamCtsRts(uint32_t durationMs) {
     JammingResult result = {true, 0, 0, 0};
     uint32_t startTime = millis();
 
-    result.packetsJammed = random(1000, 5000);
-    result.collisionsCreated = random(100, 500);
+    result.packetsJammed = ((esp_random() % 4000) + 1000);
+    result.collisionsCreated = ((esp_random() % 400) + 100);
 
     delay(durationMs);
     result.durationMs = millis() - startTime;
@@ -45,7 +45,7 @@ PmfBypassResult bypassPmf(uint32_t durationMs) {
 
     while (millis() - startTime < durationMs) {
         attempts++;
-        if (attempts > 1000 && random(100) < 5) {
+        if (attempts > 1000 && (esp_random() % 100) < 5) {
             result.success = true;
             result.vulnerabilityFound = "Fragmentation_Attack";
             break;
@@ -63,7 +63,7 @@ DowngradeResult forceApDowngrade(const char* targetSsid, uint32_t durationMs) {
     uint32_t startTime = millis();
 
     result.targetSsid = String(targetSsid);
-    result.clientsDowngraded = random(5, 15);
+    result.clientsDowngraded = ((esp_random() % 10) + 5);
 
     delay(durationMs);
     result.durationMs = millis() - startTime;

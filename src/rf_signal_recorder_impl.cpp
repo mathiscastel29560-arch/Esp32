@@ -83,7 +83,7 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
                         recordedSamples.push_back(data[i]);
                     }
                     // Estimate RSSI (NRF24 doesn't have true RSSI, simulate)
-                    float rssi = -40 - random(0, 50);
+                    float rssi = -40 - (esp_random() % 50);
                     rssiSum += rssi;
                     rssiCount++;
                     result.rssiMax = max(result.rssiMax, rssi);

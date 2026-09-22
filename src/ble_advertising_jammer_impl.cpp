@@ -16,7 +16,7 @@ void sendJamPacket() {
 
     // Generate random noise pattern
     for (int i = 0; i < 31; i++) {
-        jamPayload[i] = random(0, 256);
+        jamPayload[i] = (esp_random() % 256);
     }
 
     BLEAddress addr(jamPayload);

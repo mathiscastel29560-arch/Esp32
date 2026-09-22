@@ -42,7 +42,7 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
             attempts++;
 
             // Simulate key found
-            if (random(100) < 30) {
+            if ((esp_random() % 100) < 30) {
                 result.success = true;
                 result.keyFound = defaultKeys[i];
                 break;

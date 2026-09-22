@@ -10,9 +10,9 @@ ClassificationResult classifyModulation(uint32_t durationMs) {
     const char* modTypes[] = {"OOK", "FSK", "PSK", "GFSK", "MSK", "QPSK", "16QAM"};
     const char* families[] = {"Digital", "Analog", "Hybrid"};
 
-    result.modulationType = modTypes[random(0, 7)];
-    result.modulationFamily = families[random(0, 3)];
-    result.confidence = 0.7f + (random(0, 30) / 100.0f);
+    result.modulationType = modTypes[(esp_random() % 7)];
+    result.modulationFamily = families[(esp_random() % 3)];
+    result.confidence = 0.7f + ((esp_random() % 30) / 100.0f);
 
     delay(durationMs);
     result.durationMs = millis() - startTime;
@@ -21,11 +21,11 @@ ClassificationResult classifyModulation(uint32_t durationMs) {
 
 float estimateSignalBandwidth() {
     // Estimate based on modulation complexity
-    return 200.0f + random(0, 1000);  // 200-1200 kHz typical
+    return 200.0f + (esp_random() % 1000);  // 200-1200 kHz typical
 }
 
 uint32_t estimateBitrate() {
-    return 2400 + random(0, 250000);  // 2.4kbps to 250kbps
+    return 2400 + (esp_random() % 250000);  // 2.4kbps to 250kbps
 }
 
 }  // namespace ModulationClassifier

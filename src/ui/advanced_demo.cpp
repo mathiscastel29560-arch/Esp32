@@ -29,7 +29,7 @@ void drawWaterfallDemo() {
         if (i >= 18 && i <= 22) intensity = 150; // Peak 2
         if (i >= 26 && i <= 28) intensity = 100; // Peak 3
         // Add some noise
-        intensity += (random(0, 30) - 15);
+        intensity += ((esp_random() % 30) - 15);
         if (intensity < 0) intensity = 0;
         if (intensity > 255) intensity = 255;
         spectrum.push_back(intensity);

@@ -49,7 +49,7 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
 
     // Simulate pairing interception
     if (config.interceptPairing) {
-      if (random(0, 100) < 30) { // 30% simulated success rate
+      if ((esp_random() % 100) < 30) { // 30% simulated success rate
         result.pairingAttempts++;
 
         BleCredential cred;
@@ -61,7 +61,7 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
         // Simulate pairing key extraction
         uint8_t keyData[16];
         for (int j = 0; j < 16; j++) {
-          keyData[j] = random(0, 256);
+          keyData[j] = (esp_random() % 256);
         }
         cred.harvestedData = "";
         for (int j = 0; j < 16; j++) {
@@ -136,20 +136,20 @@ HarvestResult CredentialHarvester::captureCharacteristics(const uint8_t* addr) {
   // Simulate GATT characteristic enumeration and capture
   // In real implementation: connect, discover services, read characteristics
 
-  uint32_t charCount = random(2, 8);
+  uint32_t charCount = ((esp_random() % 6) + 2);
   for (uint32_t i = 0; i < charCount; i++) {
     BleCredential cred;
     memcpy(cred.deviceAddr, addr, 6);
     cred.timestamp = millis();
     cred.credentialType = "GATT_CHAR";
-    cred.rssi = random(-80, -30);
+    cred.rssi = ((esp_random() % 50) + -80);
 
     // Simulate characteristic data
     cred.harvestedData = "";
-    uint32_t dataLen = random(4, 32);
+    uint32_t dataLen = ((esp_random() % 28) + 4);
     for (uint32_t j = 0; j < dataLen; j++) {
       char hexBuf[3];
-      snprintf(hexBuf, sizeof(hexBuf), "%02X", random(0, 256));
+      snprintf(hexBuf, sizeof(hexBuf), "%02X", (esp_random() % 256));
       cred.harvestedData += hexBuf;
     }
 

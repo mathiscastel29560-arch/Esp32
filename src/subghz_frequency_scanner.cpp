@@ -74,8 +74,8 @@ ScannerResult FrequencyScanner::scanSpecificFreq(uint32_t freq, uint32_t duratio
   // Simulate signal detection on frequency
   while ((millis() - freqStartTime) < durationMs) {
     // Random signal simulation
-    if (random(0, 100) < 30) { // 30% chance of detecting signal
-      int32_t rssi = random(-90, -30);
+    if ((esp_random() % 100) < 30) { // 30% chance of detecting signal
+      int32_t rssi = ((esp_random() % 60) + -90);
       avgRssi = (avgRssi + rssi) / 2;
       packetCount++;
     }

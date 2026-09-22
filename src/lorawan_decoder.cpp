@@ -22,14 +22,14 @@ DecoderResult LoRaDecoder::decodeLoRaWan(const DecoderConfig& config) {
   uint32_t devicesFound = 0;
 
   while (isRunning_ && (millis() - startTime) < config.scanDurationMs) {
-    if (random(0, 100) < 15) { // 15% chance per cycle
+    if ((esp_random() % 100) < 15) { // 15% chance per cycle
       LoRaFrame frame;
       frame.timestamp = millis();
-      frame.mhdr = random(0x00, 0x80);
-      frame.appEui = random(0, 0xFFFFFFFF);
-      frame.devEui = random(0, 0xFFFFFFFF);
-      frame.devNonce = random(0, 0xFFFF);
-      frame.rssi = random(-120, -70);
+      frame.mhdr = (esp_random() % 128);
+      frame.appEui = (esp_random() % 4294967295);
+      frame.devEui = (esp_random() % 4294967295);
+      frame.devNonce = (esp_random() % 65535);
+      frame.rssi = ((esp_random() % 50) + -120);
 
       frame.decodedData = "LoRa_";
       frame.decodedData += String(frame.devEui, HEX);

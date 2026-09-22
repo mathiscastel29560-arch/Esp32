@@ -10,7 +10,7 @@ uint32_t g_jamCount = 0;
 void sendJamPacket() {
     uint8_t jamData[64];
     for (int i = 0; i < 64; i++) {
-        jamData[i] = random(0, 256);
+        jamData[i] = (esp_random() % 256);
     }
     esp_wifi_80211_tx(WIFI_IF_STA, jamData, 64, false);
     g_jamCount++;

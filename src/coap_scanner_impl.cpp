@@ -16,17 +16,17 @@ ScanResult scanCoapServers(uint32_t durationMs) {
 
     // CoAP default port is 5683 (unencrypted) and 5684 (DTLS)
     while (millis() - startTime < durationMs) {
-        if (random(100) < 25) {
+        if ((esp_random() % 100) < 25) {
             CoapServer server;
 
             // Generate IP address
             char ipBuf[16];
-            snprintf(ipBuf, sizeof(ipBuf), "192.168.1.%d", random(100, 200));
+            snprintf(ipBuf, sizeof(ipBuf), "192.168.1.%d", ((esp_random() % 100) + 100));
             server.ipAddress = String(ipBuf);
 
-            server.port = (random(100) < 70) ? 5683 : 5684;
-            server.rssi = -30 - random(0, 40);
-            server.requiresAuth = (random(100) < 40);
+            server.port = ((esp_random() % 100) < 70) ? 5683 : 5684;
+            server.rssi = -30 - (esp_random() % 40);
+            server.requiresAuth = ((esp_random() % 100) < 40);
             server.timestamp = millis();
 
             // Common CoAP resources
@@ -38,11 +38,11 @@ ScanResult scanCoapServers(uint32_t durationMs) {
                 "/.well-known/core"
             };
 
-            server.resources = resources[random(0, 5)];
+            server.resources = resources[(esp_random() % 5)];
 
             discoveredServers.push_back(server);
             serverCount++;
-            resourceCount += random(3, 8);
+            resourceCount += ((esp_random() % 5) + 3);
         }
         delay(100);
     }
@@ -76,9 +76,9 @@ EnumerationResult enumerateCoapResources(const char* serverIp, uint32_t duration
     };
 
     while (millis() - startTime < durationMs) {
-        if (random(100) < 30) {
-            resourcesFound += random(1, 4);
-            paths = commonResources[random(0, 13)];
+        if ((esp_random() % 100) < 30) {
+            resourcesFound += ((esp_random() % 3) + 1);
+            paths = commonResources[(esp_random() % 13)];
         }
         delay(200);
     }
@@ -98,10 +98,10 @@ InjectionResult injectCoapMessages(const char* serverIp, const char* resourcePat
     uint32_t messagesSent = 0;
 
     const char* payloadTypes[] = {"GET_REQUEST", "POST_PAYLOAD", "PUT_COMMAND", "DELETE_RESOURCE"};
-    String type = payloadTypes[random(0, 4)];
+    String type = payloadTypes[(esp_random() % 4)];
 
     while (millis() - startTime < durationMs) {
-        messagesSent += random(5, 20);
+        messagesSent += ((esp_random() % 15) + 5);
         delay(100);
     }
 
@@ -129,9 +129,9 @@ DtlsBypassResult bypassDtlsSecurity(const char* serverIp, uint32_t durationMs) {
     while (millis() - startTime < durationMs) {
         attempts++;
 
-        if (attempts > 500 && random(100) < 3) {
+        if (attempts > 500 && (esp_random() % 100) < 3) {
             result.success = true;
-            result.vulnerabilityFound = vulnerabilities[random(0, 4)];
+            result.vulnerabilityFound = vulnerabilities[(esp_random() % 4)];
             break;
         }
         delay(20);

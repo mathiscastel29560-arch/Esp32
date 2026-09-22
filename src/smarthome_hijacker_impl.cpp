@@ -8,7 +8,7 @@ HueResult hijackPhilipsHue(const char* bridgeIp, uint32_t durationMs) {
     uint32_t startTime = millis();
 
     result.bridgeIp = String(bridgeIp);
-    result.devicesControlled = random(5, 20);
+    result.devicesControlled = ((esp_random() % 15) + 5);
 
     delay(durationMs);
 
@@ -23,10 +23,10 @@ NestResult enumerateNestDevices(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    result.devicesFound = random(3, 15);
+    result.devicesFound = ((esp_random() % 12) + 3);
 
     const char* actions[] = {"TURN_OFF_HEATING", "DISABLE_ALARM", "DISABLE_CAMERA", "UNLOCK_DOOR"};
-    result.actionPerformed = actions[random(0, 4)];
+    result.actionPerformed = actions[(esp_random() % 4)];
 
     delay(durationMs);
 
@@ -41,10 +41,10 @@ TradfriResult tradfriPairingAttack(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    result.devicesJoined = random(2, 10);
+    result.devicesJoined = ((esp_random() % 8) + 2);
 
     const char* cmdTypes[] = {"UNAUTHORIZED_JOIN", "PERMIT_REJOIN_EXPLOIT", "NETWORK_TAKEOVER"};
-    result.commandType = cmdTypes[random(0, 3)];
+    result.commandType = cmdTypes[(esp_random() % 3)];
 
     delay(durationMs);
 
@@ -59,8 +59,8 @@ AlexaResult discoverAlexaDevices(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    result.devicesDiscovered = random(5, 20);
-    result.commandsSent = random(10, 50);
+    result.devicesDiscovered = ((esp_random() % 15) + 5);
+    result.commandsSent = ((esp_random() % 40) + 10);
 
     delay(durationMs);
 

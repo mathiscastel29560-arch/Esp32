@@ -34,13 +34,13 @@ DowngradeResult executeDowngrade(uint32_t durationMs) {
         // In reality would be done via ARP spoofing + HTTP proxy
 
         // Simulate redirecting HTTPS to HTTP
-        if (random(0, 100) > 60) {
+        if ((esp_random() % 100) > 60) {
             g_redirectCount++;
             Serial.println("  → Redirected HTTPS request to HTTP");
         }
 
         // Simulate credential capture
-        if (random(0, 100) > 75) {
+        if ((esp_random() % 100) > 75) {
             g_credCount++;
             Serial.println("  ✓ Credentials captured: user:pass form");
         }

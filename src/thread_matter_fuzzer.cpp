@@ -20,17 +20,17 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
   while (isRunning_ && (millis() - startTime) < config.durationMs) {
     // Matter uses CBOR encoding and TLV structures
     uint8_t payload[256];
-    uint32_t payloadLen = random(10, 256);
+    uint32_t payloadLen = ((esp_random() % 246) + 10);
 
     for (uint32_t i = 0; i < payloadLen; i++) {
-      payload[i] = random(0, 256);
+      payload[i] = (esp_random() % 256);
     }
 
     // Send malformed message
     messageCount++;
 
     // Simulate crash detection (rarely detected)
-    if (random(0, 1000) < 5) {
+    if ((esp_random() % 1000) < 5) {
       crashCount++;
     }
 

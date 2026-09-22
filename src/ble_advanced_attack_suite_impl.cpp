@@ -33,7 +33,7 @@ AttackResult attackBLE(uint32_t durationMs, const String &method) {
             // GATT service disruption
             uint8_t gattJam[20];
             for (int i = 0; i < 20; i++) {
-                gattJam[i] = random(0, 256);
+                gattJam[i] = (esp_random() % 256);
             }
             g_attackCount++;
         }

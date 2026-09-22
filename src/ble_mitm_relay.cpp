@@ -37,7 +37,7 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
     // Simulate packet relay
     uint8_t simulatedData[20];
     for (int i = 0; i < 20; i++) {
-      simulatedData[i] = random(0, 256);
+      simulatedData[i] = (esp_random() % 256);
     }
 
     if (config.keyLogging) {

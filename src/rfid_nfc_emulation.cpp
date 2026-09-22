@@ -20,7 +20,7 @@ EmulationResult RfidEmulator::emulateNfcTag(const EmulationConfig& config) {
   // Simulate NFC tag emulation
   // NFC Type 2 or 4 emulation
   while (isRunning_ && (millis() - startTime) < config.durationMs) {
-    if (random(0, 100) < 20) { // 20% chance of detection per cycle
+    if ((esp_random() % 100) < 20) { // 20% chance of detection per cycle
       result.readsDetected++;
     }
     delay(100);

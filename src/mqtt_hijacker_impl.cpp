@@ -29,13 +29,13 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
 
     while (millis() - startTime < durationMs && brokerCount < 5) {
         // Simulate finding MQTT brokers
-        if (random(100) < 20) {
+        if ((esp_random() % 100) < 20) {
             MqttBroker broker;
-            broker.ipAddress = defaultIps[random(0, 5)];
-            broker.port = (random(100) < 70) ? 1883 : 8883;
-            broker.rssi = -30 - random(0, 40);
-            broker.hostname = "broker-" + String(random(1000, 9999));
-            broker.requiresAuth = (random(100) < 60);
+            broker.ipAddress = defaultIps[(esp_random() % 5)];
+            broker.port = ((esp_random() % 100) < 70) ? 1883 : 8883;
+            broker.rssi = -30 - (esp_random() % 40);
+            broker.hostname = "broker-" + String(((esp_random() % 8999) + 1000));
+            broker.requiresAuth = ((esp_random() % 100) < 60);
             broker.timestamp = millis();
 
             discoveredBrokers.push_back(broker);
@@ -84,9 +84,9 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
 
     while (millis() - startTime < durationMs) {
         // Simulate intercepting MQTT messages
-        if (random(100) < 30) {
-            messageCount += random(1, 10);
-            String topic = commonTopics[random(0, 9)];
+        if ((esp_random() % 100) < 30) {
+            messageCount += ((esp_random() % 9) + 1);
+            String topic = commonTopics[(esp_random() % 9)];
             topicsFound = topic;
             mostActiveTopic = topic;
         }
@@ -113,7 +113,7 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
     // Simulate injecting malicious MQTT messages
     while (millis() - startTime < durationMs) {
         // Different payload types
-        int type = random(0, 4);
+        int type = (esp_random() % 4);
         switch(type) {
             case 0: payloadType = "COMMAND_INJECT"; break;
             case 1: payloadType = "CREDENTIAL_STEAL"; break;
@@ -121,7 +121,7 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
             case 3: payloadType = "STATE_MANIPULATION"; break;
         }
 
-        injected += random(5, 20);
+        injected += ((esp_random() % 15) + 5);
         delay(100);
     }
 
@@ -152,9 +152,9 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     };
 
     while (millis() - startTime < durationMs) {
-        if (random(100) < 25) {
-            devicesHijacked += random(1, 3);
-            commands = hijackCommands[random(0, 7)];
+        if ((esp_random() % 100) < 25) {
+            devicesHijacked += ((esp_random() % 2) + 1);
+            commands = hijackCommands[(esp_random() % 7)];
         }
         delay(200);
     }
@@ -183,7 +183,7 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
                 attempts++;
 
                 // Simulate successful auth (low probability)
-                if (random(100) < 5) {
+                if ((esp_random() % 100) < 5) {
                     result.success = true;
                     result.credentialFound = String(usernames[i]) + ":" + String(passwords[j]);
                     break;

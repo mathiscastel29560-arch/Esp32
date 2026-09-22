@@ -52,7 +52,7 @@ RollingResult emulateGarageDoor(const RollingConfig &config) {
     uint32_t transmitInterval = 500;  // 500ms between transmissions
 
     uint32_t currentCounter = config.startCounter;
-    uint32_t manufacturerId = random(0x0000, 0xFFFF);
+    uint32_t manufacturerId = (esp_random() % 65535);
 
     while (g_transmitting && (millis() - startTime) < config.durationMs) {
         if (!TxArm::isArmed()) {
@@ -95,8 +95,8 @@ RollingResult emulateGarageDoor(const RollingConfig &config) {
             currentCounter += config.increment;
 
             // Randomize occasionally (simulate different remote)
-            if (random(0, 100) < 5) {
-                manufacturerId = random(0x0000, 0xFFFF);
+            if ((esp_random() % 100) < 5) {
+                manufacturerId = (esp_random() % 65535);
             }
 
             nextTransmit = now + transmitInterval;
@@ -141,7 +141,7 @@ RollingResult emulateCarKeyfob(const RollingConfig &config) {
 
     // Car fobs often use frequency hopping
     uint32_t currentCounter = config.startCounter;
-    uint32_t carId = random(0x00000000, 0xFFFFFFFF);
+    uint32_t carId = (esp_random() % 4294967295);
 
     while (g_transmitting && (millis() - startTime) < config.durationMs) {
         if (!TxArm::isArmed()) {
@@ -222,7 +222,7 @@ RollingResult bruteforceCounter(const RollingConfig &config) {
             break;
         }
 
-        uint32_t code = generateRollingCode(counter, random(0xFFFFFFFF));
+        uint32_t code = generateRollingCode(counter, (esp_random() % 0xFFFFFFFF));
 
         Serial.printf("[Sub-GHz] Bruteforce: Counter=%lu (0x%08lX)\r", counter, code);
 

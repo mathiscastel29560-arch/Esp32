@@ -18,15 +18,15 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
 
     while (millis() - startTime < durationMs) {
         // Simulate finding Z-Wave nodes
-        if (random(100) < 20) {
+        if ((esp_random() % 100) < 20) {
             ZwaveNode node;
-            node.nodeId = random(2, 232);  // Z-Wave node IDs 2-231 (1=controller)
-            node.rssi = -30 - random(0, 50);
-            node.securityLevel = random(0, 3);  // 0=none, 1=S0, 2=S2
+            node.nodeId = ((esp_random() % 230) + 2);  // Z-Wave node IDs 2-231 (1=controller)
+            node.rssi = -30 - (esp_random() % 50);
+            node.securityLevel = (esp_random() % 3);  // 0=none, 1=S0, 2=S2
             node.timestamp = millis();
 
             // Classify device type
-            uint8_t devType = random(0, 6);
+            uint8_t devType = (esp_random() % 6);
             switch(devType) {
                 case 0: node.deviceType = "SmartLock"; break;
                 case 1: node.deviceType = "SmartSwitch"; break;
@@ -38,7 +38,7 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
 
             // Manufacturer simulation
             const char* manufacturers[] = {"Aeotec", "Fibaro", "Danfoss", "Qubino", "RGBgenie"};
-            node.manufacturer = manufacturers[random(0, 5)];
+            node.manufacturer = manufacturers[(esp_random() % 5)];
 
             discoveredNodes.push_back(node);
             nodeCount++;
@@ -75,18 +75,18 @@ InjectionResult injectZwaveCommands(uint8_t targetNode, uint32_t durationMs, con
     while (millis() - startTime < durationMs) {
         if (type == "BASIC_SET") {
             // Basic On/Off commands
-            commandsSent += random(5, 15);
+            commandsSent += ((esp_random() % 10) + 5);
         } else if (type == "SWITCH_MULTILEVEL") {
             // Dimming commands
-            commandsSent += random(3, 10);
+            commandsSent += ((esp_random() % 7) + 3);
         } else if (type == "LOCK_CONTROL") {
             // Door lock commands
-            commandsSent += random(2, 8);
+            commandsSent += ((esp_random() % 6) + 2);
         } else if (type == "THERMOSTAT") {
             // Temperature control
-            commandsSent += random(2, 6);
+            commandsSent += ((esp_random() % 4) + 2);
         } else {
-            commandsSent += random(4, 12);
+            commandsSent += ((esp_random() % 8) + 4);
         }
         delay(200);
     }
@@ -118,9 +118,9 @@ SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs) {
         attempts++;
 
         // Simulate occasional successful bypass
-        if (attempts > 500 && random(100) < 3) {
+        if (attempts > 500 && (esp_random() % 100) < 3) {
             result.success = true;
-            result.vulnerabilityFound = vulnerabilities[random(0, 5)];
+            result.vulnerabilityFound = vulnerabilities[(esp_random() % 5)];
             break;
         }
         delay(10);
@@ -142,11 +142,11 @@ KeyRecoveryResult recoverZwaveNetworkKey(uint32_t durationMs) {
 
     while (millis() - startTime < durationMs) {
         // Low probability of successful key recovery
-        if (random(100) < 2) {
+        if ((esp_random() % 100) < 2) {
             char keyBuf[33] = {0};
             snprintf(keyBuf, sizeof(keyBuf), "%08X%08X%08X%08X",
-                    random(0, 0xFFFFFFFF), random(0, 0xFFFFFFFF),
-                    random(0, 0xFFFFFFFF), random(0, 0xFFFFFFFF));
+                    (esp_random() % 4294967295), (esp_random() % 4294967295),
+                    (esp_random() % 4294967295), (esp_random() % 4294967295));
             result.networkKey = String(keyBuf);
             result.success = true;
             break;

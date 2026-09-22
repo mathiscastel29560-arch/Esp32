@@ -43,7 +43,7 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
 
     while (millis() - startTime < durationMs && g_jamActive) {
         // Send random reset/jam codes
-        uint32_t jamCode = random(0xFFFFFFFF);
+        uint32_t jamCode = (esp_random() % 0xFFFFFFFF);
         sendResetCode(jamCode);
 
         delay(50);

@@ -33,11 +33,11 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
         code.timings.push_back(timing);
 
         // Generate simulated code
-        if (codeCount == 0 || random(0, 100) < 5) {
+        if (codeCount == 0 || (esp_random() % 100) < 5) {
           code.protocol = "NEC";
-          code.address = random(0, 256);
-          code.command = random(0, 256);
-          code.rssi = random(-60, -20);
+          code.address = (esp_random() % 256);
+          code.command = (esp_random() % 256);
+          code.rssi = ((esp_random() % 40) + -60);
 
           result.codes.push_back(code);
           result.codesCapTured++;

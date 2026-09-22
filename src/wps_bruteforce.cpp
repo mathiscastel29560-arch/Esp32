@@ -159,7 +159,7 @@ String WpsBruteforcer::generateWpsNonce() {
   // Generate random WPS nonce for attack payload
   char nonceBuf[17];
   for (int i = 0; i < 8; i++) {
-    snprintf(nonceBuf + (i * 2), 3, "%02X", random(0, 256));
+    snprintf(nonceBuf + (i * 2), 3, "%02X", (esp_random() % 256));
   }
   return String(nonceBuf);
 }

@@ -15,22 +15,22 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
 
     // Simulate Bluetooth Classic device discovery (inquiry)
     while (millis() - startTime < durationMs) {
-        if (random(100) < 18) {
+        if ((esp_random() % 100) < 18) {
             ClassicDevice dev;
 
             // Generate realistic Bluetooth address (XX:XX:XX:XX:XX:XX)
             char addrBuf[18];
             snprintf(addrBuf, sizeof(addrBuf), "%02X:%02X:%02X:%02X:%02X:%02X",
-                    random(0, 256), random(0, 256), random(0, 256),
-                    random(0, 256), random(0, 256), random(0, 256));
+                    (esp_random() % 256), (esp_random() % 256), (esp_random() % 256),
+                    (esp_random() % 256), (esp_random() % 256), (esp_random() % 256));
             dev.bdAddress = String(addrBuf);
 
-            dev.rssi = -20 - random(0, 60);
+            dev.rssi = -20 - (esp_random() % 60);
             dev.timestamp = millis();
-            dev.discoverable = (random(100) < 80);
+            dev.discoverable = ((esp_random() % 100) < 80);
 
             // Device classification
-            uint8_t devClass = random(0, 8);
+            uint8_t devClass = (esp_random() % 8);
             switch(devClass) {
                 case 0: dev.deviceClass = "Headphone"; dev.codMajor = 0x040404; break;
                 case 1: dev.deviceClass = "Speaker"; dev.codMajor = 0x040408; break;
@@ -45,7 +45,7 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
             // Device names
             const char* names[] = {"iPhone", "Samsung Galaxy", "JBL Speaker", "AirPods",
                                    "Sony Headphone", "Car Audio", "Keyboard", "Mouse"};
-            dev.deviceName = names[random(0, 8)];
+            dev.deviceName = names[(esp_random() % 8)];
 
             discoveredDevices.push_back(dev);
             deviceCount++;
@@ -83,9 +83,9 @@ PairingInterceptResult interceptPairingAttempt(uint32_t durationMs) {
         attempts++;
 
         // Simulate successful interception (low probability)
-        if (attempts > 100 && random(100) < 2) {
+        if (attempts > 100 && (esp_random() % 100) < 2) {
             result.success = true;
-            result.pairingCodeFound = random(100000, 999999);
+            result.pairingCodeFound = ((esp_random() % 899999) + 100000);
             break;
         }
         delay(50);
@@ -110,10 +110,10 @@ AudioHijackResult hijackAudioStream(const char* targetAddress, uint32_t duration
 
     while (millis() - startTime < durationMs) {
         // Simulate successful hijack
-        if (random(100) < 10) {
+        if ((esp_random() % 100) < 10) {
             result.success = true;
-            result.audioProfile = profiles[random(0, 3)];
-            result.action = actions[random(0, 3)];
+            result.audioProfile = profiles[(esp_random() % 3)];
+            result.action = actions[(esp_random() % 3)];
             break;
         }
         delay(100);
@@ -155,9 +155,9 @@ SspBypassResult bypassSSP(uint32_t durationMs) {
         attempts++;
 
         // Simulate successful SSP bypass
-        if (attempts > 1000 && random(100) < 1) {
+        if (attempts > 1000 && (esp_random() % 100) < 1) {
             result.success = true;
-            result.vulnerabilityType = vulnerabilities[random(0, 5)];
+            result.vulnerabilityType = vulnerabilities[(esp_random() % 5)];
             break;
         }
         delay(10);
@@ -186,7 +186,7 @@ ClassicStats getClassicStats() {
             stats.headphoneDevices++;
         }
 
-        if (random(100) < 30) {
+        if ((esp_random() % 100) < 30) {
             stats.connectedDevices++;
         }
 

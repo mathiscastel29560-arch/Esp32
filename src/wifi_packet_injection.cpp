@@ -111,8 +111,8 @@ InjectionResult PacketInjector::injectAuth(const InjectionConfig& config) {
     std::vector<uint8_t> auth = buildFrame(AUTH_REQUEST, bssidBytes);
 
     // Add random auth algorithm and status code
-    auth.push_back(random(0, 2)); // auth type (open/shared)
-    auth.push_back(random(0, 256)); // status code
+    auth.push_back((esp_random() % 2)); // auth type (open/shared)
+    auth.push_back((esp_random() % 256)); // status code
 
     sendRawFrame(auth.data(), auth.size());
     result.packetsSent++;
@@ -187,7 +187,7 @@ InjectionResult PacketInjector::fuzzFrames(const InjectionConfig& config) {
   const FrameType frameTypes[] = {BEACON, PROBE_REQUEST, AUTH_REQUEST, DATA_FRAME, NULL_FRAME};
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    FrameType type = frameTypes[random(0, 5)];
+    FrameType type = frameTypes[(esp_random() % 5)];
     std::vector<uint8_t> frame = buildFrame(type, bssidBytes);
 
     // Fuzz payload
@@ -257,7 +257,7 @@ std::vector<uint8_t> PacketInjector::buildFrame(FrameType type, const uint8_t* b
 
   // Transmitter address
   for (int i = 0; i < 6; i++) {
-    frame.push_back(random(0, 256));
+    frame.push_back((esp_random() % 256));
   }
 
   // BSSID
@@ -275,10 +275,10 @@ std::vector<uint8_t> PacketInjector::buildFrame(FrameType type, const uint8_t* b
 
 std::vector<uint8_t> PacketInjector::generateFuzzVector() {
   std::vector<uint8_t> fuzz;
-  uint32_t fuzzLen = random(10, 100);
+  uint32_t fuzzLen = ((esp_random() % 90) + 10);
 
   for (uint32_t i = 0; i < fuzzLen; i++) {
-    fuzz.push_back(random(0, 256));
+    fuzz.push_back((esp_random() % 256));
   }
 
   return fuzz;

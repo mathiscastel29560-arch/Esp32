@@ -20,18 +20,18 @@ ScannerResult MqttScanner::scanMqttBrokers(const ScannerConfig& config) {
 
   while (isRunning_ && (millis() - startTime) < config.scanDurationMs) {
     // Simulate broker discovery
-    if (random(0, 100) < 25) {
+    if ((esp_random() % 100) < 25) {
       MqttBroker broker;
-      broker.hostname = "mqtt_" + String(random(100, 999));
-      broker.port = ports[random(0, 5)];
-      broker.clientId = "esp32_" + String(random(1000, 9999));
-      broker.requiresAuth = random(0, 2) == 1;
+      broker.hostname = "mqtt_" + String(((esp_random() % 899) + 100));
+      broker.port = ports[(esp_random() % 5)];
+      broker.clientId = "esp32_" + String(((esp_random() % 8999) + 1000));
+      broker.requiresAuth = (esp_random() % 2) == 1;
 
       // Simulate topic discovery
-      uint32_t topicCount = random(2, 8);
+      uint32_t topicCount = ((esp_random() % 6) + 2);
       for (uint32_t i = 0; i < topicCount; i++) {
-        String topic = commonTopics[random(0, 6)];
-        topic += "/" + String(random(0, 100));
+        String topic = commonTopics[(esp_random() % 6)];
+        topic += "/" + String((esp_random() % 100));
         broker.topics.push_back(topic);
         result.topicsDiscovered++;
       }

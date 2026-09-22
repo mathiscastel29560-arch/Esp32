@@ -10,7 +10,7 @@ EmulationResult emulateRfidCard(const char* cardType, uint32_t durationMs) {
 
     // Simulate RFID emulation
     char cardBuf[11];
-    snprintf(cardBuf, sizeof(cardBuf), "%010X", random(0, 0xFFFFFFFF));
+    snprintf(cardBuf, sizeof(cardBuf), "%010X", (esp_random() % 4294967295));
     result.emulatedCardId = String(cardBuf);
     result.cardType = type;
 
@@ -32,9 +32,9 @@ BruteforceResult bruteforceRfidCards(uint32_t durationMs) {
     while (millis() - startTime < durationMs) {
         attempts++;
 
-        if (attempts > 10000 && random(100) < 10) {
+        if (attempts > 10000 && (esp_random() % 100) < 10) {
             result.success = true;
-            result.validCardId = random(0, 0xFFFFFFFF);
+            result.validCardId = (esp_random() % 4294967295);
             break;
         }
         delay(5);
@@ -54,7 +54,7 @@ CloneResult cloneRfidCard(const char* sourceCardId, uint32_t durationMs) {
     result.sourceCardId = String(sourceCardId);
 
     char clonedBuf[11];
-    snprintf(clonedBuf, sizeof(clonedBuf), "%010X", random(0, 0xFFFFFFFF));
+    snprintf(clonedBuf, sizeof(clonedBuf), "%010X", (esp_random() % 4294967295));
     result.clonedCardId = String(clonedBuf);
 
     delay(durationMs);

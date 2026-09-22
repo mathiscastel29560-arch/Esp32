@@ -26,19 +26,19 @@ AnalysisResult PowerAnalyzer::analyzeBlePower(const AnalysisConfig& config) {
     // Scanning: ~10-20mA
     // Connecting/transmitting: ~20-50mA
 
-    uint8_t state = random(0, 100);
+    uint8_t state = (esp_random() % 100);
     if (state < 60) {
       // Idle state
-      sample.milliamps = random(5, 20) / 100.0f; // 0.05-0.2mA
+      sample.milliamps = ((esp_random() % 15) + 5) / 100.0f; // 0.05-0.2mA
     } else if (state < 90) {
       // Scanning state
-      sample.milliamps = random(10000, 20000) / 1000.0f; // 10-20mA
+      sample.milliamps = ((esp_random() % 10000) + 10000) / 1000.0f; // 10-20mA
     } else {
       // Transmission state
-      sample.milliamps = random(20000, 50000) / 1000.0f; // 20-50mA
+      sample.milliamps = ((esp_random() % 30000) + 20000) / 1000.0f; // 20-50mA
     }
 
-    sample.voltage = 3.3f + (random(-50, 50) / 1000.0f);
+    sample.voltage = 3.3f + (((esp_random() % 100) + -50) / 1000.0f);
     sample.powerMw = sample.milliamps * sample.voltage;
 
     result.samples.push_back(sample);

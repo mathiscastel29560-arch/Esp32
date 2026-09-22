@@ -16,30 +16,30 @@ ScanResult scanLoRawanNetwork(uint32_t durationMs) {
 
     // LoRaWAN operates on 868 MHz (EU) or 915 MHz (US)
     while (millis() - startTime < durationMs) {
-        if (random(100) < 20) {
+        if ((esp_random() % 100) < 20) {
             LoRawanGateway gw;
 
             // Generate Gateway ID
             char gwIdBuf[17];
             snprintf(gwIdBuf, sizeof(gwIdBuf), "%016llX",
-                    ((uint64_t)random(0, 0xFFFFFFFF) << 32) | random(0, 0xFFFFFFFF));
+                    ((uint64_t)(esp_random() % 4294967295) << 32) | (esp_random() % 4294967295));
             gw.gwId = String(gwIdBuf);
 
-            gw.rssi = -20 - random(0, 50);
+            gw.rssi = -20 - (esp_random() % 50);
             gw.timestamp = millis();
 
             // Region
             const char* regions[] = {"EU868", "US915", "AS923", "AU915", "KR920"};
-            gw.region = regions[random(0, 5)];
+            gw.region = regions[(esp_random() % 5)];
 
             // Location simulation
-            gw.latitude = 48850000 + random(-100000, 100000);  // ~Paris
-            gw.longitude = 2350000 + random(-100000, 100000);
+            gw.latitude = 48850000 + ((esp_random() % 200000) + -100000);  // ~Paris
+            gw.longitude = 2350000 + ((esp_random() % 200000) + -100000);
             gw.location = gw.region + " - Public Gateway";
 
             discoveredGateways.push_back(gw);
             gatewayCount++;
-            deviceCount += random(5, 50);  // Estimate devices per gateway
+            deviceCount += ((esp_random() % 45) + 5);  // Estimate devices per gateway
 
             if (gw.rssi > strongestRssi) {
                 strongestRssi = gw.rssi;
@@ -69,10 +69,10 @@ InjectionResult injectLoRawanFrames(uint32_t durationMs) {
     uint32_t framesSent = 0;
 
     const char* frameTypes[] = {"UNCONFIRMED_DATA_UP", "CONFIRMED_DATA_UP", "MAC_COMMAND", "BEACON"};
-    String type = frameTypes[random(0, 4)];
+    String type = frameTypes[(esp_random() % 4)];
 
     while (millis() - startTime < durationMs) {
-        framesSent += random(10, 40);
+        framesSent += ((esp_random() % 30) + 10);
         delay(200);
     }
 
@@ -91,10 +91,10 @@ JoinForgeResult forgeJoinRequests(uint32_t durationMs) {
     uint32_t attempts = 0;
 
     while (millis() - startTime < durationMs) {
-        attempts += random(10, 30);
+        attempts += ((esp_random() % 20) + 10);
 
         // Simulate occasional successful join
-        if (attempts > 500 && random(100) < 5) {
+        if (attempts > 500 && (esp_random() % 100) < 5) {
             result.success = true;
             result.statusMessage = "Device successfully joined network";
             break;
@@ -116,14 +116,14 @@ KeyRecoveryResult recoverLoRawanKeys(uint32_t durationMs) {
     // Simulate LoRaWAN key recovery via traffic analysis
     while (millis() - startTime < durationMs) {
         // Very low probability of successful key recovery
-        if (random(100) < 1) {
+        if ((esp_random() % 100) < 1) {
             char appKeyBuf[33], nwkKeyBuf[33];
             snprintf(appKeyBuf, sizeof(appKeyBuf), "%016llX%016llX",
-                    random(0, 0xFFFFFFFF) | ((uint64_t)random(0, 0xFFFFFFFF) << 32),
-                    random(0, 0xFFFFFFFF) | ((uint64_t)random(0, 0xFFFFFFFF) << 32));
+                    (esp_random() % 4294967295) | ((uint64_t)(esp_random() % 4294967295) << 32),
+                    (esp_random() % 4294967295) | ((uint64_t)(esp_random() % 4294967295) << 32));
             snprintf(nwkKeyBuf, sizeof(nwkKeyBuf), "%016llX%016llX",
-                    random(0, 0xFFFFFFFF) | ((uint64_t)random(0, 0xFFFFFFFF) << 32),
-                    random(0, 0xFFFFFFFF) | ((uint64_t)random(0, 0xFFFFFFFF) << 32));
+                    (esp_random() % 4294967295) | ((uint64_t)(esp_random() % 4294967295) << 32),
+                    (esp_random() % 4294967295) | ((uint64_t)(esp_random() % 4294967295) << 32));
 
             result.appKey = String(appKeyBuf);
             result.nwkKey = String(nwkKeyBuf);
@@ -148,7 +148,7 @@ LoRawanStats getLoRawanStats() {
     }
 
     for (const auto& gw : discoveredGateways) {
-        stats.devicesDiscovered += random(5, 50);
+        stats.devicesDiscovered += ((esp_random() % 45) + 5);
     }
 
     // Count unique regions

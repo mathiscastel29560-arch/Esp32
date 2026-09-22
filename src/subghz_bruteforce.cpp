@@ -182,7 +182,7 @@ BruteResult bruteForce(const String &deviceType, uint16_t timeoutMs) {
     for (int i = 0; i < 16; i++) {
         if (millis() - startTime > timeoutMs) break;
 
-        uint32_t randomCode = (uint32_t)random(0xFFFFFFFF);
+        uint32_t randomCode = (uint32_t)(esp_random() % 0xFFFFFFFF);
         transmitCode(randomCode);
         result.attemptsCount++;
 

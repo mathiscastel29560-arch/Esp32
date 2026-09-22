@@ -8,7 +8,7 @@ ReadResult readNfcTag(uint32_t durationMs) {
     uint32_t startTime = millis();
 
     char uidBuf[15];
-    snprintf(uidBuf, sizeof(uidBuf), "%014X", random(0, 0xFFFFFFFF) | ((uint64_t)random(0, 0xFFFFFFFF) << 32));
+    snprintf(uidBuf, sizeof(uidBuf), "%014X", (esp_random() % 4294967295) | ((uint64_t)(esp_random() % 4294967295) << 32));
 
     result.tagUid = String(uidBuf);
     result.tagContent = "NDEF: https://malicious-site.com\n";

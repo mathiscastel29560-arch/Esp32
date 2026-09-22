@@ -15,7 +15,7 @@ void generateWhiteNoise() {
     radio.transmitDirectAsync();
 
     for (int i = 0; i < 256; i++) {
-        bool bit = random(0, 2);
+        bool bit = (esp_random() % 2);
         digitalWrite(PIN_CC1101_GDO0, bit);
         delayMicroseconds(100);
     }

@@ -30,7 +30,7 @@ JamResult jamBluetooth(uint32_t durationMs) {
     while (millis() - startTime < durationMs && g_jamActive) {
         uint8_t jamData[31];
         for (int i = 0; i < 31; i++) {
-            jamData[i] = random(0, 256);
+            jamData[i] = (esp_random() % 256);
         }
 
         BLEAdvertisementData adv;

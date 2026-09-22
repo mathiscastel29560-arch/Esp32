@@ -35,7 +35,7 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
 
     // Zigbee command cluster
     for (int i = 4; i < 20; i++) {
-      payload[i] = random(0, 256);
+      payload[i] = (esp_random() % 256);
     }
 
     // Send command
@@ -45,7 +45,7 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
 
     commandCount++;
 
-    if (config.broadcastCommands && random(0, 100) < 30) {
+    if (config.broadcastCommands && (esp_random() % 100) < 30) {
       devicesAffected++;
     }
 

@@ -111,18 +111,18 @@ KrackResult KrackAttacker::recoverKey(const KrackConfig& config) {
   // Generate simulated PTK (Pairwise Transient Key)
   uint8_t ptkSeed[32];
   for (int i = 0; i < 32; i++) {
-    ptkSeed[i] = random(0, 256);
+    ptkSeed[i] = (esp_random() % 256);
   }
 
   // Derive PTK from PSK, ANonce, SNonce
   uint8_t nonce[32];
   for (int i = 0; i < 32; i++) {
-    nonce[i] = random(0, 256);
+    nonce[i] = (esp_random() % 256);
   }
 
   result.recoveredKey = deriveKeys(ptkSeed, nonce);
   result.success = result.recoveredKey.isValid;
-  result.packetsDecrypted = random(100, 1000);
+  result.packetsDecrypted = ((esp_random() % 900) + 100);
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/krack_keys.csv";
 
