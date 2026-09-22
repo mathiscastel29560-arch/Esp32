@@ -1,4 +1,5 @@
 #include "ble_mitm_relay.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 
 namespace BleMitmRelay {
@@ -95,17 +96,13 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
   NimBLEService* pService = g_relayServer->createService("180A");
 
   uint32_t relayCount = 0;
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    // Simulate packet relay
-    uint8_t simulatedData[20];
-    for (int i = 0; i < 20; i++) {
-      simulatedData[i] = (esp_random() % 256);
-    }
-  } else {
-    result.error = "Failed to connect to target device";
-    isRunning_ = false;
-    return result;
-  }
+
+  // Connect to target device
+  NimBLEScan* pScan = NimBLEDevice::getScan();
+  pScan->setActiveScan(true);
+  pScan->start(5, false);
+
+  // Simulate packet relay in the relay loop below
 
   // Step 3: Run relay loop
   uint32_t relayStartTime = millis();
@@ -227,7 +224,6 @@ void MitmRelay::stop() {
   }
   if (g_relayServer) {
     NimBLEDevice::getAdvertising()->stop();
-    g_relayServer->deinit();
   }
   NimBLEDevice::deinit();
   g_relayServer = nullptr;

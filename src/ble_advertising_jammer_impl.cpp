@@ -52,7 +52,6 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
     NimBLEServer *pServer = NimBLEDevice::createServer();
     g_pAdvertising = NimBLEDevice::getAdvertising();
 
-    g_pAdvertising->setAdvertisedDeviceCallbacks(nullptr);
     g_pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_NON);
     g_pAdvertising->setMinPreferred(0x00);
     g_pAdvertising->setMaxPreferred(0x00);

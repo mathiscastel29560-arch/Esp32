@@ -1,4 +1,5 @@
 #include "channel_analyzer.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 #include <WiFi.h>
 

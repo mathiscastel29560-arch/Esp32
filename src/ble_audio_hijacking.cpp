@@ -1,4 +1,5 @@
 #include "ble_audio_hijacking.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 #include <NimBLEDevice.h>
 
@@ -19,7 +20,12 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
   NimBLEDevice::init("ESP32-AudioDetect");
 
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  NimBLEAddress targetAddr(addr, BLE_ADDR_RANDOM);
+  // Convert uint8_t address array to uint64_t for NimBLEAddress
+  uint64_t addrInt = 0;
+  for (int i = 0; i < 6; i++) {
+    addrInt = (addrInt << 8) | addr[i];
+  }
+  NimBLEAddress targetAddr(addrInt, BLE_ADDR_RANDOM);
 
   // Connect to target device
   if (!pClient->connect(targetAddr)) {
@@ -56,11 +62,14 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
     // If appearance not found, check for audio services
     if (result.detectedType == UNKNOWN) {
       // Look for AVRCP service (110E)
-      for (auto pService : pClient->getServices()) {
-        std::string uuid = pService->getUUID().toString();
-        if (uuid.find("110E") != std::string::npos) {
-          result.detectedType = SPEAKER;  // Likely audio device with AVRCP
-          break;
+      auto services = pClient->getServices();
+      if (services) {
+        for (auto pService : *services) {
+          std::string uuid = pService->getUUID().toString();
+          if (uuid.find("110E") != std::string::npos) {
+            result.detectedType = SPEAKER;  // Likely audio device with AVRCP
+            break;
+          }
         }
       }
     }
@@ -95,7 +104,12 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
 
   NimBLEDevice::init("ESP32-AudioHijack");
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  NimBLEAddress targetAddr(config.targetAddr, BLE_ADDR_RANDOM);
+  // Convert uint8_t address array to uint64_t for NimBLEAddress
+  uint64_t addrInt2 = 0;
+  for (int i = 0; i < 6; i++) {
+    addrInt2 = (addrInt2 << 8) | config.targetAddr[i];
+  }
+  NimBLEAddress targetAddr(addrInt2, BLE_ADDR_RANDOM);
 
   Serial.printf("[AudioHijack] Connecting to %s device\n",
                (result.detectedType == HEADPHONES) ? "headphones" :
@@ -209,7 +223,12 @@ AudioResult AudioHijacker::controlVolume(const uint8_t* addr, uint8_t level) {
 
   NimBLEDevice::init("ESP32-AudioVolume");
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  NimBLEAddress targetAddr(addr, BLE_ADDR_RANDOM);
+  // Convert uint8_t address array to uint64_t for NimBLEAddress
+  uint64_t addrInt = 0;
+  for (int i = 0; i < 6; i++) {
+    addrInt = (addrInt << 8) | addr[i];
+  }
+  NimBLEAddress targetAddr(addrInt, BLE_ADDR_RANDOM);
 
   if (!pClient->connect(targetAddr)) {
     result.error = "Failed to connect";
@@ -254,7 +273,12 @@ AudioResult AudioHijacker::injectAudio(const uint8_t* addr, const uint8_t* audio
 
   NimBLEDevice::init("ESP32-AudioInject");
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  NimBLEAddress targetAddr(addr, BLE_ADDR_RANDOM);
+  // Convert uint8_t address array to uint64_t for NimBLEAddress
+  uint64_t addrInt = 0;
+  for (int i = 0; i < 6; i++) {
+    addrInt = (addrInt << 8) | addr[i];
+  }
+  NimBLEAddress targetAddr(addrInt, BLE_ADDR_RANDOM);
 
   if (!pClient->connect(targetAddr)) {
     result.error = "Failed to connect";
