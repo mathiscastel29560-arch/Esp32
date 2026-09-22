@@ -10,6 +10,7 @@
 #include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
+#include "ble_spam.h"
 #include "nrf24_tools.h"
 #include "subghz.h"
 #include "wardriving.h"
