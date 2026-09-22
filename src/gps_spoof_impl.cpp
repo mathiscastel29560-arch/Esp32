@@ -18,9 +18,14 @@ String generateNMEA(float lat, float lon, uint32_t timestamp) {
     float lonDeg = floor(fabs(lon));
     float lonMin = (fabs(lon) - lonDeg) * 60.0f;
 
-    char latStr[12], lonStr[12];
-    sprintf(latStr, "%02.0f%06.3f", latDeg, latMin);
-    sprintf(lonStr, "%03.0f%06.3f", lonDeg, lonMin);
+    // Validate coordinate ranges to prevent buffer overflow
+    if (latDeg > 90.0f || lonDeg > 180.0f) {
+        return String("$GPGGA,0,0,N,0,E,0,0,0,0,M,0,M,,*00");  // Safe fallback
+    }
+
+    char latStr[16], lonStr[16];  // Larger buffers with safety margin
+    snprintf(latStr, sizeof(latStr), "%02.0f%06.3f", latDeg, latMin);
+    snprintf(lonStr, sizeof(lonStr), "%03.0f%06.3f", lonDeg, lonMin);
 
     char nsEW[2] = {lat >= 0 ? 'N' : 'S', lon >= 0 ? 'E' : 'W'};
 
@@ -30,7 +35,7 @@ String generateNMEA(float lat, float lon, uint32_t timestamp) {
     uint8_t min = (timestamp / 60000) % 60;
     uint8_t sec = (timestamp / 1000) % 60;
 
-    sprintf(sentence, "$GPGGA,%02d%02d%02d.00,%s,%c,%s,%c,1,08,0.9,545.4,M,46.9,M,,",
+    snprintf(sentence, sizeof(sentence), "$GPGGA,%02d%02d%02d.00,%s,%c,%s,%c,1,08,0.9,545.4,M,46.9,M,,",
             hour, min, sec, latStr, nsEW[0], lonStr, nsEW[1]);
 
     return String(sentence);
