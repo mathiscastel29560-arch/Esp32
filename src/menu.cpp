@@ -66,6 +66,9 @@
 #include "advanced_wifi_attacks.h"
 #include "ui/scan_visualizations.h"
 #include "ui/advanced_scanning.h"
+#include "mavic_jammer.h"
+#include "keycard_cloner.h"
+#include "magnetic_stripper.h"
 #include <vector>
 #include <set>
 
@@ -170,6 +173,7 @@ std::vector<String> rfMenuItems() {
         "📶 RF Signal Recorder",
         "📶 Signal Decoder",
         "📶 Advanced Signal Cloner",
+        "🚁 Mavic Jammer (2.4GHz)",
         "🔙 Back",
     };
 }
@@ -201,6 +205,8 @@ std::vector<String> iotMenuItems() {
         "🌐 Auto Handshake Capture",
         "🌐 Generic Packet Tools",
         "🌐 Advanced WiFi Attacks",
+        "🔑 Keycard Cloner (125kHz)",
+        "💳 Magnetic Stripe Reader",
         "🔙 Back",
     };
 }
@@ -707,6 +713,21 @@ void runRfAction(int idx) {
             }
             break;
         }
+        case 18: { // Mavic Jammer
+            MavicJammer::JammerConfig config;
+            config.durationMs = 10000;
+            config.method = 0; // NOISE mode
+            auto result = MavicJammer::jammMavicController(config);
+            if (result.success) {
+                showResult("Mavic Jammer",
+                          "Duration: " + String(result.durationMs) + "ms\n" +
+                          "Packets: " + String(result.packetsJammed) + "\n" +
+                          "Hops: " + String(result.frequencyChanges));
+            } else {
+                showResult("Mavic Jammer", result.error);
+            }
+            break;
+        }
     }
 }
 
@@ -868,6 +889,37 @@ void runIotAction(int idx) {
             showResult("Advanced WiFi Attacks",
                       "Success: " + String(result.success ? "Yes" : "No") + "\n" +
                       "Duration: " + String(result.durationMs) + "ms");
+            break;
+        }
+        case 15: { // Keycard Cloner
+            KeycardCloner::KeycardConfig config;
+            config.scanDurationMs = 10000;
+            config.format = 1; // HID26
+            config.captureMode = true;
+            auto result = KeycardCloner::captureNearbyCards(config);
+            if (result.success) {
+                showResult("Keycard Cloner",
+                          "Cards found: " + String(result.cardsFound) + "\n" +
+                          "Format: " + result.dominantFormat);
+            } else {
+                showResult("Keycard Cloner", result.error);
+            }
+            break;
+        }
+        case 16: { // Magnetic Stripe Reader
+            MagneticStripper::StripeConfig config;
+            config.scanDurationMs = 5000;
+            config.captureMode = true;
+            config.analyzeAll3Tracks = true;
+            auto result = MagneticStripper::readMagneticStripe(config);
+            if (result.success) {
+                showResult("Magnetic Stripe",
+                          "PAN: " + result.pan + "\n" +
+                          "Name: " + result.name + "\n" +
+                          "Expiry: " + result.expiry);
+            } else {
+                showResult("Magnetic Stripe", "No card detected");
+            }
             break;
         }
     }
