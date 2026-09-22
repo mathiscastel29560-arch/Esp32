@@ -84,6 +84,7 @@
 #define SUBGHZ_CAPTURE_DIR   "/logs/subghz"
 #define EVILPORTAL_LOG_FILE  "/logs/portal_submissions.csv"
 #define HANDSHAKE_CAPTURE_DIR "/logs/handshakes"
+#define RFID_CLONES_DIR      "/logs/rfid_clones"
 
 // ---- Defaults for the on-device 4-button menu (typing free text with 4
 // buttons isn't practical, so these ship as compile-time defaults you can
