@@ -8,6 +8,13 @@ static std::vector<FrequencyPeak> frequencyPeaks;
 ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) {
     ScanResult result = {true, 0, 0, -100, 0, ""};
 
+    // Validate frequency range to prevent infinite loops
+    if (endFreq <= startFreq || durationMs == 0) {
+        result.success = false;
+        result.analysis = "ERROR: Invalid frequency range or duration";
+        return result;
+    }
+
     uint32_t startTime = millis();
     frequencyPeaks.clear();
 
@@ -15,7 +22,9 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
     float dominantFreq = startFreq;
     uint32_t peakCount = 0;
 
-    float step = (endFreq - startFreq) / 20.0f;
+    float freqRange = endFreq - startFreq;
+    float step = freqRange / 20.0f;
+    if (step <= 0.0f) step = freqRange;  // Fallback if step is too small
 
     for (float freq = startFreq; freq <= endFreq && millis() - startTime < durationMs; freq += step) {
         if ((esp_random() % 100) < 25) {

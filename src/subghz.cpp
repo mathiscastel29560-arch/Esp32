@@ -64,7 +64,10 @@ Capture record(float freqMHz, uint32_t timeoutMs) {
     attachInterrupt(digitalPinToInterrupt(PIN_CC1101_GDO0), onEdge, CHANGE);
 
     uint32_t start = millis();
-    while (millis() - start < timeoutMs && g_pulseCount < MAX_PULSES) {
+    uint32_t deadline = start + timeoutMs;
+
+    // Capture with timeout (handles millis() wraparound safely)
+    while ((int32_t)(millis() - deadline) < 0 && g_pulseCount < MAX_PULSES) {
         delay(CAPTURE_POLL_DELAY_MS);
     }
 
