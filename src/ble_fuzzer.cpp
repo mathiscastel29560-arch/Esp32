@@ -40,8 +40,16 @@ FuzzReport fuzz(const String &address, uint32_t scanTimeoutSeconds) {
     memset(oversized, 0xFF, sizeof(oversized));
 
     auto *services = client->getServices(true);
+    if (!services) {
+        client->disconnect();
+        NimBLEDevice::deleteClient(client);
+        pScan->clearResults();
+        return report;
+    }
+
     for (auto *svc : *services) {
         auto *chars = svc->getCharacteristics(true);
+        if (!chars) continue;
         for (auto *chr : *chars) {
             if (chr->canWrite() || chr->canWriteNoResponse()) {
                 report.oversizedWritesAttempted++;
