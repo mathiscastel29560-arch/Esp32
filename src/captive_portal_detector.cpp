@@ -103,17 +103,21 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
   portal.ssid = ssid;
   portal.rssi = WiFi.RSSI();
 
-  // Common captive portal detection URLs
+  // Comprehensive captive portal detection URLs (real world tests)
   const char* testUrls[] = {
-    "http://captive.apple.com/hotspot-detect.html",
-    "http://msftncsi.com/ncsi.txt",
-    "http://clients3.google.com/generate_204"
+    "http://captive.apple.com/hotspot-detect.html",      // Apple
+    "http://msftncsi.com/ncsi.txt",                       // Microsoft
+    "http://clients3.google.com/generate_204",            // Google
+    "http://connectivity-check.ubuntu.com/",              // Ubuntu
+    "http://example.com/",                                // Generic
+    "http://detectportal.firefox.com/success.txt",        // Firefox
+    "http://httpbin.org/status/200"                       // Generic HTTP test
   };
 
   for (const char* testUrl : testUrls) {
     HTTPClient http;
-    http.begin(testUrl);
-    int httpCode = http.GET();
+    http.setConnectTimeout(3000);
+    http.setTimeout(5000);
 
     if (httpCode == HTTP_REDIRECT || httpCode == HTTP_REDIRECT_TEMP || httpCode == HTTP_OK) {
       String location = http.getHeader("Location");
@@ -126,6 +130,8 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
         logPortal(portal);
         break;
       }
+
+      http.end();
     }
 
     http.end();
