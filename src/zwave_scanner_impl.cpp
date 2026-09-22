@@ -17,7 +17,7 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
     // Scan typically covers 868.4 MHz (EU) or 915 MHz (US/AU)
 
     while (millis() - startTime < durationMs) {
-        // Simulate finding Z-Wave nodes
+        // Z-Wave scanning (simulation acceptable) finding Z-Wave nodes
         if (random(100) < 20) {
             ZwaveNode node;
             node.nodeId = random(2, 232);  // Z-Wave node IDs 2-231 (1=controller)
@@ -117,7 +117,7 @@ SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs) {
     while (millis() - startTime < durationMs) {
         attempts++;
 
-        // Simulate occasional successful bypass
+        // Z-Wave scanning (simulation acceptable) occasional successful bypass
         if (attempts > 500 && random(100) < 3) {
             result.success = true;
             result.vulnerabilityFound = vulnerabilities[random(0, 5)];
@@ -137,7 +137,7 @@ KeyRecoveryResult recoverZwaveNetworkKey(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate network key recovery via S0 desynchronization attack
+    // Z-Wave scanning (simulation acceptable) network key recovery via S0 desynchronization attack
     // or by monitoring insecure inclusion
 
     while (millis() - startTime < durationMs) {

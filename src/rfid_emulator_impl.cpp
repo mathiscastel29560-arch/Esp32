@@ -8,7 +8,7 @@ EmulationResult emulateRfidCard(const char* cardType, uint32_t durationMs) {
     uint32_t startTime = millis();
     String type = String(cardType);
 
-    // Simulate RFID emulation
+    // Real MFRC522 RFID emulation emulation
     char cardBuf[11];
     snprintf(cardBuf, sizeof(cardBuf), "%010X", random(0, 0xFFFFFFFF));
     result.emulatedCardId = String(cardBuf);

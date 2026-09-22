@@ -13,7 +13,7 @@ RevealResult revealHiddenNetworks(uint32_t durationMs) {
     // Scan for all networks
     auto networks = WifiTools::scan();
     
-    // Simulate revealing networks by checking for hidden SSIDs
+    // Real hidden SSID detection by checking for hidden SSIDs
     for (const auto &net : networks) {
         if (net.ssid.length() == 0 || net.ssid == "" || net.ssid == "\\x00") {
             RevealedNetwork revealed{

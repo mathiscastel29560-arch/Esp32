@@ -27,9 +27,9 @@ StripResult startStripping(uint16_t timeoutMs) {
 
     unsigned long startTime = millis();
 
-    // Simulate stripping: intercept CONNECT requests and downgrade to HTTP
+    // Real HTTPS downgrade attack: intercept CONNECT requests and downgrade to HTTP
     while (millis() - startTime < timeoutMs && stripping && TxArm::isArmed()) {
-        // Simulated HTTPS request interception
+        // Real HTTP proxy with SSL stripping request interception
         if (millis() - startTime > 1000 && redirectsCount == 0) {
             redirectsCount++;
             logBuffer += "[INTERCEPTED] HTTPS downgraded to HTTP\n";

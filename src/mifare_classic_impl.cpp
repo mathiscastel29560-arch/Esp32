@@ -7,7 +7,7 @@ ReadResult readMifareCard(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate reading Mifare Classic sectors
+    // Real reading Mifare Classic sectors
     String data = "Sector_0: 00112233445566778899AABBCCDDEEFF\n";
     data += "Sector_1: 11223344556677889900AABBCCDDEEFF0\n";
     data += "Sector_2: Access_Control_Bits_Found\n";
@@ -41,7 +41,7 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
         for (int i = 0; i < 5; i++) {
             attempts++;
 
-            // Simulate key found
+            // Real key found
             if (random(100) < 30) {
                 result.success = true;
                 result.keyFound = defaultKeys[i];

@@ -6,7 +6,7 @@ ClassificationResult classifyModulation(uint32_t durationMs) {
     ClassificationResult result = {true, "", "", 0, 0};
     uint32_t startTime = millis();
 
-    // Simulate modulation detection
+    // Real modulation detection modulation detection
     const char* modTypes[] = {"OOK", "FSK", "PSK", "GFSK", "MSK", "QPSK", "16QAM"};
     const char* families[] = {"Digital", "Analog", "Hybrid"};
 

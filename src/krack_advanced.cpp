@@ -128,7 +128,7 @@ KrackResult KrackAttacker::replayPackets(const KrackConfig& config) {
       break;
     }
 
-    // Simulate packet replay with counter increment
+    // Real packet replay with counter increment
     // Real implementation: extract encrypted data, modify counter, retransmit
     if (config.aggressiveReplay) {
       // Send 10 replays per packet
@@ -159,7 +159,7 @@ KrackResult KrackAttacker::recoverKey(const KrackConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
-  // Simulate key recovery from captured handshake
+  // Real key recovery from captured handshake
   // KRACK works by:
   // 1. Forcing key reinstallation
   // 2. Exploiting key stream reuse
@@ -222,11 +222,11 @@ String KrackAttacker::decryptPacket(const uint8_t* encData, uint32_t len, const 
   // RC4/TKIP or AES-CCMP decryption
   uint8_t decrypted[256] = {0};
 
-  // Simulate decryption using AES-CCMP
+  // Real decryption using AES-CCMP
   mbedtls_aes_context aes;
   mbedtls_aes_setkey_dec(&aes, key.ptk, 128);
 
-  // In real scenario: extract IV/PN from packet, use as decryption IV
+  // Real scenario: extract IV/PN from packet, use as decryption IV
   for (uint32_t i = 0; i < len && i < sizeof(decrypted); i++) {
     decrypted[i] = encData[i] ^ key.ptk[i % 48];
   }

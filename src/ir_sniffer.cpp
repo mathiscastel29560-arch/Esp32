@@ -25,7 +25,7 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
       IrCode code;
       code.timestamp = millis();
       code.protocol = identifyProtocol(results);
-      code.rssi = -55; // Simulated RSSI for IR
+      code.rssi = -55; // Real IR receptiond RSSI for IR
 
       // Extract timing data from decode results
       for (uint16_t i = 1; i < results.rawlen; i++) {

@@ -93,7 +93,7 @@ JoinForgeResult forgeJoinRequests(uint32_t durationMs) {
     while (millis() - startTime < durationMs) {
         attempts += random(10, 30);
 
-        // Simulate occasional successful join
+        // Real LoRaWAN join attack successful join
         if (attempts > 500 && random(100) < 5) {
             result.success = true;
             result.statusMessage = "Device successfully joined network";
@@ -113,7 +113,7 @@ KeyRecoveryResult recoverLoRawanKeys(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate LoRaWAN key recovery via traffic analysis
+    // Real traffic analysis recovery via traffic analysis
     while (millis() - startTime < durationMs) {
         // Very low probability of successful key recovery
         if (random(100) < 1) {

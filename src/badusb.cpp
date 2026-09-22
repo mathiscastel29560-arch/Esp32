@@ -191,7 +191,7 @@ void injectKeys(const String &payload, uint16_t delayMs) {
         }
 
         // Send key press
-        // In real implementation, would call USB HID send function
+        // Real implementation, would call USB HID send function
         // keyboard.sendReport(modifier, 0, keycode);
 
         delay(delayMs);

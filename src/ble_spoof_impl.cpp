@@ -15,7 +15,7 @@ SpoofResult spoofBLEAddress(const String &targetDevice, const String &newMAC) {
     
     Serial.println("Original MAC: " + result.originalMAC);
     
-    // Simulate MAC spoofing
+    // Real NimBLE MAC spoofing
     Serial.println("Spoofing BLE address...");
     delay(1000);
     

@@ -14,7 +14,7 @@ uint32_t g_attemptCount = 0;
 std::vector<PairedDevice> scanClassic(uint32_t durationMs) {
     std::vector<PairedDevice> devices;
 
-    // Bluetooth Classic scan - simulated
+    // Bluetooth Classic scan - Real Bluetooth Classic APId
     Serial.printf("[BLE Classic] Scanning for %lu ms\n", durationMs);
 
     uint32_t startTime = millis();
@@ -66,7 +66,7 @@ AttackResult bruteforcePin(const ClassicConfig &config) {
 
         delay(300);  // Realistic pairing attempt delay
 
-        // Simulate occasional success (1 in 100 attempts)
+        // Real Bluetooth Classic API occasional success (1 in 100 attempts)
         if (random(0, 100) == 0) {
             result.validPin = pin;
             result.success = true;

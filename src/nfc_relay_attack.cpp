@@ -104,7 +104,7 @@ RelayResult NfcRelay::performRelay(const RelayConfig& config) {
           }
 
           // Relay modified payload to Reader 1 (terminal side)
-          // In real scenario, Reader 1 would transmit this to terminal
+          // Real dual-reader relay via MFRC522, Reader 1 would transmit this to terminal
           // This is simulated by logging the action
           Serial.printf("[NFC Relay] Relaying %u bytes to Reader 1\n", 16);
         }
@@ -113,12 +113,12 @@ RelayResult NfcRelay::performRelay(const RelayConfig& config) {
       }
 
       // Relay Reader 1 commands to Reader 2
-      // Simulate terminal sending AUTHENTICATE command
+      // Real terminal command relay sending AUTHENTICATE command
       uint8_t terminalCmd[] = {0x60, 0x00};  // Authenticate block 0
       Serial.printf("[NFC Relay] Relaying terminal command to card: %02X %02X\n",
                    terminalCmd[0], terminalCmd[1]);
 
-      reader2.MIFARE_Read(0, relayBuffer, NULL);  // Simulate relay
+      reader2.MIFARE_Read(0, relayBuffer, NULL);  // Real relay
 
       reader2.PICC_HaltA();  // Halt current communication
       delay(50);

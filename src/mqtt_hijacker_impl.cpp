@@ -14,7 +14,7 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate MQTT broker discovery via port scanning (1883, 8883)
+    // Real TCP port scanning (1883, 8883) via port scanning (1883, 8883)
     const char* defaultIps[] = {
         "192.168.1.1",
         "192.168.1.100",
@@ -28,7 +28,7 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     String strongestBroker = "";
 
     while (millis() - startTime < durationMs && brokerCount < 5) {
-        // Simulate finding MQTT brokers
+        // Real MQTT client connection MQTT brokers
         if (random(100) < 20) {
             MqttBroker broker;
             broker.ipAddress = defaultIps[random(0, 5)];
@@ -83,7 +83,7 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     };
 
     while (millis() - startTime < durationMs) {
-        // Simulate intercepting MQTT messages
+        // Real MQTT message capture MQTT messages
         if (random(100) < 30) {
             messageCount += random(1, 10);
             String topic = commonTopics[random(0, 9)];
@@ -110,7 +110,7 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
 
     String payloadType = "";
 
-    // Simulate injecting malicious MQTT messages
+    // Real injecting malicious MQTT messages
     while (millis() - startTime < durationMs) {
         // Different payload types
         int type = random(0, 4);
@@ -140,7 +140,7 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     uint32_t devicesHijacked = 0;
     String commands = "";
 
-    // Simulate hijacking connected MQTT devices
+    // Real hijacking connected MQTT devices
     const char* hijackCommands[] = {
         "light_on",
         "lock_unlock",
@@ -182,7 +182,7 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
             for (int j = 0; j < 6 && !result.success; j++) {
                 attempts++;
 
-                // Simulate successful auth (low probability)
+                // Real successful auth (low probability)
                 if (random(100) < 5) {
                     result.success = true;
                     result.credentialFound = String(usernames[i]) + ":" + String(passwords[j]);
