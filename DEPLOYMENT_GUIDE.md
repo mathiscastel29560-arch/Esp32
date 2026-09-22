@@ -1,474 +1,310 @@
-# Audit Logger - Complete Deployment Guide
+# ESP32-S3 Audit Tool - Deployment Guide
 
-**Date:** 2026-09-22  
-**Project:** ESP32 Audit Logger  
-**Status:** Ready for Deployment ✅
-
----
-
-## Overview
-
-Complete system for WiFi/BLE/RF auditing with:
-- **ESP32 Firmware** - Attack implementation (50+ modules)
-- **Web App (PWA)** - Cross-platform control dashboard
-- **Deployment** - No external servers needed, fully self-contained
+## Table of Contents
+1. [Hardware Assembly](#hardware-assembly)
+2. [Pin Configuration Verification](#pin-configuration-verification)
+3. [Software Setup](#software-setup)
+4. [Flashing the Firmware](#flashing-the-firmware)
+5. [Hardware Validation](#hardware-validation)
+6. [Post-Deployment Checklist](#post-deployment-checklist)
+7. [Troubleshooting](#troubleshooting)
+8. [Field Operation](#field-operation)
 
 ---
 
-## Hardware Setup
+## Hardware Assembly
 
-### ESP32-S3-N16R8 Configuration
+### Component List
+- **ESP32-S3-DevKitC-1** (or compatible ESP32-S3 board)
+- **CC1101** (433MHz SubGHz transceiver)
+- **NRF24L01+** (2.4GHz transceiver)
+- **PN532** (NFC/RFID reader module)
+- **DS3231** (Real-Time Clock)
+- **SSD1306** (128x64 OLED display)
+- **Button module** (for menu navigation)
+- **Battery management** (for portable operation)
+- **Buzzer** (GPIO21, for audio feedback)
+- **LEDs** (for visual indicators)
 
-**Specs:**
-- 16MB Quad Flash
-- 8MB Octal PSRAM
-- Dual-core Xtensa processor
-- USB-C for programming
+### Soldering Checklist
 
-**Build & Flash:**
+#### 1. SPI Bus Connections (SCK=GPIO36, MOSI=GPIO35, MISO=GPIO37)
+These three pins are shared by TFT, CC1101, and NRF24:
 
+**CC1101 (433MHz)**
+- SCK → GPIO36
+- MOSI → GPIO35
+- MISO → GPIO37
+- CS → GPIO10
+- GND → GND
+- VCC → 3.3V
+
+**NRF24L01+**
+- SCK → GPIO36
+- MOSI → GPIO35
+- MISO → GPIO37
+- CS → GPIO11
+- CE → GPIO12
+- VCC → 3.3V
+- GND → GND
+
+**SSD1306 Display (I2C)**
+- SCL → GPIO9
+- SDA → GPIO8
+- VCC → 3.3V
+- GND → GND
+
+#### 2. I2C Bus Connections (SCL=GPIO9, SDA=GPIO8)
+Shared by RTC and PN532:
+
+**DS3231 RTC**
+- SCL → GPIO9
+- SDA → GPIO8
+- VCC → 3.3V
+- GND → GND
+
+**PN532 NFC Reader**
+- SCL → GPIO9
+- SDA → GPIO8
+- VCC → 3.3V
+- GND → GND
+
+#### 3. UART Connections
+
+**GPS Module (UART1)**
+- TX → GPIO20
+- RX → GPIO19
+- VCC → 3.3V
+- GND → GND
+
+#### 4. GPIO Connections
+
+**Button Matrix**
+- Button 1 (Enter/Select) → GPIO18
+- Button 2 (Back) → GPIO17
+- Button 3 (Next) → GPIO16
+- GND → GND (common ground)
+
+**Buzzer**
+- Signal → GPIO21 (PWM capable)
+- GND → GND
+
+**Battery ADC**
+- Battery Voltage → GPIO4 (ADC input)
+- GND → GND
+
+### Recommended Layout
+```
+ESP32-S3 with shared SPI bus (SCK/MOSI/MISO)
+├─ CC1101 (CS=GPIO10)
+├─ NRF24 (CS=GPIO11, CE=GPIO12)
+└─ Display (if SPI)
+
+Shared I2C bus (SCL=GPIO9, SDA=GPIO8)
+├─ DS3231 RTC @ 0x68
+└─ PN532 NFC @ 0x24
+
+UART1 (TX=GPIO20, RX=GPIO19)
+└─ GPS Module @ 9600bps
+
+GPIO
+├─ Buzzer (PWM, GPIO21)
+├─ Battery ADC (GPIO4)
+└─ Status LEDs (GPIO5,13,14)
+```
+
+---
+
+## Pin Configuration Verification
+
+Verify in `include/config.h`:
+
+```cpp
+// SPI Bus (Shared)
+#define PIN_SCK    36
+#define PIN_MOSI   35
+#define PIN_MISO   37
+
+// Chip Select
+#define PIN_CS_CC1101   10
+#define PIN_CE_NRF24    12
+#define PIN_CS_NRF24    11
+
+// I2C
+#define PIN_I2C_SDA  8
+#define PIN_I2C_SCL  9
+
+// UART1 (GPS)
+#define PIN_UART1_TX  20
+#define PIN_UART1_RX  19
+
+// GPIO
+#define PIN_BUZZER       21
+#define PIN_BATTERY_ADC  4
+```
+
+---
+
+## Software Setup
+
+### Prerequisites
+- PlatformIO CLI
+- Python 3.7+
+- USB cable
+
+### Install & Build
 ```bash
 cd /home/user/Esp32
-pio run -e esp32-s3-audit  # Compile
-pio run -e esp32-s3-audit --target upload  # Flash to device
+pio pkg install
+pio run -e esp32-s3-devkitc-1
 ```
 
-**Verification:**
-- ✅ Compilation: 27-35s (RAM 25.1%, Flash 62.0%)
-- ✅ All 43 libraries compatible
-- ✅ 50+ attack modules verified
-- ✅ No critical errors or warnings
-
-**Initial Boot:**
-1. Connect USB-C power
-2. Watch Serial Monitor (115200 baud)
-3. Device creates SoftAP network: `esp32-audit`
-4. Automatically starts web server on port 8080
-
 ---
 
-## Network Setup
+## Flashing the Firmware
 
-### ESP32 SoftAP (WiFi Access Point)
+### Connect & Upload
+```bash
+# Check device
+ls /dev/ttyUSB*
 
-The ESP32 creates its own WiFi network without needing internet.
+# Flash
+pio run -e esp32-s3-devkitc-1 -t upload
 
-**Default Configuration:**
-- SSID: `esp32-audit`
-- Password: (See device boot log or config.h)
-- IP: 192.168.4.1
-- Port: 8080
-- Mode: 2.4GHz (802.11b/g/n)
-
-**Why SoftAP?**
-- No router required
-- Pure point-to-point connection
-- Ideal for field auditing
-- Works anywhere
-
-**Connection Steps (iPhone):**
-1. Settings → WiFi
-2. Select `esp32-audit`
-3. Enter password
-4. WiFi icon shows connected
-
-**Connection Steps (Computer):**
-1. WiFi networks list
-2. Select `esp32-audit`
-3. Enter password
-4. Automatic IP assignment (192.168.4.x)
-
----
-
-## Application Deployment
-
-### Option 1: PWA on iPhone (Recommended)
-
-**Installation (3 steps):**
-
-1. **Open in Safari:**
-   - Open Safari browser on iPhone
-   - Go to: https://claude.ai/artifact/JhLoBafP57aco36kFrX8wW
-
-2. **Install to Home Screen:**
-   - Tap Share button (bottom center)
-   - Tap "Add to Home Screen"
-   - Name: `Audit Logger`
-   - Tap "Add"
-
-3. **Use App:**
-   - Tap icon from home screen
-   - Opens in full-screen mode
-   - Works exactly like native app
-
-**Advantages:**
-- ✅ No App Store needed
-- ✅ No developer account required
-- ✅ No Mac needed to build
-- ✅ Instant updates (no app review)
-- ✅ Works offline (Service Worker)
-- ✅ Responsive touch interface
-
-**System Requirements:**
-- iOS 15 or later
-- Safari browser
-- 50MB free space
-- WiFi connection to ESP32-audit
-
-### Option 2: PWA on Computer
-
-**Installation:**
-
-1. **Any Browser:**
-   - Chrome, Firefox, Safari, Edge all work
-   - Go to: https://claude.ai/artifact/JhLoBafP57aco36kFrX8wW
-
-2. **Install:**
-   - Chrome: Click install prompt (top-right)
-   - Firefox: Add bookmark & install
-   - All browsers: Works in web view
-
-3. **Usage:**
-   - Opens as standalone app
-   - Full-screen window
-   - Keyboard friendly
-
-**System Requirements:**
-- Any OS: Windows, macOS, Linux
-- Modern browser (Chrome, Firefox, Safari, Edge)
-- 50MB free space
-- WiFi connection to ESP32-audit
-
----
-
-## Configuration
-
-### First-Time Setup
-
-**Step 1: Connect to ESP32 WiFi**
-
-```
-Settings → WiFi → esp32-audit → (enter password)
+# Monitor output
+pio device monitor -b 115200
 ```
 
-**Step 2: Open App**
+### Expected Startup Output
+```
+╔═══════════════════════════════════════╗
+║    ESP32-S3 Audit Tool v2.0.0        ║
+║     Hardware Initialization           ║
+╚═══════════════════════════════════════╝
 
-- iPhone: Tap home screen icon
-- Computer: Open bookmark or URL
+[✓] GPIO System Initialized
+[✓] ADC Battery Monitoring Ready
+[✓] Buzzer Audio Ready
 
-**Step 3: Configure Connection**
+[I2C Bus @ 100kHz]
+  [✓] DS3231 RTC @ 0x68
+  [✓] PN532 NFC @ 0x24
 
-In app, go to Settings (⚙️ tab):
+[SPI Bus @ 1MHz]
+  [✓] CC1101 433MHz
+  [✓] NRF24L01+ 2.4GHz
 
-| Field | Default | Change If |
-|-------|---------|-----------|
-| IP Address | 192.168.4.1 | Device has different IP |
-| Port | 8080 | You changed it in config |
+[UART1 @ 9600bps]
+  [⚠] GPS Waiting...
 
-Tap "🔌 Connecter" to test connection.
-
-**Status Indicators:**
-- 🟢 ONLINE - Connected and ready
-- 🔴 OFFLINE - Can't reach ESP32
-- 🟠 CONNECTING - Testing connection
+[System] Ready for audit.
+```
 
 ---
 
-## Usage
+## Hardware Validation
 
-### Dashboard Tab (📊 Tableau)
+### Test Mode
+1. Power on → Main Menu
+2. Navigate to "System" tab
+3. Select "Hardware Test"
+4. Run tests:
 
-**Displays:**
-- Total attacks launched
-- Success/failure count
-- Success rate percentage
-- ESP32 battery percentage
-- Connected clients count
-- 5 most recent results
+- **GPIO Test**: Button debounce (20ms), long press (1000ms)
+- **RTC Test**: Time, temperature, battery status
+- **GPS Test**: NMEA parsing, satellite lock
+- **PN532 Test**: NFC firmware, card detection
+- **CC1101 Test**: 433MHz initialization, frequency
+- **NRF24 Test**: 2.4GHz initialization, addresses
 
-**Auto-updates:** Every 10 seconds
-
-### Attacks Tab (⚡ Att)
-
-**Available Attack Types:**
-
-| Attack | Requires | Duration |
-|--------|----------|----------|
-| 🔵 BLE Spam | - | Continuous |
-| 🚀 WiFi Deauth | MAC address, channel | 10-30s |
-| 📡 Beacon Spam | SSID list | Continuous |
-| 📋 BLE GATT Audit | BLE device MAC | Auto-stop |
-| 🔧 BLE Fuzz | BLE device MAC | Auto-stop |
-| 📻 NRF24 Scan | - | Auto-stop |
-| 📊 Sub-GHz Record | - | 8 seconds |
-
-**How to Launch:**
-
-1. Select attack type
-2. Enter target (or leave blank if not needed)
-3. Set duration (if applicable)
-4. Tap "🚀 Lancer l'Attaque"
-
-**Response:**
-- ✅ Green = Sent successfully
-- ❌ Red = Error (check ESP32 status)
-
-### Results Tab (📈 Rés)
-
-**Filters:**
-- Tous (All attacks)
-- ✅ Réussis (Successful only)
-- ❌ Échoués (Failed only)
-
-**Info Shown:**
-- Attack type
-- Target
-- Duration
-- Timestamp
-- Success/failure
-
-### Settings Tab (⚙️ Config)
-
-**Configuration:**
-- IP address
-- Port number
-- Test connection
-- Check ESP32 status
-- Reset all data
-
-**Utilities:**
-- 🧪 Test Connexion - Verify connection
-- 📊 Statut ESP32 - Check battery, clients, GPS
-- 🗑️ Réinitialiser - Clear all results
+### Verification Checklist
+- [ ] All tests pass
+- [ ] Serial monitor no errors
+- [ ] Menu responsive
+- [ ] Display visible
+- [ ] Buzzer sounds
+- [ ] Battery level shows
+- [ ] Time displays
 
 ---
 
 ## Troubleshooting
 
-### "🔴 OFFLINE" - Can't Connect to ESP32
-
-**Diagnosis:**
-1. Is ESP32 powered on? (USB power, LED should be lit)
-2. Connected to `esp32-audit` WiFi? (Check WiFi icon)
-3. Is IP address correct? (Should be 192.168.4.1)
-
-**Fix:**
-1. Reboot ESP32 (unplug USB, wait 2s, plug back in)
-2. Check router logs if using bridged mode
-3. Try manual IP (Settings → WiFi → esp32-audit → Static IP)
-4. Restart app (close and reopen)
-
-**Permanent Fix:**
-- Check ESP32 serial log for errors
-- Verify WiFi module is initialized
-- Check .pio/build/esp32-s3-audit/main.cpp compilation
-
-### Attacks Not Launching
-
-**Causes:**
-
-| Symptom | Fix |
-|---------|-----|
-| "ESP32 not connected" | Use Settings tab to reconnect |
-| No target entered | Enter MAC/SSID for attack |
-| "Channel must be 1-11" | WiFi Deauth needs valid channel |
-| No error but nothing happens | Check ESP32 console for errors |
-
-### Battery Draining Quickly
-
-**Normal Drain:**
-- Idle (no attacks): ~2-3% per hour
-- Active attacks: ~10-15% per hour
-- WiFi on: Always significant drain
-
-**Optimization:**
-- Disable WiFi when not auditing
-- Use shorter attack durations
-- Enable low-power mode if available
-
-### Data Not Saving
-
-**Check:**
-1. LocalStorage enabled in browser
-2. Private/Incognito mode (disables storage)
-3. Clear browser cache and try again
-
-**On iPhone:**
-- Settings → Safari → Advanced → JavaScript (enabled?)
-- Settings → Safari → Clear History/Data (if needed)
-
----
-
-## API Reference
-
-All endpoints are called by the app automatically. For manual testing:
-
-### Status
-
-```
-GET http://192.168.4.1:8080/api/status
-```
-
-Returns JSON with battery %, clients, GPS status, time.
-
-### WiFi Attacks
-
-```
-POST http://192.168.4.1:8080/api/wifi/deauth?bssid=AA:BB:CC:DD:EE:FF
-POST http://192.168.4.1:8080/api/wifi/beacon/start?ssids=Network1,Network2
-```
-
-### BLE Attacks
-
-```
-POST http://192.168.4.1:8080/api/ble/spam/start
-POST http://192.168.4.1:8080/api/ble/gatt-audit?address=AA:BB:CC:DD:EE:FF
-```
-
-### See Also
-
-- `include/web_ctrl.h` - Complete API documentation
-- `API_TEST_GUIDE.md` - Detailed endpoint testing
-- `web_ctrl.cpp` - Implementation details
-
----
-
-## Performance Metrics
-
-### ESP32 Firmware
-
-| Metric | Value |
-|--------|-------|
-| Compilation time | 27-35 seconds |
-| RAM usage | 25.1% (82KB / 328KB) |
-| Flash usage | 62.0% (1.9MB / 3.1MB) |
-| Startup time | ~5 seconds |
-| Concurrent clients | 4+ |
-
-### Web App
-
-| Operation | Time |
-|-----------|------|
-| Status check | 200-500ms |
-| Attack launch | 500-2000ms |
-| Retry on error | 500ms, 1000ms (backoff) |
-| Dashboard refresh | <1s |
-
-### Network
-
-| Metric | Value |
-|--------|-------|
-| WiFi range (indoor) | 20-30 meters |
-| WiFi range (outdoor) | 50+ meters |
-| Connection latency | 10-50ms |
-| Timeout before retry | 8 seconds (attacks), 5 (status) |
-
----
-
-## Security Notes
-
-### Authentication
-
-- **No authentication** - Device connects to SoftAP directly
-- **Assumption:** Trusted environment (field testing only)
-- **For production:** Add HTTP Basic Auth to web_ctrl.h
-
-### Attack Safety
-
-- **TX Arm:** All destructive attacks require BACK button press
-- **Rate limiting:** No DDoS prevention (single operator assumed)
-- **Validation:** All parameters validated, XSS protection in place
-
-### Data Storage
-
-- **On Device:** Results stored in LocalStorage (browser)
-- **Persistence:** Survives app reload, lost on "Reset Data"
-- **Backup:** Export before reset (recommended in future)
-
----
-
-## Support & Documentation
-
-### Files to Read
-
-| File | Purpose |
-|------|---------|
-| `AUDIT_COMPLET.md` | Project audit summary |
-| `API_TEST_GUIDE.md` | Endpoint testing reference |
-| `iOS_IMPLEMENTATION_STATUS.md` | iOS app details |
-| `include/web_ctrl.h` | API documentation |
-| `src/web_ctrl.cpp` | API implementation |
-| `DEPLOYMENT_GUIDE.md` | This file |
-
-### Serial Log Debugging
-
-Connect USB and monitor output:
-
+### Device Not Detected
 ```bash
-pio device monitor -e esp32-s3-audit
+lsusb | grep Silicon
+sudo usermod -a -G dialout $USER
+# Logout and login
 ```
 
-Watch for:
-- ✅ "WiFi SoftAP started"
-- ✅ "WebServer listening on port 8080"
-- ⚠️ Memory warnings or errors
-- ❌ Module initialization failures
+### Upload Fails
+```bash
+pio run -t erase
+pio run -t upload
+```
 
-### Browser Console
+### Hardware Test Fails
 
-Open developer tools (F12) and check Console tab for:
-- Network errors (failed API calls)
-- JavaScript errors
-- WebSocket connection status
-- LocalStorage operations
+**RTC (I2C 0x68)**
+- Check GPIO9/GPIO8 connections
+- Verify 3.3V power
 
----
+**CC1101 (SPI, 433MHz)**
+- Check GPIO36/35/37 (SCK/MOSI/MISO)
+- Verify GPIO10 (CS)
+- Must be 3.3V (NOT 5V)
 
-## Deployment Checklist
+**NRF24 (SPI, 2.4GHz)**
+- Check GPIO36/35/37 connections
+- Verify GPIO11 (CS), GPIO12 (CE)
+- Needs 150mA+ current
 
-- [ ] ESP32 firmware compiled and flashed
-- [ ] Device boots and creates SoftAP
-- [ ] PWA app installed on iPhone (or accessible on computer)
-- [ ] App connects to ESP32 (green ONLINE badge)
-- [ ] Test one attack from each category
-- [ ] Verify results are recorded
-- [ ] Check battery drain is acceptable
-- [ ] Document any issues found
+**PN532 (I2C 0x24)**
+- Check GPIO9/GPIO8
+- Same I2C bus as RTC
 
----
+**GPS (UART1, 9600bps)**
+- Check GPIO20 (TX), GPIO19 (RX)
+- Allow 30+ seconds for cold start
 
-## Next Steps (Post-Deployment)
+### Garbled Serial Output
+```bash
+# Must use 115200 baud
+pio device monitor -b 115200
+```
 
-### Immediate (Day 1)
-1. Test all attack types
-2. Monitor battery drain
-3. Check ESP32 temperature
-4. Verify app responsiveness
-
-### Short-term (Week 1)
-1. Extended field testing
-2. Performance optimization
-3. Add more attack types
-4. Improve error messages
-
-### Long-term (Month 1+)
-1. Persistent data storage (cloud optional)
-2. Multiple ESP32 support
-3. Advanced filtering/analytics
-4. Native iOS app (when Mac available)
+### Random Resets
+- Check power supply (stable 5V)
+- Reduce clock speed if needed
+- Check temperature (<60°C)
 
 ---
 
-## Contact & Attribution
+## Field Operation
 
-**Project:** Audit Logger ESP32  
-**Date:** 2026-09-22  
-**Build Version:** 1.0  
-**Generated by:** Claude Code  
-**Session:** https://claude.ai/code/session_01XgbUrUY5HoNojbs2erJsvb
+### Before Audit
+- [ ] Battery fully charged
+- [ ] All tests pass
+- [ ] Time synchronized
+- [ ] GPS locked (if needed)
+
+### During Audit
+- [ ] Monitor power usage
+- [ ] Note RF interference
+- [ ] Save results
+
+### After Audit
+- [ ] Export logs
+- [ ] Backup LittleFS
+- [ ] Recharge battery
 
 ---
 
-**Status: READY FOR DEPLOYMENT** ✅
+## Support
 
-All components tested and functional. System ready for field auditing.
+- **Issues**: GitHub Issues
+- **Docs**: CLAUDE.md
+- **Pinout**: include/config.h
+
+Last Updated: 2026-09-22
+Version: 2.0.0
