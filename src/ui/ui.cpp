@@ -220,7 +220,8 @@ void showSplash(const String &title, const String &subtitle) {
 
     constexpr float ROTATIONS_PER_SEC = 1.5f; // ~2 full spins over the 4s splash
     uint32_t start = millis();
-    while (millis() - start < Theme::SPLASH_DURATION_MS) {
+    uint32_t deadline = start + Theme::SPLASH_DURATION_MS;
+    while ((int32_t)(millis() - deadline) < 0) {
         float elapsedSec = (millis() - start) / 1000.0f;
         float angle = elapsedSec * ROTATIONS_PER_SEC * 2.0f * PI;
 

@@ -134,10 +134,13 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     result.success = true;
     result.deauthCount = g_deauthCount;
 
+    uint32_t elapsed = millis() - startTime;
     Serial.println("✓ Deauth attack complete");
     Serial.println("Total frames: " + String(result.deauthCount));
-    Serial.println("Duration: " + String(millis() - startTime) + "ms");
-    Serial.println("Rate: ~" + String((result.deauthCount * 1000) / (millis() - startTime)) + " frames/sec");
+    Serial.println("Duration: " + String(elapsed) + "ms");
+    if (elapsed > 0) {
+        Serial.println("Rate: ~" + String((result.deauthCount * 1000) / elapsed) + " frames/sec");
+    }
     Serial.println("⚠️  Connected clients should disconnect");
 
     return result;
