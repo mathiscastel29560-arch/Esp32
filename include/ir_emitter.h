@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <vector>
+#include <IRsend.h>
 
 namespace IrEmitter {
 
@@ -24,18 +25,20 @@ struct EmitResult {
 
 class IrEmitter {
 public:
-  IrEmitter();
+  IrEmitter(uint8_t txPin = 14); // GPIO14 default for IR LED
   EmitResult emitNecCode(const EmitterConfig& config, uint8_t address, uint8_t command);
+  EmitResult emitRcCode(const EmitterConfig& config, uint8_t address, uint8_t command, uint8_t toggle);
+  EmitResult emitSonyCode(const EmitterConfig& config, uint16_t data);
   EmitResult emitRawTimings(const EmitterConfig& config, const std::vector<uint16_t>& timings);
   EmitResult replayCapture(const EmitterConfig& config, const std::vector<uint8_t>& capturedData);
   void stop();
   bool isRunning() const { return isRunning_; }
 
 private:
+  IRsend irsend_;
   bool isRunning_;
   unsigned long startTime_;
 
-  void sendPulse(uint8_t pin, uint32_t frequency, uint16_t duration);
   void logEmission(uint32_t count);
 };
 
