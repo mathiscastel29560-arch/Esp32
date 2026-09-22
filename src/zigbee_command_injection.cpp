@@ -1,4 +1,5 @@
 #include "zigbee_command_injection.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 #include <RF24.h>
 
@@ -20,7 +21,6 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
   RF24 radio(22, 21);  // CE=GPIO22, CSN=GPIO21
 
   if (!radio.begin()) {
-    result.error = "Failed to initialize RF24 radio";
     isRunning_ = false;
     return result;
   }
@@ -51,8 +51,13 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
   // - Source Address (2B for short or 8B for extended)
   // - Data Payload (variable)
 
+  while (isRunning_ && (millis() - startTime) < config.durationMs) {
+    uint8_t frame[64];
+    uint8_t frameLen = 0;
+    uint8_t payload[16];
+
     // Zigbee command cluster
-    for (int i = 4; i < 20; i++) {
+    for (int i = 0; i < 16; i++) {
       payload[i] = (esp_random() % 256);
     }
 
@@ -81,7 +86,7 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
     radio.write(frame, frameLen);
 
     Serial.printf("[Zigbee] Sent command: Cluster=0x%02X, Param=0x%02X\n",
-                 frame[9], frame[10]);
+                 frame[2], frame[3]);
 
     // Listen for responses (in broadcast mode, might get ACKs)
     radio.startListening();

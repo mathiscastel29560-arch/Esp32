@@ -69,17 +69,7 @@ void parseGPGGA(const String& sentence) {
 bool init() {
     if (initialized) return true;
 
-    // Guard: Check if GpsModule (existing) is already using UART1
-    extern HardwareSerial Serial0;  // UART0 (console)
-    extern HardwareSerial Serial1;  // UART1 (potentially GpsModule)
-
-    // Check if UART1 is already in use by detecting if Serial1 has been initialized
-    if (Serial1.baudRate() > 0) {
-        Serial.println("[GPS] ⚠️  UART1 already in use (GpsModule active)");
-        Serial.println("[GPS] Cannot initialize GPSDriver - use existing GpsModule instead");
-        return false;
-    }
-
+    // Note: GpsModule and GPSDriver both use UART1 - use one or the other, not both
     Serial.println("[GPS] Initializing UART1...");
 
     gpsSerial = new HardwareSerial(1);  // UART1 (pin 18 RX, 17 TX)

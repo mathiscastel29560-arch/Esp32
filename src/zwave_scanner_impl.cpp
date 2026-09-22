@@ -8,6 +8,14 @@ static std::vector<ZwaveNode> discoveredNodes;
 static const uint32_t ZWAVE_HOME_ID = 0x7B5C3A1F;
 static const uint8_t ZWAVE_CHANNEL = 15;
 
+// Forward declarations
+void logScanResults(uint32_t nodeCount);
+const ZwaveNode* getDiscoveredNodes(uint32_t& outCount);
+InjectionResult injectZwaveCommands(uint8_t targetNode, uint32_t durationMs, const char* cmdType);
+SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs);
+KeyRecoveryResult recoverZwaveNetworkKey(uint32_t durationMs);
+ZwaveStats getZwaveStats();
+
 ScanResult scanZwaveNetwork(uint32_t durationMs) {
     ScanResult result = {false, 0, 0, -100, 1};
     discoveredNodes.clear();
@@ -51,36 +59,21 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
             const char* manufacturers[] = {"Aeotec", "Fibaro", "Danfoss", "Qubino", "RGBgenie"};
             node.manufacturer = manufacturers[(esp_random() % 5)];
 
-        node.rssi = -30 - (i * 5) + ((esp_random() % 11) - 5);
-        node.securityLevel = (i % 3);
-        node.timestamp = millis();
+            discoveredNodes.push_back(node);
+            nodeCount++;
 
-        uint8_t devType = i % 6;
-        switch(devType) {
-            case 0: node.deviceType = "SmartLock"; break;
-            case 1: node.deviceType = "SmartSwitch"; break;
-            case 2: node.deviceType = "Thermostat"; break;
-            case 3: node.deviceType = "Sensor"; break;
-            case 4: node.deviceType = "DoorLock"; break;
-            default: node.deviceType = "Generic"; break;
+            Serial.printf("  [Node %u] %s (%s) RSSI: %d dBm Security: %s\n",
+                         node.nodeId, node.deviceType.c_str(),
+                         node.manufacturer.c_str(), node.rssi,
+                         node.securityLevel == 2 ? "S2" :
+                         node.securityLevel == 1 ? "S0" : "NONE");
+
+            if (node.rssi > strongestRssi) {
+                strongestRssi = node.rssi;
+            }
+
+            delay(200);
         }
-
-        node.manufacturer = realDevices[i % 6];
-
-        discoveredNodes.push_back(node);
-        nodeCount++;
-
-        Serial.printf("  [Node %u] %s (%s) RSSI: %d dBm Security: %s\n",
-                     node.nodeId, node.deviceType.c_str(),
-                     node.manufacturer.c_str(), node.rssi,
-                     node.securityLevel == 2 ? "S2" :
-                     node.securityLevel == 1 ? "S0" : "NONE");
-
-        if (node.rssi > strongestRssi) {
-            strongestRssi = node.rssi;
-        }
-
-        delay(200);
     }
 
     logScanResults(nodeCount);
@@ -198,6 +191,11 @@ InjectionResult injectZwaveCommands(uint8_t targetNode, uint32_t durationMs, con
 SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs) {
     SecurityBypassResult result = {false, 0, 0, ""};
 
+    const char* vulnerabilities[] = {
+        "S0_KEY_RECOVERY", "S2_NONCE_REUSE", "UNENCRYPTED_INCLUSION",
+        "WEAK_PRF", "CRC_BYPASS"
+    };
+
     uint32_t startTime = millis();
     uint32_t attempts = 0;
 
@@ -209,11 +207,12 @@ SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs) {
         for (const auto& node : discoveredNodes) {
             attempts++;
 
-        // Simulate occasional successful bypass
-        if (attempts > 500 && (esp_random() % 100) < 3) {
-            result.success = true;
-            result.vulnerabilityFound = vulnerabilities[(esp_random() % 5)];
-            break;
+            // Simulate occasional successful bypass
+            if (attempts > 500 && (esp_random() % 100) < 3) {
+                result.success = true;
+                result.vulnerabilityFound = vulnerabilities[(esp_random() % 5)];
+                break;
+            }
         }
     }
 
