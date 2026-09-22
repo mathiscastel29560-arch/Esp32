@@ -26,8 +26,9 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     uint32_t brokerCount = 0;
     int8_t strongestRssi = -100;
     String strongestBroker = "";
+    uint32_t deadline = startTime + durationMs;
 
-    while (millis() - startTime < durationMs && brokerCount < 5) {
+    while ((int32_t)(millis() - deadline) < 0 && brokerCount < 5) {
         // Simulate finding MQTT brokers
         if ((esp_random() % 100) < 20) {
             MqttBroker broker;
@@ -68,6 +69,7 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     uint32_t startTime = millis();
     uint32_t messageCount = 0;
     String topicsFound = "";
+    uint32_t deadline = startTime + durationMs;
 
     // Common IoT topics
     const char* commonTopics[] = {
@@ -82,7 +84,7 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
         "sensor/pressure"
     };
 
-    while (millis() - startTime < durationMs) {
+    while ((int32_t)(millis() - deadline) < 0) {
         // Simulate intercepting MQTT messages
         if ((esp_random() % 100) < 30) {
             messageCount += ((esp_random() % 9) + 1);
@@ -107,11 +109,11 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
 
     uint32_t startTime = millis();
     uint32_t injected = 0;
+    uint32_t deadline = startTime + durationMs;
 
     String payloadType = "";
 
-    // Simulate injecting malicious MQTT messages
-    while (millis() - startTime < durationMs) {
+    while ((int32_t)(millis() - deadline) < 0) {
         // Different payload types
         int type = (esp_random() % 4);
         switch(type) {
@@ -139,6 +141,7 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     uint32_t startTime = millis();
     uint32_t devicesHijacked = 0;
     String commands = "";
+    uint32_t deadline = startTime + durationMs;
 
     // Simulate hijacking connected MQTT devices
     const char* hijackCommands[] = {
@@ -151,7 +154,7 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
         "door_open"
     };
 
-    while (millis() - startTime < durationMs) {
+    while ((int32_t)(millis() - deadline) < 0) {
         if ((esp_random() % 100) < 25) {
             devicesHijacked += ((esp_random() % 2) + 1);
             commands = hijackCommands[(esp_random() % 7)];
@@ -172,12 +175,13 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
+    uint32_t deadline = startTime + durationMs;
 
     // Common default MQTT credentials
     const char* usernames[] = {"admin", "mqtt", "user", "test", "guest", "broker"};
     const char* passwords[] = {"password", "12345", "admin", "mqtt", "123456", "test"};
 
-    while (millis() - startTime < durationMs && !result.success) {
+    while ((int32_t)(millis() - deadline) < 0 && !result.success) {
         for (int i = 0; i < 6 && !result.success; i++) {
             for (int j = 0; j < 6 && !result.success; j++) {
                 attempts++;
@@ -189,7 +193,7 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
                     break;
                 }
             }
-            if (millis() - startTime > durationMs) break;
+            if ((int32_t)(millis() - deadline) >= 0) break;
         }
     }
 

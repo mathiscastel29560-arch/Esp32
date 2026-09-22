@@ -51,7 +51,7 @@ void generateSweep() {
     }
     g_signalsCount++;
 }
-}
+} // namespace
 
 namespace JammingSignalGenerator {
 
@@ -70,8 +70,9 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
     g_genActive = true;
     g_signalsCount = 0;
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
 
-    while (millis() - startTime < durationMs && g_genActive) {
+    while ((int32_t)(millis() - deadline) < 0 && g_genActive) {
         if (noiseType == "WHITE") {
             generateWhiteNoise();
         } else if (noiseType == "PINK") {

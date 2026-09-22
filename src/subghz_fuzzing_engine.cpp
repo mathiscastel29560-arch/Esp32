@@ -19,8 +19,9 @@ FuzzResult FuzzingEngine::fuzzSubGhz(const FuzzConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
   uint32_t mutations = 0;
+  uint32_t deadline = startTime_ + config.durationMs;
 
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
     std::vector<uint8_t> payload;
     generateFuzzVector(payload);
 

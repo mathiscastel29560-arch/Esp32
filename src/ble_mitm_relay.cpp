@@ -20,21 +20,18 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
-  // Initialize NimBLE for relay
   NimBLEDevice::init("ESP32-Relay");
 
-  // Create client for intercepting target device
   NimBLEClient* pClient = NimBLEDevice::createClient();
-
-  // Simulate relay attack
-  // In real implementation:
-  // 1. Scan for target device
-  // 2. Connect as peripheral
-  // 3. Connect to real device
-  // 4. Intercept and relay data between connections
+  if (!pClient) {
+    result.error = "Failed to create BLE client";
+    isRunning_ = false;
+    return result;
+  }
 
   uint32_t relayCount = 0;
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
+  uint32_t deadline = startTime_ + config.durationMs;
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
     // Simulate packet relay
     uint8_t simulatedData[20];
     for (int i = 0; i < 20; i++) {
