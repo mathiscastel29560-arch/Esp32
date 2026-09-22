@@ -30,6 +30,9 @@ ScanResult scanForDrones(uint32_t durationMs = 5000);
 // Continuous monitoring mode (blocks until stopped)
 void monitorDrones(uint32_t checkIntervalMs = 1000);
 
+// Stop the monitoring loop
+void stopMonitoring();
+
 // Estimate distance from RSSI (very rough, empirical)
 // Path Loss Model: d = 10^((txPower - rssi) / 20)
 float estimateDistance(int16_t rssi, int16_t txPowerDbm = 0);

@@ -74,16 +74,26 @@ bool start(const String &fakeSsid, uint32_t maxDurationMs) {
 
     ensureLogFile();
 
-    WiFi.softAP(fakeSsid.c_str()); // open network, matches how most captive portals present
+    WiFi.softAP(fakeSsid.c_str());
     IPAddress apIP = WiFi.softAPIP();
 
     g_dns = new DNSServer();
+    if (!g_dns) {
+        Serial.println("ERROR: Failed to allocate DNSServer");
+        return false;
+    }
     g_dns->start(53, "*", apIP);
 
     g_server = new WebServer(80);
+    if (!g_server) {
+        Serial.println("ERROR: Failed to allocate WebServer");
+        delete g_dns;
+        g_dns = nullptr;
+        return false;
+    }
     g_server->on("/", handleRoot);
     g_server->on("/submit", HTTP_POST, handleSubmit);
-    g_server->onNotFound(handleRoot); // any unknown path resolves to the sign-in page
+    g_server->onNotFound(handleRoot);
     g_server->begin();
 
     g_deadline = millis() + maxDurationMs;
@@ -93,12 +103,19 @@ bool start(const String &fakeSsid, uint32_t maxDurationMs) {
 
 void stop() {
     if (!g_active) return;
-    g_server->stop();
-    delete g_server;
-    g_server = nullptr;
-    g_dns->stop();
-    delete g_dns;
-    g_dns = nullptr;
+
+    if (g_server) {
+        g_server->stop();
+        delete g_server;
+        g_server = nullptr;
+    }
+
+    if (g_dns) {
+        g_dns->stop();
+        delete g_dns;
+        g_dns = nullptr;
+    }
+
     g_active = false;
 }
 

@@ -21,8 +21,8 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
     uint32_t startTime = millis();
     float rssiSum = 0;
     uint32_t rssiCount = 0;
-    result.rssiMin = 0;
-    result.rssiMax = -150;
+    result.rssiMin = 0;     // Initialize to 0 (highest possible RSSI) for min() comparison
+    result.rssiMax = -150;  // Initialize to -150 (lowest possible RSSI) for max() comparison
 
     if (radio == "cc1101") {
         // CC1101 @ 433MHz (Sub-GHz)

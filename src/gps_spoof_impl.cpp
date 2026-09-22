@@ -11,19 +11,25 @@ float g_currentLon = 0;
 
 // NMEA GPS sentence generator (simulates GNSS receiver output)
 String generateNMEA(float lat, float lon, uint32_t timestamp) {
-    // Convert to degrees, minutes, seconds format for NMEA
-    float latDeg = floor(fabs(lat));
-    float latMin = (fabs(lat) - latDeg) * 60.0f;
-
-    float lonDeg = floor(fabs(lon));
-    float lonMin = (fabs(lon) - lonDeg) * 60.0f;
-
-    // Validate coordinate ranges to prevent buffer overflow
-    if (latDeg > 90.0f || lonDeg > 180.0f) {
-        return String("$GPGGA,0,0,N,0,E,0,0,0,0,M,0,M,,*00");  // Safe fallback
+    // Validate coordinate ranges upfront to prevent any issues
+    if (lat < -90.0f || lat > 90.0f || lon < -180.0f || lon > 180.0f) {
+        return String("$GPGGA,0,0,N,0,E,0,0,0,0,M,0,M,,*00");
     }
 
-    char latStr[16], lonStr[16];  // Larger buffers with safety margin
+    // Convert to degrees, minutes, seconds format for NMEA
+    float latAbs = fabs(lat);
+    float latDeg = floor(latAbs);
+    float latMin = (latAbs - latDeg) * 60.0f;
+
+    float lonAbs = fabs(lon);
+    float lonDeg = floor(lonAbs);
+    float lonMin = (lonAbs - lonDeg) * 60.0f;
+
+    // Clamp to ensure format safety
+    if (latMin >= 60.0f) latMin = 59.999f;
+    if (lonMin >= 60.0f) lonMin = 59.999f;
+
+    char latStr[20], lonStr[20];
     snprintf(latStr, sizeof(latStr), "%02.0f%06.3f", latDeg, latMin);
     snprintf(lonStr, sizeof(lonStr), "%03.0f%06.3f", lonDeg, lonMin);
 

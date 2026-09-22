@@ -47,20 +47,19 @@ AnalysisResult Analyzer::analyzeChannels(const AnalysisConfig& config) {
     }
   }
 
-  // Compile results
-  for (const auto& pair : channelStats_) {
-    result.channelData.push_back(pair.second);
-    result.totalNetworksFound += pair.second.networkCount;
-  }
+  // Compile results and find best/worst channels in single pass
+  if (!channelStats_.empty()) {
+    result.bestChannel = -1;
+    result.worstChannel = -1;
+    int32_t bestRssi = INT32_MIN;
+    int32_t worstRssi = INT32_MAX;
 
-  // Find best and worst channels
-  if (!result.channelData.empty()) {
-    result.bestChannel = result.channelData[0].channel;
-    result.worstChannel = result.channelData[0].channel;
-    int32_t bestRssi = result.channelData[0].rssi;
-    int32_t worstRssi = result.channelData[0].rssi;
+    for (const auto& pair : channelStats_) {
+      const auto& scan = pair.second;
+      result.channelData.push_back(scan);
+      result.totalNetworksFound += scan.networkCount;
 
-    for (const auto& scan : result.channelData) {
+      // Track best/worst during compilation
       if (scan.rssi > bestRssi) {
         bestRssi = scan.rssi;
         result.bestChannel = scan.channel;

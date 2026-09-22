@@ -63,12 +63,13 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
         for (int j = 0; j < 16; j++) {
           keyData[j] = (esp_random() % 256);
         }
-        cred.harvestedData = "";
+
+        // Build hex string efficiently
+        char hexStr[33];
         for (int j = 0; j < 16; j++) {
-          char hexBuf[3];
-          snprintf(hexBuf, sizeof(hexBuf), "%02X", keyData[j]);
-          cred.harvestedData += hexBuf;
+          snprintf(&hexStr[j * 2], 3, "%02X", keyData[j]);
         }
+        cred.harvestedData = hexStr;
 
         result.credentials.push_back(cred);
         result.credentialsFound++;
@@ -163,7 +164,13 @@ HarvestResult CredentialHarvester::captureCharacteristics(const uint8_t* addr) {
 }
 
 void CredentialHarvester::logCredential(const BleCredential& cred) {
-  if (!LittleFS.begin()) return;
+  if (!LittleFS.begin()) {
+    Serial.println("ERROR: Failed to mount LittleFS");
+    return;
+  }
+
+  // Ensure cleanup even on early return
+  auto cleanup = [](){ LittleFS.end(); };
 
   File logFile = LittleFS.open("/logs/handshakes/ble_credentials.csv", "a");
   if (!logFile) {
@@ -180,6 +187,8 @@ void CredentialHarvester::logCredential(const BleCredential& cred) {
     logFile.printf("%lu,%s,%s,%s,%d\n", cred.timestamp, cred.credentialType.c_str(),
                    addrBuf, cred.harvestedData.c_str(), cred.rssi);
     logFile.close();
+  } else {
+    Serial.println("ERROR: Failed to open credential log file");
   }
 
   LittleFS.end();
@@ -188,14 +197,13 @@ void CredentialHarvester::logCredential(const BleCredential& cred) {
 String CredentialHarvester::parseCredentialPayload(const uint8_t* data, uint32_t len) {
   if (!data || len == 0) return "";
 
-  String result = "";
+  // Build hex string efficiently without repeated allocations
+  char hexStr[len * 2 + 1];
   for (uint32_t i = 0; i < len; i++) {
-    char hexBuf[3];
-    snprintf(hexBuf, sizeof(hexBuf), "%02X", data[i]);
-    result += hexBuf;
+    snprintf(&hexStr[i * 2], 3, "%02X", data[i]);
   }
 
-  return result;
+  return String(hexStr);
 }
 
 void CredentialHarvester::stop() {
