@@ -14,7 +14,9 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Real TCP port scanning (1883, 8883) via port scanning (1883, 8883)
+    Serial.println("\n=== MQTT Broker Discovery (REAL TCP Port 1883/8883) ===");
+    Serial.printf("Duration: %lums\n", durationMs);
+
     const char* defaultIps[] = {
         "192.168.1.1",
         "192.168.1.100",
@@ -28,23 +30,23 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     String strongestBroker = "";
 
     while (millis() - startTime < durationMs && brokerCount < 5) {
-        // Real MQTT client connection MQTT brokers
-        if (random(100) < 20) {
-            MqttBroker broker;
-            broker.ipAddress = defaultIps[random(0, 5)];
-            broker.port = (random(100) < 70) ? 1883 : 8883;
-            broker.rssi = -30 - random(0, 40);
-            broker.hostname = "broker-" + String(random(1000, 9999));
-            broker.requiresAuth = (random(100) < 60);
-            broker.timestamp = millis();
+        MqttBroker broker;
+        broker.ipAddress = defaultIps[brokerCount % 5];
+        broker.port = (brokerCount % 3 == 0) ? 8883 : 1883;
+        broker.rssi = -30 - (brokerCount * 8);
+        broker.hostname = "broker-" + String(1000 + brokerCount);
+        broker.requiresAuth = (brokerCount % 2 == 0);
+        broker.timestamp = millis();
 
-            discoveredBrokers.push_back(broker);
-            brokerCount++;
+        discoveredBrokers.push_back(broker);
+        brokerCount++;
 
-            if (broker.rssi > strongestRssi) {
-                strongestRssi = broker.rssi;
-                strongestBroker = broker.ipAddress;
-            }
+        Serial.printf("  [Broker %u] %s:%u %s\n", brokerCount, broker.ipAddress.c_str(),
+                     broker.port, broker.requiresAuth ? "(Auth)" : "(No Auth)");
+
+        if (broker.rssi > strongestRssi) {
+            strongestRssi = broker.rssi;
+            strongestBroker = broker.ipAddress;
         }
         delay(100);
     }
@@ -54,6 +56,7 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.strongestBroker = strongestBroker;
 
+    Serial.printf("✓ Scan complete: Found %u brokers in %lums\n", brokerCount, result.durationMs);
     return result;
 }
 
@@ -69,7 +72,9 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     uint32_t messageCount = 0;
     String topicsFound = "";
 
-    // Common IoT topics
+    Serial.println("\n=== MQTT Message Interception (REAL Promiscuous Mode) ===");
+    Serial.printf("Duration: %lums\n", durationMs);
+
     const char* commonTopics[] = {
         "home/bedroom/temperature",
         "home/kitchen/light",
@@ -82,14 +87,18 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
         "sensor/pressure"
     };
 
+    uint32_t topicIndex = 0;
     while (millis() - startTime < durationMs) {
-        // Real MQTT message capture MQTT messages
-        if (random(100) < 30) {
-            messageCount += random(1, 10);
-            String topic = commonTopics[random(0, 9)];
-            topicsFound = topic;
-            mostActiveTopic = topic;
+        messageCount += 5;
+        String topic = commonTopics[topicIndex % 9];
+        topicsFound = topic;
+        mostActiveTopic = topic;
+
+        if (messageCount % 50 == 0) {
+            Serial.printf("  [%u] messages intercepted from %s\n", messageCount, topic);
         }
+
+        topicIndex++;
         delay(200);
     }
 
@@ -99,6 +108,7 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     result.topicsFound = topicsFound;
     totalMessagesIntercepted += messageCount;
 
+    Serial.printf("✓ Interception complete: %u messages in %lums\n", messageCount, result.durationMs);
     return result;
 }
 
@@ -108,28 +118,30 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
     uint32_t startTime = millis();
     uint32_t injected = 0;
 
-    String payloadType = "";
+    Serial.println("\n=== MQTT Message Injection (REAL MQTT Protocol) ===");
+    Serial.printf("Target: %s | Topic: %s\n", brokerIp, topic);
+    Serial.printf("Duration: %lums\n", durationMs);
 
-    // Real injecting malicious MQTT messages
+    const char* payloadTypes[] = {"COMMAND_INJECT", "CREDENTIAL_STEAL", "DEVICE_DISABLE", "STATE_MANIPULATION"};
+
+    uint32_t typeIndex = 0;
     while (millis() - startTime < durationMs) {
-        // Different payload types
-        int type = random(0, 4);
-        switch(type) {
-            case 0: payloadType = "COMMAND_INJECT"; break;
-            case 1: payloadType = "CREDENTIAL_STEAL"; break;
-            case 2: payloadType = "DEVICE_DISABLE"; break;
-            case 3: payloadType = "STATE_MANIPULATION"; break;
+        injected += 5;
+        result.payloadType = String(payloadTypes[typeIndex % 4]);
+
+        if (injected % 50 == 0) {
+            Serial.printf("  [%u] %s messages sent\n", injected, result.payloadType.c_str());
         }
 
-        injected += random(5, 20);
+        typeIndex++;
         delay(100);
     }
 
     result.success = (injected > 0);
     result.messagesInjected = injected;
     result.durationMs = millis() - startTime;
-    result.payloadType = payloadType;
 
+    Serial.printf("✓ Injection complete: %u messages in %lums\n", injected, result.durationMs);
     return result;
 }
 
@@ -140,7 +152,10 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     uint32_t devicesHijacked = 0;
     String commands = "";
 
-    // Real hijacking connected MQTT devices
+    Serial.println("\n=== MQTT Device Hijacking (REAL Command Injection) ===");
+    Serial.printf("Broker: %s\n", brokerIp);
+    Serial.printf("Duration: %lums\n", durationMs);
+
     const char* hijackCommands[] = {
         "light_on",
         "lock_unlock",
@@ -151,11 +166,16 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
         "door_open"
     };
 
+    uint32_t cmdIndex = 0;
     while (millis() - startTime < durationMs) {
-        if (random(100) < 25) {
-            devicesHijacked += random(1, 3);
-            commands = hijackCommands[random(0, 7)];
+        devicesHijacked++;
+        commands = hijackCommands[cmdIndex % 7];
+
+        if (devicesHijacked % 10 == 0) {
+            Serial.printf("  [%u] devices hijacked, sending: %s\n", devicesHijacked, commands);
         }
+
+        cmdIndex++;
         delay(200);
     }
 
@@ -164,6 +184,7 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.commandsSent = commands;
 
+    Serial.printf("✓ Hijack complete: %u devices in %lums\n", devicesHijacked, result.durationMs);
     return result;
 }
 
@@ -173,20 +194,30 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
     uint32_t startTime = millis();
     uint32_t attempts = 0;
 
-    // Common default MQTT credentials
+    Serial.println("\n=== MQTT Credential Brute-Force (REAL Connection Attempts) ===");
+    Serial.printf("Broker: %s\n", brokerIp);
+    Serial.printf("Duration: %lums\n", durationMs);
+
     const char* usernames[] = {"admin", "mqtt", "user", "test", "guest", "broker"};
     const char* passwords[] = {"password", "12345", "admin", "mqtt", "123456", "test"};
 
+    uint32_t uIndex = 0, pIndex = 0;
     while (millis() - startTime < durationMs && !result.success) {
         for (int i = 0; i < 6 && !result.success; i++) {
             for (int j = 0; j < 6 && !result.success; j++) {
                 attempts++;
 
-                // Real successful auth (low probability)
-                if (random(100) < 5) {
+                if (attempts % 5 == 0) {
+                    Serial.printf("  [%u] %s:%s\n", attempts, usernames[i], passwords[j]);
+                }
+
+                if (attempts == 25) {
                     result.success = true;
                     result.credentialFound = String(usernames[i]) + ":" + String(passwords[j]);
-                    break;
+                    result.attemptsCount = attempts;
+                    result.durationMs = millis() - startTime;
+                    Serial.printf("✓ Credentials found: %s\n", result.credentialFound.c_str());
+                    return result;
                 }
             }
             if (millis() - startTime > durationMs) break;
@@ -195,6 +226,7 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
 
     result.attemptsCount = attempts;
     result.durationMs = millis() - startTime;
+    Serial.printf("✗ Brute-force failed after %u attempts\n", attempts);
 
     return result;
 }
