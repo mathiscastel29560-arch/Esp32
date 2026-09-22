@@ -44,7 +44,7 @@ void sendRandomNoise(float freq) {
 
     uint8_t jamData[64];
     for (int i = 0; i < 64; i++) {
-        jamData[i] = random(0, 256);
+        jamData[i] = esp_random() & 0xFF;
     }
 
     radio.transmit(jamData, 64);

@@ -63,11 +63,11 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
     // Zigbee Cluster Command Payload
     // Command types: 0x00=On, 0x01=Off, 0x02=Toggle, 0x03=Move
     uint8_t commands[] = {0x00, 0x01, 0x02, 0x03};
-    frame[frameLen++] = commands[random(0, 4)];
+    frame[frameLen++] = commands[esp_random() % 4];
 
     // Command parameters
-    frame[frameLen++] = random(0x00, 0xFF);  // Cluster-specific parameter
-    frame[frameLen++] = random(0x00, 0xFF);  // Additional parameter
+    frame[frameLen++] = esp_random() & 0xFF;  // Cluster-specific parameter
+    frame[frameLen++] = esp_random() & 0xFF;  // Additional parameter
 
     // FCS (Frame Check Sequence) - simplified checksum
     uint8_t fcs = 0;

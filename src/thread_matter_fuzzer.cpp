@@ -109,19 +109,19 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
       // MLR Header: 0x3C (ICMPv6 MLR message type)
       fuzzyPayload[payloadLen++] = 0x3C;  // MLR message type
       fuzzyPayload[payloadLen++] = 0x00;  // Code
-      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Checksum 1
-      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Checksum 2
-      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Flags
-      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Number of records
+      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Checksum 1
+      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Checksum 2
+      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Flags
+      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Number of records
 
       // Fuzz MLR records (malformed address count, invalid multicast addresses)
-      uint8_t recordCount = random(1, 10);
+      uint8_t recordCount = 1 + (esp_random() % 9);
       for (int i = 0; i < recordCount; i++) {
-        fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Record type
-        fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Aux data length
+        fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Record type
+        fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Aux data length
         // Add random garbage for addresses
         for (int j = 0; j < 16; j++) {
-          fuzzyPayload[payloadLen++] = random(0x00, 0xFF);
+          fuzzyPayload[payloadLen++] = esp_random() & 0xFF;
         }
         if (payloadLen >= 240) break;  // Don't overflow buffer
       }
@@ -145,9 +145,9 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
 
       // Matter frame header
       fuzzyPayload[payloadLen++] = 0x05;  // Flags (fabric secured)
-      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Message type
+      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Message type
       fuzzyPayload[payloadLen++] = 0x01;  // Protocol ID (Security)
-      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Opcode
+      fuzzyPayload[payloadLen++] = esp_random() & 0xFF;  // Opcode
 
       // Fuzz TLV structures (commissioning uses TLV encoding)
       TLVElement tlvElements[3];
@@ -155,12 +155,12 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
 
       // Generate random TLV elements
       for (int i = 0; i < 32; i++) {
-        value1[i] = random(0x00, 0xFF);
-        value2[i] = random(0x00, 0xFF);
+        value1[i] = esp_random() & 0xFF;
+        value2[i] = esp_random() & 0xFF;
       }
 
       tlvElements[0] = {0x01, 0x04, 32, value1};  // Random element 1
-      tlvElements[1] = {random(0x02, 0x10), 0x04, random(8, 32), value2};  // Random element 2
+      tlvElements[1] = {(uint8_t)(0x02 + (esp_random() % 14)), 0x04, 8 + (esp_random() % 24), value2};  // Random element 2
       tlvElements[2] = {0xFF, 0x04, 0, NULL};  // Terminator (malformed)
 
       payloadLen += buildMatterTLV(fuzzyPayload + payloadLen, tlvElements, 3);
@@ -179,15 +179,15 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
 
     // Random generic Matter fuzz payload
     if (!config.fuzzMlrRequests && !config.fuzzCommissioningMessages) {
-      payloadLen = random(10, 256);
+      payloadLen = 10 + (esp_random() % 246);
       for (uint32_t i = 0; i < payloadLen; i++) {
-        fuzzyPayload[i] = random(0x00, 0xFF);
+        fuzzyPayload[i] = esp_random() & 0xFF;
       }
       messageCount++;
     }
 
     // Real crash detection (check for device response timeouts)
-    if (random(0, 1000) < 2) {  // Reduced crash chance (more realistic)
+    if ((esp_random() % 1000) < 2) {  // Reduced crash chance (more realistic)
       crashCount++;
       Serial.println("[Matter Fuzz] Potential crash detected (timeout response)");
     }
