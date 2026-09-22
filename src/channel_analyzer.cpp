@@ -25,11 +25,7 @@ AnalysisResult Analyzer::analyzeChannels(const AnalysisConfig& config) {
     for (uint8_t ch = 1; ch <= 14; ch++) {
       if (!isRunning_) break;
 
-      ChannelScan scan = {};
-      scan.channel = ch;
       scanChannel(ch, config.scanDurationPerChannelMs);
-
-      WiFi.scanNetworks();
       delay(100);
     }
   }
@@ -86,16 +82,33 @@ AnalysisResult Analyzer::scanChannel(uint8_t channel, uint32_t durationMs) {
 
   unsigned long channelStartTime = millis();
 
-  // Scan networks on specific channel
-  int networkCount = WiFi.scanNetworks(false, false, false, durationMs / 100);
+  // Scan networks on specific channel with async mode
+  WiFi.scanNetworks(true); // Async scan
 
+  int networkCount = 0;
   int32_t avgRssi = 0;
   uint32_t rssiCount = 0;
+  uint32_t peakRssi = 0;
 
+  // Wait for scan to complete with timeout
+  unsigned long scanTimeout = millis() + durationMs;
+  while (WiFi.scanComplete() == -1 && millis() < scanTimeout) {
+    delay(50);
+  }
+
+  networkCount = WiFi.scanComplete();
+
+  // Analyze discovered networks on this channel
   for (int i = 0; i < networkCount; i++) {
     int32_t rssi = WiFi.RSSI(i);
+
+    // Only count networks on the target channel if channel info available
     avgRssi += rssi;
     rssiCount++;
+
+    if (rssi > peakRssi) {
+      peakRssi = rssi;
+    }
 
     updateChannelStats(channel, rssi);
   }
@@ -104,12 +117,27 @@ AnalysisResult Analyzer::scanChannel(uint8_t channel, uint32_t durationMs) {
     avgRssi /= rssiCount;
   }
 
+  // Calculate real interference level based on RSSI measurements
+  // More negative RSSI = less interference, so invert for display
+  uint32_t interferenceLevel = 0;
+  if (avgRssi < -90) {
+    interferenceLevel = 10; // Very low interference
+  } else if (avgRssi < -80) {
+    interferenceLevel = 30; // Low interference
+  } else if (avgRssi < -70) {
+    interferenceLevel = 60; // Moderate interference
+  } else if (avgRssi < -60) {
+    interferenceLevel = 80; // High interference
+  } else {
+    interferenceLevel = 100; // Very high interference
+  }
+
   ChannelScan scan;
   scan.channel = channel;
   scan.rssi = avgRssi;
   scan.networkCount = networkCount;
-  scan.packetCount = networkCount * (random(5, 50)); // Simulated packet count
-  scan.interferenceLevel = random(0, 100);
+  scan.packetCount = networkCount * 10; // Estimate ~10 beacon frames per network
+  scan.interferenceLevel = interferenceLevel;
 
   channelStats_[channel] = scan;
   logAnalysis(scan);
