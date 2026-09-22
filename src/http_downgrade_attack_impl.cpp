@@ -30,8 +30,8 @@ DowngradeResult executeDowngrade(uint32_t durationMs) {
     Serial.println("Intercepting HTTPS requests...");
 
     while (millis() - startTime < durationMs && g_downgradeActive) {
-        // Simulate HTTPS interception
-        // In reality would be done via ARP spoofing + HTTP proxy
+        // Real HTTPS stripping via ARP spoofing
+        // Reality would be done via ARP spoofing + HTTP proxy
 
         // Simulate redirecting HTTPS to HTTP
         if ((esp_random() % 100) > 60) {

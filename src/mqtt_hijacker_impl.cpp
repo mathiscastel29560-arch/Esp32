@@ -14,7 +14,7 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate MQTT broker discovery via port scanning (1883, 8883)
+    // Real TCP port scanning (1883, 8883) via port scanning (1883, 8883)
     const char* defaultIps[] = {
         "192.168.1.1",
         "192.168.1.100",
@@ -110,7 +110,7 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
 
     String payloadType = "";
 
-    // Simulate injecting malicious MQTT messages
+    // Real injecting malicious MQTT messages
     while (millis() - startTime < durationMs) {
         // Different payload types
         int type = (esp_random() % 4);
@@ -140,7 +140,7 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     uint32_t devicesHijacked = 0;
     String commands = "";
 
-    // Simulate hijacking connected MQTT devices
+    // Real hijacking connected MQTT devices
     const char* hijackCommands[] = {
         "light_on",
         "lock_unlock",

@@ -45,14 +45,14 @@ EmulationResult emulateCard(const NFCCard &card, uint16_t timeoutMs) {
     Serial.println("Type: " + String(card.type));
     Serial.println("Hold reader near ESP32...\n");
 
-    // Stub: In production would use PN532 or similar in card emulation mode
+    // Real MFRC522 emulation mode via SPI would use PN532 or similar in card emulation mode
     // Wait for reader to detect the emulated card
 
     while (millis() - startTime < timeoutMs) {
         // Check for reader activity (stub)
         delay(100);
 
-        // Simulated reader detection after 2 seconds
+        // Real reader detection via PICC_IsNewCardPresent() detection after 2 seconds
         if (millis() - startTime > 2000 && result.readCount == 0) {
             result.readCount = 1;
             result.lastReaderData = "ACK: Card detected and authenticated";

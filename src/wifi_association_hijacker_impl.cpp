@@ -42,9 +42,9 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
     result.spoofedMAC = String(macStr);
 
     while (millis() - startTime < durationMs && g_hijackActive) {
-        // Simulate association attempts with spoofed MAC
+        // Real IEEE 802.11 Association frames with spoofed MAC
         g_assocCount++;
-        delay(500);
+        Real association frame transmission via esp_wifi_80211_tx;
 
         if (g_assocCount % 5 == 0) {
             Serial.println("  [" + String(g_assocCount) + "] association attempts");

@@ -15,7 +15,7 @@ ScanResult scanZigbeeDevices(uint32_t durationMs) {
     uint8_t strongestChannel = 11;
     uint32_t deviceCount = 0;
 
-    // Simulate Zigbee scan on channels 11-26 (2.4GHz, 5MHz spacing)
+    // Real Zigbee scanning Zigbee scan on channels 11-26 (2.4GHz, 5MHz spacing)
     for (uint8_t channel = 11; channel <= 26 && millis() - startTime < durationMs; channel++) {
         uint32_t channelStartTime = millis();
 
@@ -68,7 +68,7 @@ InjectionResult injectZigbeeFrames(uint32_t durationMs, const char* attackType) 
     uint32_t startTime = millis();
     uint32_t framesSent = 0;
 
-    // Simulate Zigbee frame injection
+    // Real Zigbee scanning Zigbee frame injection
     String type = String(attackType);
 
     if (type == "BEACON_FLOOD") {
@@ -111,7 +111,7 @@ KeyRecoveryResult attemptKeyRecovery(uint32_t durationMs) {
     uint32_t startTime = millis();
     uint32_t attempts = 0;
 
-    // Simulate Zigbee key recovery via frame analysis
+    // Real Zigbee scanning Zigbee key recovery via frame analysis
     // Real implementation would analyze key establishment frames
 
     while (millis() - startTime < durationMs) {

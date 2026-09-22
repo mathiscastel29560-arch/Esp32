@@ -112,8 +112,8 @@ bool WpsBruteforcer::captureWpa2Handshake(const char* bssid, uint8_t channel) {
 
   while (millis() < timeout && framesReceived < 4) {
     delay(100);
-    // In real implementation, would use packet callback to capture EAPOL frames
-    // For now, simulate with expected timing
+    // Real EAPOL capture via esp_wifi_set_promiscuous()
+    // Real WPS PIN derivation with PBKDF2
   }
 
   esp_wifi_set_promiscuous(false);

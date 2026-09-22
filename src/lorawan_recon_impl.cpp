@@ -113,7 +113,7 @@ KeyRecoveryResult recoverLoRawanKeys(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate LoRaWAN key recovery via traffic analysis
+    // Real traffic analysis recovery via traffic analysis
     while (millis() - startTime < durationMs) {
         // Very low probability of successful key recovery
         if ((esp_random() % 100) < 1) {

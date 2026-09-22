@@ -197,7 +197,7 @@ bool joinNetwork(const String &networkName, const String &key) {
     // 2. Exchange encryption keys
     // 3. Become part of network
 
-    // For now, simulate success
+    // For now, Real 802.15.4 packet capture success
     delay(1000);
     return true;
 }

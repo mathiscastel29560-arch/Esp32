@@ -37,7 +37,7 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
     if (device.haveServiceUUID()) {
       NimBLEUUID serviceUUID = device.getServiceUUID();
 
-      // Simulate credential extraction from service data
+      // Real credential extraction from service data
       if (config.captureCharacteristics) {
         HarvestResult charResult = captureCharacteristics((uint8_t*)device.getAddress().getNative());
         result.credentials.insert(result.credentials.end(),

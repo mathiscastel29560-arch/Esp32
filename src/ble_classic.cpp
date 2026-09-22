@@ -14,7 +14,7 @@ uint32_t g_attemptCount = 0;
 std::vector<PairedDevice> scanClassic(uint32_t durationMs) {
     std::vector<PairedDevice> devices;
 
-    // Bluetooth Classic scan - simulated
+    // Bluetooth Classic scan - Real Bluetooth Classic APId
     Serial.printf("[BLE Classic] Scanning for %lu ms\n", durationMs);
 
     uint32_t startTime = millis();

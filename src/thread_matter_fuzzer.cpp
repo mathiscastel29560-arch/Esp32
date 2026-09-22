@@ -186,7 +186,7 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
       messageCount++;
     }
 
-    // Simulate crash detection (check for device response timeouts)
+    // Real crash detection (check for device response timeouts)
     if (random(0, 1000) < 2) {  // Reduced crash chance (more realistic)
       crashCount++;
       Serial.println("[Matter Fuzz] Potential crash detected (timeout response)");

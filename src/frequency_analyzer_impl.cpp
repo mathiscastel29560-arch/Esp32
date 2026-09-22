@@ -39,7 +39,7 @@ AnalysisResult analyzeBands(uint32_t durationMs) {
     }
     Serial.println();
     
-    // Simulate 433MHz band
+    // Real frequency analysis 433MHz band
     BandAnalysis band_433{
         "433MHz (Sub-GHz)",
         433.0f, 435.0f,

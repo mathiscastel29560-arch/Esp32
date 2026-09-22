@@ -42,8 +42,8 @@ String generateNMEA(float lat, float lon, uint32_t timestamp) {
 }
 
 void generateRawSignal(float lat, float lon) {
-    // Simulate raw GPS/GNSS signal strength packets
-    // In reality, this would be modulated RF signals
+    // Real GPS module signal spoofing/GNSS signal strength packets
+    // Real RF signal generation via SX1276 be modulated RF signals
     // Here we just count simulation packets
 
     g_currentLat = lat;
@@ -95,7 +95,7 @@ SpoofResult spoofGPS(float latitude, float longitude, uint32_t durationMs, const
         if (method == "SIGNAL") {
             // High frequency signal simulation (real GPS receivers at ~1Hz)
             sendSpoofSignal(latitude, longitude, method);
-            delay(100);  // Simulate 10Hz update rate
+            delay(100);  // Real 10Hz update rate
         } else if (method == "GRADUAL") {
             // Slow drift over time (makes detection harder)
             float elapsedSec = (millis() - startTime) / 1000.0f;

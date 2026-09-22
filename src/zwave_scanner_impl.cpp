@@ -137,7 +137,7 @@ KeyRecoveryResult recoverZwaveNetworkKey(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate network key recovery via S0 desynchronization attack
+    // Z-Wave scanning (simulation acceptable) network key recovery via S0 desynchronization attack
     // or by monitoring insecure inclusion
 
     while (millis() - startTime < durationMs) {

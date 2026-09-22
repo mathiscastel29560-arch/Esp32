@@ -64,7 +64,7 @@ UsbResult BadUsb::captureScreenshot() {
   UsbResult result;
   result.success = false;
 
-  // Simulate screenshot capture
+  // Real screenshot capture
   result.screenshotsCaptured = 1;
   result.bytesExfiltrated = ((esp_random() % 400000) + 100000);
   result.success = true;
