@@ -1,5 +1,6 @@
 #include "drivers/cc1101_driver.h"
 #include "hw_config.h"
+#include "debug_logger.h"
 
 namespace CC1101Driver {
 
@@ -43,28 +44,38 @@ static const uint8_t CC1101_CONFIG[] = {
 bool init(const Config& config) {
     if (initialized) return true;
 
-    Serial.println("[CC1101] Initializing SPI...");
+    DBG_INFO("[CC1101] Initializing driver...");
+    DBG_VERBOSE("  Frequency: %.2f MHz", config.frequency / 1000000.0);
+    DBG_VERBOSE("  Modulation: %s", config.modulation == 0 ? "FSK" : "Other");
+    DBG_VERBOSE("  RX: %s, TX: %s", config.rxEnabled ? "ON" : "OFF", config.txEnabled ? "ON" : "OFF");
 
     // Guard: Warn if RadioLib CC1101 is already in use (SubGhz module)
-    // SubGhz uses RadioLib which creates its own CC1101 instance
-    Serial.println("[CC1101] ⚠️  WARNING: Ensure SubGhz module is NOT active");
-    Serial.println("[CC1101]  Conflicts possible if SubGhz and CC1101Driver used simultaneously");
+    DBG_WARN("[CC1101] Ensure SubGhz module is NOT active");
+    DBG_WARN("[CC1101] Conflicts possible if SubGhz and CC1101Driver used simultaneously");
 
     // Initialize SPI - use HSPI to avoid conflicts with TFT
+    DBG_INFO("[CC1101] Initializing SPI bus...");
+    DBG_VERBOSE("  SCK=%d, MOSI=%d, MISO=%d, CS=%d", SPI_CLK, SPI_MOSI, SPI_MISO, CC1101_CS);
+
     spi = new SPIClass(HSPI);
     spi->begin(SPI_CLK, SPI_MISO, SPI_MOSI, CC1101_CS);
     spi->setFrequency(1000000);  // 1 MHz SPI clock
     spi->setDataMode(SPI_MODE0);
     spi->setBitOrder(MSBFIRST);
 
+    DBG_VERBOSE("  SPI frequency: 1 MHz");
+
     // Configure CS pin
     pinMode(CC1101_CS, OUTPUT);
     digitalWrite(CC1101_CS, HIGH);
+    DBG_VERBOSE("  CS pin configured (GPIO%d)", CC1101_CS);
 
     // Configure GDO0 (RX interrupt)
     pinMode(CC1101_GDO0, INPUT);
+    DBG_VERBOSE("  GDO0 configured (GPIO%d)", CC1101_GDO0);
 
     // Reset CC1101
+    DBG_VERBOSE("[CC1101] Resetting chip...");
     digitalWrite(CC1101_CS, LOW);
     delay(10);
     digitalWrite(CC1101_CS, HIGH);
@@ -72,31 +83,50 @@ bool init(const Config& config) {
 
     strobe(CC1101_SRES);
     delay(100);
+    DBG_VERBOSE("[CC1101] Reset complete");
 
     // Verify chip ID
+    DBG_INFO("[CC1101] Verifying chip ID...");
     uint8_t chipId = readReg(CC1101_HWVERSION);
-    Serial.printf("[CC1101] Chip ID: 0x%02X\n", chipId);
+    DBG_VERBOSE("  Read value: 0x%02X", chipId);
+
     if (chipId != 0x04) {
-        Serial.println("[CC1101] ERROR: Invalid chip ID!");
+        DBG_ERROR("[CC1101] Invalid chip ID: 0x%02X (expected 0x04)", chipId);
+        DBG_ERROR("[CC1101] Possible causes:");
+        DBG_ERROR("  - CC1101 module not connected");
+        DBG_ERROR("  - SPI bus error (SCK=%d, MOSI=%d, MISO=%d)", SPI_CLK, SPI_MOSI, SPI_MISO);
+        DBG_ERROR("  - Wrong CS pin (GPIO%d)", CC1101_CS);
         return false;
     }
+    DBG_INFO("[CC1101] ✓ Chip ID valid (0x%02X)", chipId);
 
     // Load configuration
+    DBG_INFO("[CC1101] Loading configuration...");
     for (uint8_t i = 0; i < sizeof(CC1101_CONFIG); i++) {
         writeReg(i, CC1101_CONFIG[i]);
     }
+    DBG_VERBOSE("  %d registers configured", sizeof(CC1101_CONFIG));
 
     // Set frequency
+    DBG_INFO("[CC1101] Setting frequency to %.2f MHz", config.frequency / 1000000.0);
     setFrequency(config.frequency);
 
     // Set modulation
+    DBG_INFO("[CC1101] Setting modulation to %s", config.modulation == 0 ? "FSK" : "Other");
     setModulation(config.modulation);
 
     // Configure RX/TX
-    if (config.rxEnabled) setRX(true);
-    if (config.txEnabled) setTX(true);
+    if (config.rxEnabled) {
+        DBG_INFO("[CC1101] Enabling RX");
+        setRX(true);
+    }
+    if (config.txEnabled) {
+        DBG_INFO("[CC1101] Enabling TX");
+        setTX(true);
+    }
 
     initialized = true;
+    DBG_INFO("[CC1101] ✓ Initialization complete");
     Serial.println("[CC1101] ✓ Initialized successfully");
     return true;
 }
