@@ -67,10 +67,6 @@
 #include "ui/scan_visualizations.h"
 #include "ui/advanced_scanning.h"
 #include "mavic_jammer.h"
-#include "keycard_cloner.h"
-#include "magnetic_stripper.h"
-#include "can_bus_sniffer.h"
-#include "can_frame_injector.h"
 #include "tpms_spoofer.h"
 #include <vector>
 #include <set>
@@ -177,6 +173,7 @@ std::vector<String> rfMenuItems() {
         "📶 Signal Decoder",
         "📶 Advanced Signal Cloner",
         "🚁 Mavic Jammer (2.4GHz)",
+        "🔴 TPMS Spoofer (433MHz)",
         "🔙 Back",
     };
 }
@@ -208,11 +205,6 @@ std::vector<String> iotMenuItems() {
         "🌐 Auto Handshake Capture",
         "🌐 Generic Packet Tools",
         "🌐 Advanced WiFi Attacks",
-        "🔑 Keycard Cloner (125kHz)",
-        "💳 Magnetic Stripe Reader",
-        "🚗 CAN Bus Sniffer",
-        "🚗 CAN Frame Injector",
-        "🔴 TPMS Spoofer (315/433MHz)",
         "🔙 Back",
     };
 }
@@ -734,6 +726,22 @@ void runRfAction(int idx) {
             }
             break;
         }
+        case 19: { // TPMS Spoofer
+            TPMSSpoofer::TPMSConfig config;
+            config.durationMs = 10000;
+            config.frequency = 433000000;
+            config.attackMode = 0; // Low pressure
+            auto result = TPMSSpoofer::captureTPMSSensors(10000, 433000000);
+            if (result.success) {
+                showResult("TPMS Spoofer",
+                          "Sensors found: " + String(result.spoofedSensorIDs.size()) + "\n" +
+                          "Freq: 433 MHz\n" +
+                          "Status: " + result.attackDescription);
+            } else {
+                showResult("TPMS Spoofer", result.error);
+            }
+            break;
+        }
     }
 }
 
@@ -895,87 +903,6 @@ void runIotAction(int idx) {
             showResult("Advanced WiFi Attacks",
                       "Success: " + String(result.success ? "Yes" : "No") + "\n" +
                       "Duration: " + String(result.durationMs) + "ms");
-            break;
-        }
-        case 15: { // Keycard Cloner
-            KeycardCloner::KeycardConfig config;
-            config.scanDurationMs = 10000;
-            config.format = 1; // HID26
-            config.captureMode = true;
-            auto result = KeycardCloner::captureNearbyCards(config);
-            if (result.success) {
-                showResult("Keycard Cloner",
-                          "Cards found: " + String(result.cardsFound) + "\n" +
-                          "Format: " + result.dominantFormat);
-            } else {
-                showResult("Keycard Cloner", result.error);
-            }
-            break;
-        }
-        case 16: { // Magnetic Stripe Reader
-            MagneticStripper::StripeConfig config;
-            config.scanDurationMs = 5000;
-            config.captureMode = true;
-            config.analyzeAll3Tracks = true;
-            auto result = MagneticStripper::readMagneticStripe(config);
-            if (result.success) {
-                showResult("Magnetic Stripe",
-                          "PAN: " + result.pan + "\n" +
-                          "Name: " + result.name + "\n" +
-                          "Expiry: " + result.expiry);
-            } else {
-                showResult("Magnetic Stripe", "No card detected");
-            }
-            break;
-        }
-        case 17: { // CAN Bus Sniffer
-            CANBusSniffer::SnifferConfig config;
-            config.durationMs = 10000;
-            config.baudrate = 500000;
-            config.filterMode = 0; // All
-            auto result = CANBusSniffer::sniffCANBus(config);
-            if (result.success) {
-                showResult("CAN Bus Sniffer",
-                          "Frames: " + String(result.frameCount) + "\n" +
-                          "Unique IDs: " + String(result.uniqueIDs.size()) + "\n" +
-                          "Dominant: 0x" + result.dominantID);
-            } else {
-                showResult("CAN Bus Sniffer", result.error);
-            }
-            break;
-        }
-        case 18: { // CAN Frame Injector
-            CANFrameInjector::InjectionConfig config;
-            config.durationMs = 5000;
-            config.baudrate = 500000;
-            config.attackMode = 0; // Replay
-            config.targetECU = 0x100;
-            config.repeatCount = 10;
-            auto result = CANFrameInjector::injectThrottleCommand(config, 50);
-            if (result.success) {
-                showResult("CAN Injector",
-                          "Frames sent: " + String(result.framesSent) + "\n" +
-                          "Target: " + result.targetECU + "\n" +
-                          "Status: " + result.attackDescription);
-            } else {
-                showResult("CAN Injector", result.error);
-            }
-            break;
-        }
-        case 19: { // TPMS Spoofer
-            TPMSSpoofer::TPMSConfig config;
-            config.durationMs = 10000;
-            config.frequency = 433000000;
-            config.attackMode = 0; // Low pressure
-            auto result = TPMSSpoofer::captureTPMSSensors(10000, 433000000);
-            if (result.success) {
-                showResult("TPMS Spoofer",
-                          "Sensors found: " + String(result.spoofedSensorIDs.size()) + "\n" +
-                          "Freq: 433 MHz\n" +
-                          "Status: " + result.attackDescription);
-            } else {
-                showResult("TPMS Spoofer", result.error);
-            }
             break;
         }
     }
