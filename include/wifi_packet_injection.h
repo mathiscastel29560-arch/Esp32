@@ -48,6 +48,7 @@ public:
   InjectionResult injectAssoc(const InjectionConfig& config);
   InjectionResult fuzzFrames(const InjectionConfig& config);
   std::vector<uint8_t> buildFrame(FrameType type, const uint8_t* bssid);
+  void setupWifiInjectionMode(uint8_t channel);
   void stop();
   bool isRunning() const { return isRunning_; }
 
