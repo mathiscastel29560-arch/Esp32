@@ -1,5 +1,6 @@
 #include "ir_fuzzing.h"
 #include <LittleFS.h>
+#include "tx_arm.h"
 
 namespace IrFuzzing {
 
@@ -80,7 +81,8 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
 
     } else if (config.mode == PROTOCOL_FUZZ) {
       // Fuzz protocol bits and structures
-      const uint8_t protocols[] = {0xNEC, 0xRC5, 0xSONY}; // Different protocol signatures
+      // IR protocol codes: NEC=0x01, RC5=0x02, SONY=0x03
+      const uint8_t protocols[] = {0x01, 0x02, 0x03}; // Different protocol signatures
 
       for (int p = 0; p < 3 && isRunning_; p++) {
         for (uint8_t i = 0; i < 50; i++) {

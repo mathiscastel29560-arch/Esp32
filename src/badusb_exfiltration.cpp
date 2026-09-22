@@ -1,4 +1,5 @@
 #include "badusb_exfiltration.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 
 namespace BadUsbExfiltration {

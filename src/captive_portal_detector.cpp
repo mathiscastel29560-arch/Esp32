@@ -116,7 +116,7 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
     int httpCode = http.GET();
 
     if (httpCode == HTTP_REDIRECT || httpCode == HTTP_REDIRECT_TEMP || httpCode == HTTP_OK) {
-      String location = http.getHeader("Location");
+      String location = http.header("Location");
       if (!location.isEmpty()) {
         portal.redirectUrl = location;
         portal.portalUrl = location;

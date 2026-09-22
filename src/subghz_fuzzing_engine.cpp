@@ -1,5 +1,6 @@
 #include "subghz_fuzzing_engine.h"
 #include <LittleFS.h>
+#include "tx_arm.h"
 
 namespace SubGhzFuzzing {
 

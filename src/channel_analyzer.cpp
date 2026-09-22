@@ -1,6 +1,7 @@
 #include "channel_analyzer.h"
 #include <LittleFS.h>
 #include <WiFi.h>
+#include "tx_arm.h"
 
 namespace ChannelAnalyzer {
 

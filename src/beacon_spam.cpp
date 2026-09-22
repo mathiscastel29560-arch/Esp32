@@ -4,7 +4,7 @@
 
 namespace {
 constexpr size_t BEACON_FRAME_TEMPLATE_SIZE = 38;
-constexpr size_t MAX_SSID_LEN = 32;
+constexpr size_t BEACON_MAX_SSID_LEN = 32;  // Note: ESP32 SDK also defines MAX_SSID_LEN
 constexpr size_t BEACON_FRAME_BUF_SIZE = 256;
 constexpr uint32_t CHANNEL_HOP_INTERVAL_MS = 500;
 constexpr uint32_t BEACON_SEND_INTERVAL_MS = 100;
@@ -19,8 +19,8 @@ uint32_t g_lastSend = 0;
 uint32_t g_lastHop = 0;
 
 size_t buildBeaconFrame(uint8_t *buf, const String &ssid, const uint8_t mac[6], uint8_t channel) {
-    if (ssid.length() == 0 || ssid.length() > MAX_SSID_LEN) {
-        Serial.printf("Warning: SSID length %d invalid, truncating to %d\n", ssid.length(), MAX_SSID_LEN);
+    if (ssid.length() == 0 || ssid.length() > BEACON_MAX_SSID_LEN) {
+        Serial.printf("Warning: SSID length %d invalid, truncating to %d\n", ssid.length(), BEACON_MAX_SSID_LEN);
     }
 
     static const uint8_t tmpl[BEACON_FRAME_TEMPLATE_SIZE] = {
@@ -40,7 +40,7 @@ size_t buildBeaconFrame(uint8_t *buf, const String &ssid, const uint8_t mac[6], 
     memcpy(buf + 16, mac, 6);
 
     size_t pos = BEACON_FRAME_TEMPLATE_SIZE;
-    uint8_t ssidLen = (uint8_t)min((size_t)MAX_SSID_LEN, ssid.length());
+    uint8_t ssidLen = (uint8_t)min((size_t)BEACON_MAX_SSID_LEN, ssid.length());
     buf[37] = ssidLen;
     memcpy(buf + pos, ssid.c_str(), ssidLen);
     pos += ssidLen;

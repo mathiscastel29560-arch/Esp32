@@ -1,5 +1,6 @@
 #include "thread_matter_fuzzer.h"
 #include <LittleFS.h>
+#include "tx_arm.h"
 
 namespace ThreadMatterFuzzer {
 

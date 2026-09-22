@@ -1,6 +1,7 @@
 #include "ble_audio_hijacking.h"
 #include <LittleFS.h>
 #include <NimBLEDevice.h>
+#include "tx_arm.h"
 
 namespace BleAudioHijacking {
 

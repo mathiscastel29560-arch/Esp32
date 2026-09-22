@@ -1,5 +1,6 @@
 #include "ir_emitter.h"
 #include <LittleFS.h>
+#include "tx_arm.h"
 
 namespace IrEmitter {
 

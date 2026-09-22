@@ -1,6 +1,7 @@
 #include "zigbee_command_injection.h"
 #include <LittleFS.h>
 #include <RF24.h>
+#include "tx_arm.h"
 
 namespace ZigbeeCommandInjection {
 

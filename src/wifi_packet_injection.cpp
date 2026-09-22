@@ -1,6 +1,7 @@
 #include "wifi_packet_injection.h"
 #include <LittleFS.h>
 #include <esp_wifi.h>
+#include "tx_arm.h"
 
 namespace WifiPacketInjection {
 

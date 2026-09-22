@@ -2,6 +2,7 @@
 #include <LittleFS.h>
 #include <mbedtls/aes.h>
 #include <mbedtls/sha1.h>
+#include "tx_arm.h"
 
 namespace KrackAdvanced {
 

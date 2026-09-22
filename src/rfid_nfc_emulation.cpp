@@ -1,5 +1,6 @@
 #include "rfid_nfc_emulation.h"
 #include <LittleFS.h>
+#include "tx_arm.h"
 
 namespace RfidNfcEmulation {
 

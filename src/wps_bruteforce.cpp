@@ -1,6 +1,7 @@
 #include "wps_bruteforce.h"
 #include <LittleFS.h>
 #include <math.h>
+#include "tx_arm.h"
 
 namespace WpsBruteforce {
 
