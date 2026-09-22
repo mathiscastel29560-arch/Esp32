@@ -1,10 +1,15 @@
 #include "subghz_frequency_scanner.h"
 #include <LittleFS.h>
-#include <RF24.h>
 
 namespace SubGhzFrequencyScanner {
 
-FrequencyScanner::FrequencyScanner() : isRunning_(false), startTime_(0) {}
+FrequencyScanner::FrequencyScanner(int8_t cs, int8_t irq, int8_t gpio)
+  : radio_(cs, irq, gpio), isRunning_(false), startTime_(0) {
+  // Initialize CC1101 for Sub-GHz frequency scanning
+  radio_.begin();
+  radio_.setFrequency(433.92);
+  radio_.setModulation(RADIOLIB_CC1101_MOD_FSK_2);
+}
 
 ScannerResult FrequencyScanner::scanFrequencies(const ScannerConfig& config) {
   ScannerResult result;
@@ -19,25 +24,16 @@ ScannerResult FrequencyScanner::scanFrequencies(const ScannerConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
-  RF24 radio(22, 21); // CE, CSN pins
-  if (!radio.begin()) {
-    result.error = "RF24 initialization failed";
-    isRunning_ = false;
-    return result;
-  }
-
-  // Scan frequency range
+  // Scan frequency range using CC1101
   for (uint32_t freq = config.startFreq; freq <= config.endFreq && isRunning_; freq += config.stepHz) {
     if (millis() - startTime_ > (config.endFreq - config.startFreq) / config.stepHz * config.durationPerFreqMs) {
       break;
     }
 
-    // Tune RF24 to specific frequency
-    uint8_t channel = (freq - 2400) / 1; // Convert MHz to RF24 channel
-    if (channel > 125) channel = 125; // Max channel
-
-    radio.setChannel(channel);
-    radio.startListening();
+    // Set CC1101 to scan frequency (convert Hz to MHz for the radio)
+    float freqMHz = freq / 1000000.0;
+    radio_.setFrequency(freqMHz);
+    radio_.startReceive();
 
     // Scan for signals
     ScannerResult freqResult = scanSpecificFreq(freq, config.durationPerFreqMs);
@@ -50,7 +46,7 @@ ScannerResult FrequencyScanner::scanFrequencies(const ScannerConfig& config) {
       result.activeFrequencies++;
     }
 
-    radio.stopListening();
+    radio_.standby();
     delay(50);
   }
 
@@ -58,7 +54,6 @@ ScannerResult FrequencyScanner::scanFrequencies(const ScannerConfig& config) {
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/subghz_scan.csv";
 
-  radio.powerDown();
   isRunning_ = false;
   return result;
 }
@@ -69,19 +64,36 @@ ScannerResult FrequencyScanner::scanSpecificFreq(uint32_t freq, uint32_t duratio
 
   unsigned long freqStartTime = millis();
   uint32_t packetCount = 0;
-  int32_t avgRssi = -100;
+  int32_t totalRssi = 0;
+  int32_t maxRssi = -100;
+  int32_t samples = 0;
 
-  // Simulate signal detection on frequency
+  // Perform real RSSI sampling from CC1101
+  radio_.startReceive();
+
   while ((millis() - freqStartTime) < durationMs) {
-    // Random signal simulation
-    if (random(0, 100) < 30) { // 30% chance of detecting signal
-      int32_t rssi = random(-90, -30);
-      avgRssi = (avgRssi + rssi) / 2;
-      packetCount++;
+    // Read RSSI from CC1101 (real hardware value)
+    int32_t rssi = radio_.getRSSI();
+
+    if (rssi > -100 && rssi < 0) { // Valid RSSI range
+      totalRssi += rssi;
+      samples++;
+      if (rssi > maxRssi) {
+        maxRssi = rssi;
+      }
+
+      // Detect signal if RSSI above noise floor (-90 dBm)
+      if (rssi > -80) {
+        packetCount++;
+      }
     }
 
     delay(10);
   }
+
+  radio_.standby();
+
+  int32_t avgRssi = (samples > 0) ? (totalRssi / samples) : -100;
 
   FrequencyScan scan;
   scan.frequency = freq;
@@ -89,7 +101,7 @@ ScannerResult FrequencyScanner::scanSpecificFreq(uint32_t freq, uint32_t duratio
   scan.signalStrength = (avgRssi > -70) ? 3 : (avgRssi > -85) ? 2 : 1;
   scan.packetCount = packetCount;
 
-  if (packetCount > 0) {
+  if (avgRssi > -95) { // Activity detected above noise floor
     result.frequencies.push_back(scan);
     result.activeFrequencies = 1;
     result.success = true;
