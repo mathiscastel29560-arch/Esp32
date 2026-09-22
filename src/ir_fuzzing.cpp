@@ -89,15 +89,15 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
         for (uint8_t i = 0; i < 50; i++) {
           if (protocols[p] == 0x01) {
             // NEC protocol fuzzing
-            uint32_t data = random(0, 0xFFFFFFFF);
+            uint32_t data = esp_random();
             irsend_.sendNEC(data, 32, 1);
           } else if (protocols[p] == 0x02) {
             // RC5 protocol fuzzing
-            uint16_t data = random(0, 0xFFFF);
+            uint16_t data = esp_random() & 0xFFFF;
             irsend_.sendRC5(data, 13, 1);
           } else if (protocols[p] == 0x03) {
             // Sony SIRC fuzzing
-            uint16_t data = random(0, 0xFFFF);
+            uint16_t data = esp_random() & 0xFFFF;
             irsend_.sendSony(data, 15, 1);
           }
 

@@ -51,7 +51,7 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
             const char* manufacturers[] = {"Aeotec", "Fibaro", "Danfoss", "Qubino", "RGBgenie"};
             node.manufacturer = manufacturers[(esp_random() % 5)];
 
-        node.rssi = -30 - (i * 5) + random(-5, 5);
+        node.rssi = -30 - (i * 5) + ((esp_random() % 11) - 5);
         node.securityLevel = (i % 3);
         node.timestamp = millis();
 
