@@ -31,17 +31,17 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
 
     Serial.println("Spoofing MAC and attempting association...");
 
-    // Generate spoofed MAC
     uint8_t spoofMAC[6];
     for (int i = 0; i < 6; i++) {
         spoofMAC[i] = (esp_random() % 256);
     }
     char macStr[18];
-    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
+    snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
             spoofMAC[0], spoofMAC[1], spoofMAC[2], spoofMAC[3], spoofMAC[4], spoofMAC[5]);
     result.spoofedMAC = String(macStr);
 
-    while (millis() - startTime < durationMs && g_hijackActive) {
+    uint32_t deadline = startTime + durationMs;
+    while ((int32_t)(millis() - deadline) < 0 && g_hijackActive) {
         // Simulate association attempts with spoofed MAC
         g_assocCount++;
         delay(500);

