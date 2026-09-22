@@ -38,10 +38,16 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
   startTime_ = millis();
   uint32_t delayMs = 1000 / config.packetsPerSec;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     std::vector<uint8_t> beacon = buildFrame(BEACON, bssidBytes);
@@ -84,10 +90,16 @@ InjectionResult PacketInjector::injectProbe(const InjectionConfig& config) {
   startTime_ = millis();
   uint32_t delayMs = 1000 / config.packetsPerSec;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     // Alternate between Probe Request and Response
@@ -126,10 +138,16 @@ InjectionResult PacketInjector::injectAuth(const InjectionConfig& config) {
   startTime_ = millis();
   uint32_t delayMs = 1000 / config.packetsPerSec;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     std::vector<uint8_t> auth = buildFrame(AUTH_REQUEST, bssidBytes);
@@ -169,10 +187,16 @@ InjectionResult PacketInjector::injectAssoc(const InjectionConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     std::vector<uint8_t> assoc = buildFrame(ASSOC_REQUEST, bssidBytes);
@@ -209,10 +233,16 @@ InjectionResult PacketInjector::fuzzFrames(const InjectionConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   const FrameType frameTypes[] = {BEACON, PROBE_REQUEST, AUTH_REQUEST, DATA_FRAME, NULL_FRAME};
 
