@@ -49,8 +49,8 @@ AnalysisResult Analyzer::analyzeChannels(const AnalysisConfig& config) {
 
   // Compile results and find best/worst channels in single pass
   if (!channelStats_.empty()) {
-    result.bestChannel = -1;
-    result.worstChannel = -1;
+    result.bestChannel = 0;
+    result.worstChannel = 0;
     int32_t bestRssi = INT32_MIN;
     int32_t worstRssi = INT32_MAX;
 

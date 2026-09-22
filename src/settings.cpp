@@ -28,7 +28,14 @@ void loadSettings() {
         return;
     }
 
-    // Simple parsing: look for "audioEffects":1 or "audioEffects":0
+    uint32_t fileSize = file.size();
+    const uint32_t MAX_CONFIG_SIZE = 4096;
+    if (fileSize == 0 || fileSize > MAX_CONFIG_SIZE) {
+        Serial.println("Settings file size invalid");
+        file.close();
+        return;
+    }
+
     String content = file.readString();
     file.close();
 

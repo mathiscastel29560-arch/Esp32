@@ -121,8 +121,8 @@ void stop() {
 
 void loop() {
     if (!g_active) return;
-    g_dns->processNextRequest();
-    g_server->handleClient();
+    if (g_dns) g_dns->processNextRequest();
+    if (g_server) g_server->handleClient();
     if ((int32_t)(millis() - g_deadline) > 0) stop();
 }
 

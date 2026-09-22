@@ -106,12 +106,8 @@ HarvestResult CredentialHarvester::interceptPairingData(const uint8_t* pairingDa
   cred.timestamp = millis();
   cred.credentialType = "PAIRING_PDU";
 
-  cred.harvestedData = "";
-  for (uint32_t i = 0; i < len && i < 32; i++) {
-    char hexBuf[3];
-    snprintf(hexBuf, sizeof(hexBuf), "%02X", pairingData[i]);
-    cred.harvestedData += hexBuf;
-  }
+  uint32_t hexLen = (len > 32) ? 32 : len;
+  cred.harvestedData = HexUtils::toHexString(pairingData, hexLen);
 
   result.credentials.push_back(cred);
   result.credentialsFound = 1;
@@ -142,14 +138,12 @@ HarvestResult CredentialHarvester::captureCharacteristics(const uint8_t* addr) {
     cred.credentialType = "GATT_CHAR";
     cred.rssi = ((esp_random() % 50) + -80);
 
-    // Simulate characteristic data
-    cred.harvestedData = "";
     uint32_t dataLen = ((esp_random() % 28) + 4);
+    uint8_t charData[32];
     for (uint32_t j = 0; j < dataLen; j++) {
-      char hexBuf[3];
-      snprintf(hexBuf, sizeof(hexBuf), "%02X", (esp_random() % 256));
-      cred.harvestedData += hexBuf;
+      charData[j] = (esp_random() % 256);
     }
+    cred.harvestedData = HexUtils::toHexString(charData, dataLen);
 
     result.credentials.push_back(cred);
     result.credentialsFound++;
