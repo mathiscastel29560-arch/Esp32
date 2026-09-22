@@ -1,4 +1,5 @@
 #include "ble_credential_harvesting.h"
+#include "hex_utils.h"
 #include <LittleFS.h>
 #include <NimBLEDevice.h>
 
@@ -64,12 +65,8 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
           keyData[j] = (esp_random() % 256);
         }
 
-        // Build hex string efficiently
-        char hexStr[33];
-        for (int j = 0; j < 16; j++) {
-          snprintf(&hexStr[j * 2], 3, "%02X", keyData[j]);
-        }
-        cred.harvestedData = hexStr;
+        // Build hex string using utility
+        cred.harvestedData = HexUtils::toHexString(keyData, 16);
 
         result.credentials.push_back(cred);
         result.credentialsFound++;
@@ -197,13 +194,8 @@ void CredentialHarvester::logCredential(const BleCredential& cred) {
 String CredentialHarvester::parseCredentialPayload(const uint8_t* data, uint32_t len) {
   if (!data || len == 0) return "";
 
-  // Build hex string efficiently without repeated allocations
-  char hexStr[len * 2 + 1];
-  for (uint32_t i = 0; i < len; i++) {
-    snprintf(&hexStr[i * 2], 3, "%02X", data[i]);
-  }
-
-  return String(hexStr);
+  // Use utility for efficient hex conversion
+  return HexUtils::toHexString(data, len);
 }
 
 void CredentialHarvester::stop() {
