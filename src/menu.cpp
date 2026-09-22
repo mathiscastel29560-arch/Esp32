@@ -2,6 +2,7 @@
 #include "menu_icons.h"
 #include "buttons.h"
 #include "config.h"
+#include "settings.h"
 #include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
@@ -81,6 +82,7 @@ enum State {
     RF_SUBMENU,
     IOT_SUBMENU,
     SYSTEM_SUBMENU,
+    SETTINGS_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
 };
@@ -113,6 +115,7 @@ std::vector<String> mainMenuItems() {
         "📶 RF/2.4GHz",
         "🌐 IoT/Advanced",
         "⚙️  System",
+        "⚙️  Settings",
         "❓ Help",
     };
 }
@@ -174,6 +177,18 @@ std::vector<String> rfMenuItems() {
         "📶 Advanced Signal Cloner",
         "🚁 Mavic Jammer (2.4GHz)",
         "🔴 TPMS Spoofer (433MHz)",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> settingsMenuItems() {
+    return {
+        "⏰ Set Date/Time",
+        "💡 Brightness: " + String(Settings::g_config.brightness) + "%",
+        "🎨 Contrast: " + String(Settings::g_config.contrast) + "%",
+        "🔄 Invert Display: " + String(Settings::g_config.invertColors ? "ON" : "OFF"),
+        "🔐 Auto-Lock: " + String(Settings::g_config.autoLock ? "ON" : "OFF"),
+        "📝 Logging: " + String(Settings::g_config.enableLogging ? "ON" : "OFF"),
         "🔙 Back",
     };
 }
@@ -937,6 +952,53 @@ void runSystemAction(int idx) {
     }
 }
 
+void runSettingsAction(int idx) {
+    switch (idx) {
+        case 0: { // Set Date/Time
+            DateTime current = Settings::getRTCTime();
+            showResult("Set Date/Time",
+                      "Current: " + Settings::formatRTCTime(current) + "\n" +
+                      "Use web UI for now\n(http://esp32-audit.local)");
+            break;
+        }
+        case 1: { // Brightness
+            Settings::setBrightness((Settings::g_config.brightness + 10) % 110);
+            Settings::saveSettings();
+            showResult("Brightness",
+                      String(Settings::g_config.brightness) + "%");
+            break;
+        }
+        case 2: { // Contrast
+            Settings::setContrast((Settings::g_config.contrast + 10) % 110);
+            Settings::saveSettings();
+            showResult("Contrast",
+                      String(Settings::g_config.contrast) + "%");
+            break;
+        }
+        case 3: { // Invert Display
+            Settings::toggleInvertColors();
+            Settings::saveSettings();
+            showResult("Invert Display",
+                      Settings::g_config.invertColors ? "ON" : "OFF");
+            break;
+        }
+        case 4: { // Auto-Lock
+            Settings::g_config.autoLock = !Settings::g_config.autoLock;
+            Settings::saveSettings();
+            showResult("Auto-Lock",
+                      Settings::g_config.autoLock ? "ON" : "OFF");
+            break;
+        }
+        case 5: { // Logging
+            Settings::g_config.enableLogging = !Settings::g_config.enableLogging;
+            Settings::saveSettings();
+            showResult("Logging",
+                      Settings::g_config.enableLogging ? "ON" : "OFF");
+            break;
+        }
+    }
+}
+
 void drawSimpleMenu(const std::vector<String> &items, int selection, const String &title) {
     String icon = "";
     if (title == "WIFI TOOLS") icon = "📡 ";
@@ -997,7 +1059,8 @@ void loop() {
                     case 2: g_state = RF_SUBMENU; break;
                     case 3: g_state = IOT_SUBMENU; break;
                     case 4: g_state = SYSTEM_SUBMENU; break;
-                    case 5: g_state = HELP_SUBMENU; break;
+                    case 5: g_state = SETTINGS_SUBMENU; break;
+                    case 6: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1079,6 +1142,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "SYSTEM");
             break;
 
+        case SETTINGS_SUBMENU:
+            items = settingsMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 5;
+                } else {
+                    runSettingsAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "SETTINGS");
+            break;
+
         case HELP_SUBMENU:
             items = helpMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1086,7 +1164,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 5;
+                    g_selection = 6;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
