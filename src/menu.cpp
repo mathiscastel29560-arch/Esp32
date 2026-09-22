@@ -4,6 +4,7 @@
 #include "config.h"
 #include "settings.h"
 #include "hardware_test_mode.h"
+#include "debug_logger.h"
 #include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
@@ -1277,24 +1278,85 @@ void runNetworkAction(int idx) {
     }
 }
 
+void drawStatusBar() {
+    String wifiStatus = WiFi.isConnected() ? "📡 WiFi" : "☓ WiFi";
+    String batStatus = "🔋 " + String(Battery::percent()) + "%";
+    String timeStatus = "🕐 " + Settings::formatRTCTime(Settings::getRTCTime()).substring(11, 16);
+
+    Serial.print(COLOR_CYAN);
+    Serial.println("┌─────────────────────────────────────────┐");
+    Serial.print("│ " + wifiStatus);
+    Serial.print(String(6 - wifiStatus.length(), ' '));
+    Serial.print(" │ " + batStatus);
+    Serial.print(String(8 - batStatus.length(), ' '));
+    Serial.print(" │ " + timeStatus + " │\n");
+    Serial.println("└─────────────────────────────────────────┘");
+    Serial.print(COLOR_RESET);
+}
+
 void drawSimpleMenu(const std::vector<String> &items, int selection, const String &title) {
     String icon = "";
-    if (title == "WIFI TOOLS") icon = "📡 ";
-    else if (title == "BLE TOOLS") icon = "🔵 ";
-    else if (title == "RF TOOLS") icon = "📶 ";
-    else if (title == "IOT/ADVANCED") icon = "🌐 ";
-    else if (title == "SYSTEM") icon = "⚙️  ";
-    else if (title.indexOf("HELP") >= 0) icon = "❓ ";
+    String bgColor = COLOR_RESET;
 
-    Serial.println("\n═════════════════════════");
-    Serial.println("  " + icon + title);
-    Serial.println("═════════════════════════");
+    if (title == "WIFI TOOLS") icon = "📡";
+    else if (title == "BLE TOOLS") icon = "🔵";
+    else if (title == "RF TOOLS") icon = "📶";
+    else if (title == "IOT/ADVANCED") icon = "🌐";
+    else if (title == "SYSTEM") icon = "⚙️ ";
+    else if (title == "SETTINGS") icon = "⚙️ ";
+    else if (title == "HARDWARE TEST") icon = "🧪";
+    else if (title == "DEVICE INFO") icon = "ℹ️ ";
+    else if (title == "DEBUG INFO") icon = "🐛";
+    else if (title == "CALIBRATION") icon = "🔧";
+    else if (title == "ABOUT") icon = "ℹ️ ";
+    else if (title == "NETWORK") icon = "🌐";
+    else if (title.indexOf("HELP") >= 0) icon = "❓";
+    else if (title == "MAIN") icon = "⚡";
+
+    Serial.println();
+    drawStatusBar();
+    Serial.println();
+
+    Serial.print(COLOR_BLUE);
+    Serial.println("╔═════════════════════════════════════════╗");
+    Serial.print("║  " + icon + " ");
+    Serial.print(COLOR_GREEN);
+    Serial.print(title);
+    Serial.print(COLOR_BLUE);
+    Serial.println(String(32 - title.length(), ' ') + "║");
+    Serial.println("╠═════════════════════════════════════════╣");
+    Serial.print(COLOR_RESET);
+
     for (size_t i = 0; i < items.size(); i++) {
-        String line = String(i == selection ? "▶ " : "  ") + items[i];
-        Serial.println(line);
+        String marker = (i == selection) ? "▶ " : "  ";
+        String item = items[i];
+
+        if (i == selection) {
+            Serial.print(COLOR_GREEN);
+            Serial.print("║ " + marker);
+            Serial.print(COLOR_YELLOW);
+            Serial.print(item);
+            Serial.print(COLOR_GREEN);
+            Serial.println(String(37 - marker.length() - item.length(), ' ') + "║");
+            Serial.print(COLOR_RESET);
+        } else {
+            Serial.print(COLOR_CYAN);
+            Serial.print("║ " + marker);
+            Serial.print(COLOR_RESET);
+            Serial.print(item);
+            Serial.print(COLOR_CYAN);
+            Serial.println(String(37 - marker.length() - item.length(), ' ') + "║");
+            Serial.print(COLOR_RESET);
+        }
     }
-    Serial.println("─────────────────────────");
-    Serial.println(" ▲/▼: navigate  ●: select  ◄: back");
+
+    Serial.print(COLOR_BLUE);
+    Serial.println("╠═════════════════════════════════════════╣");
+    Serial.print(COLOR_YELLOW);
+    Serial.println("║  ▲/▼: navigate  ●: select  ◄: back    ║");
+    Serial.print(COLOR_BLUE);
+    Serial.println("╚═════════════════════════════════════════╝");
+    Serial.print(COLOR_RESET);
 }
 
 } // namespace
@@ -1322,8 +1384,32 @@ void loop() {
                 g_state = MAIN_MENU;
                 g_selection = 0;
             }
-            Serial.println("\n*** ESP32 Audit Tool ***");
-            Serial.println("Press OK to begin");
+            Serial.println();
+            drawStatusBar();
+            Serial.println();
+
+            Serial.print(COLOR_GREEN);
+            Serial.println("╔═════════════════════════════════════════╗");
+            Serial.println("║                                         ║");
+            Serial.println("║      ⚡ ESP32-S3 SECURITY AUDIT ⚡     ║");
+            Serial.println("║                                         ║");
+            Serial.println("║         Offensive Security Tool         ║");
+            Serial.println("║              Version 2.0.0              ║");
+            Serial.println("║                                         ║");
+            Serial.print(COLOR_CYAN);
+            Serial.println("║  🔧 Real Hardware Drivers               ║");
+            Serial.println("║  📡 WiFi • BLE • RF • IoT               ║");
+            Serial.println("║  🧪 Isolated Hardware Tests             ║");
+            Serial.println("║                                         ║");
+            Serial.print(COLOR_GREEN);
+            Serial.println("╠═════════════════════════════════════════╣");
+            Serial.print(COLOR_YELLOW);
+            Serial.println("║                                         ║");
+            Serial.println("║       Press ● to begin                  ║");
+            Serial.println("║                                         ║");
+            Serial.print(COLOR_GREEN);
+            Serial.println("╚═════════════════════════════════════════╝");
+            Serial.print(COLOR_RESET);
             break;
 
         case MAIN_MENU:
@@ -1557,9 +1643,54 @@ void loop() {
             break;
 
         case RESULT_SCREEN:
-            Serial.println("\n*** " + g_resultTitle + " ***");
-            Serial.println(g_resultBody);
-            Serial.println("\nPress OK to continue, BACK to go back");
+            Serial.println();
+            drawStatusBar();
+            Serial.println();
+
+            Serial.print(COLOR_GREEN);
+            Serial.println("╔═════════════════════════════════════════╗");
+            Serial.print("║  ✓ ");
+            Serial.print(g_resultTitle);
+            Serial.println(String(33 - g_resultTitle.length(), ' ') + "║");
+            Serial.println("╠═════════════════════════════════════════╣");
+            Serial.print(COLOR_RESET);
+
+            // Print body with line wrapping
+            String body = g_resultBody;
+            int lines = 0;
+            int pos = 0;
+            while (pos < body.length() && lines < 5) {
+                int nextNewline = body.indexOf('\n', pos);
+                if (nextNewline == -1) nextNewline = body.length();
+
+                String line = body.substring(pos, nextNewline);
+                if (line.length() > 37) line = line.substring(0, 37);
+
+                Serial.print(COLOR_CYAN);
+                Serial.print("║  " + line);
+                Serial.print(COLOR_RESET);
+                Serial.println(String(39 - line.length(), ' ') + "║");
+
+                pos = nextNewline + 1;
+                lines++;
+            }
+
+            // Fill remaining lines
+            while (lines < 5) {
+                Serial.print(COLOR_CYAN);
+                Serial.println("║" + String(41, ' ') + "║");
+                Serial.print(COLOR_RESET);
+                lines++;
+            }
+
+            Serial.print(COLOR_GREEN);
+            Serial.println("╠═════════════════════════════════════════╣");
+            Serial.print(COLOR_YELLOW);
+            Serial.println("║  ●: continue  ◄: back                  ║");
+            Serial.print(COLOR_GREEN);
+            Serial.println("╚═════════════════════════════════════════╝");
+            Serial.print(COLOR_RESET);
+
             if (okPress || backTap) {
                 g_state = MAIN_MENU;
                 g_selection = 0;
