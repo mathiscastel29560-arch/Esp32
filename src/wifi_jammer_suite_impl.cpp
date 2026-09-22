@@ -38,8 +38,9 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
     g_jamActive = true;
     g_jamCount = 0;
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
 
-    while (millis() - startTime < durationMs && g_jamActive) {
+    while ((int32_t)(millis() - deadline) < 0 && g_jamActive) {
         sendJamPacket();
         delayMicroseconds(100);
         if (g_jamCount % 100 == 0) {

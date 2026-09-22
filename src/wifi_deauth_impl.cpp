@@ -98,6 +98,7 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     uint8_t bssid[6];
     if (!parseMAC(targetBSSID, bssid)) {
         Serial.println("✗ Failed to parse target BSSID");
+        esp_wifi_set_promiscuous(false);
         return result;
     }
 
