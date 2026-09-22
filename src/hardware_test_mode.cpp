@@ -166,12 +166,11 @@ void testPN532() {
     bool found = false;
 
     while (millis() - start < 10000) {
-        PN532Driver::Card card = PN532Driver::scanCard();
-
-        if (card.hasCard) {
+        PN532Driver::Card card;
+        if (PN532Driver::scanCard(card)) {
             DBG_INFO("  ✓ Card detected!");
-            DBG_INFO("    UID: %s", PN532Driver::getUIDString(card.uid, card.uidLength).c_str());
-            DBG_INFO("    Type: %s", card.cardType);
+            DBG_INFO("    UID: %s", PN532Driver::getUIDString(card).c_str());
+            DBG_INFO("    Type: %s", (card.cardType == 0x04 ? "MIFARE Classic 1K" : "MIFARE Classic 4K"));
             found = true;
             break;
         }

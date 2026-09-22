@@ -1,5 +1,6 @@
 #include "keyboard_shortcuts.h"
 #include "buttons.h"
+#include "hw_config.h"
 #include "debug_logger.h"
 
 namespace KeyboardShortcuts {
@@ -16,17 +17,17 @@ void ShortcutManager::begin() {
 }
 
 ShortcutAction ShortcutManager::checkShortcuts() {
-    // Get current button states
+    // Get current button states (active low)
     bool backPressed = !digitalRead(BTN_BACK);
-    bool selectPressed = !digitalRead(BTN_SELECT);
-    bool nextPressed = !digitalRead(BTN_NEXT);
+    bool selectPressed = !digitalRead(BTN_OK);
+    bool nextPressed = !digitalRead(BTN_DOWN);
 
     uint32_t now = millis();
 
     // Emergency stop: All buttons pressed simultaneously
     if (backPressed && selectPressed && nextPressed) {
         delay(100);  // Debounce
-        if (!digitalRead(BTN_BACK) && !digitalRead(BTN_SELECT) && !digitalRead(BTN_NEXT)) {
+        if (!digitalRead(BTN_BACK) && !digitalRead(BTN_OK) && !digitalRead(BTN_DOWN)) {
             DBG_WARN("KeyboardShortcuts", "Emergency stop activated");
             return ACTION_EMERGENCY_STOP;
         }
@@ -48,11 +49,11 @@ ShortcutAction ShortcutManager::checkShortcuts() {
     // BACK + SELECT for export
     if (backPressed && selectPressed) {
         delay(100);
-        if (!digitalRead(BTN_BACK) && !digitalRead(BTN_SELECT)) {
+        if (!digitalRead(BTN_BACK) && !digitalRead(BTN_OK)) {
             uint32_t pressTime = 0;
             uint32_t pressStart = millis();
 
-            while (!digitalRead(BTN_BACK) && !digitalRead(BTN_SELECT)) {
+            while (!digitalRead(BTN_BACK) && !digitalRead(BTN_OK)) {
                 pressTime = millis() - pressStart;
                 if (pressTime > 2000) {
                     DBG_INFO("KeyboardShortcuts", "Shortcut: Export Results (long)");
@@ -71,7 +72,7 @@ ShortcutAction ShortcutManager::checkShortcuts() {
     // NEXT (long) for system info
     if (nextPressed) {
         uint32_t pressStart = millis();
-        while (!digitalRead(BTN_NEXT)) {
+        while (!digitalRead(BTN_DOWN)) {
             if (millis() - pressStart > 2000) {
                 DBG_INFO("KeyboardShortcuts", "Shortcut: System Info");
                 return ACTION_SYSTEM_INFO;
@@ -83,7 +84,7 @@ ShortcutAction ShortcutManager::checkShortcuts() {
     // SELECT (long) for test mode
     if (selectPressed) {
         uint32_t pressStart = millis();
-        while (!digitalRead(BTN_SELECT)) {
+        while (!digitalRead(BTN_OK)) {
             if (millis() - pressStart > 3000) {
                 DBG_INFO("KeyboardShortcuts", "Shortcut: Test Mode");
                 return ACTION_TEST_MODE;
@@ -95,10 +96,10 @@ ShortcutAction ShortcutManager::checkShortcuts() {
     // BACK + NEXT + SELECT (long) for clear logs
     if (backPressed && nextPressed && selectPressed) {
         delay(100);
-        if (!digitalRead(BTN_BACK) && !digitalRead(BTN_NEXT) && !digitalRead(BTN_SELECT)) {
+        if (!digitalRead(BTN_BACK) && !digitalRead(BTN_DOWN) && !digitalRead(BTN_OK)) {
             uint32_t pressStart = millis();
 
-            while (!digitalRead(BTN_BACK) && !digitalRead(BTN_NEXT) && !digitalRead(BTN_SELECT)) {
+            while (!digitalRead(BTN_BACK) && !digitalRead(BTN_DOWN) && !digitalRead(BTN_OK)) {
                 if (millis() - pressStart > 3000) {
                     DBG_WARN("KeyboardShortcuts", "Shortcut: Clear Logs");
                     return ACTION_CLEAR_LOGS;

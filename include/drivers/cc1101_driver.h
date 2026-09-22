@@ -31,13 +31,12 @@ enum CC1101_Registers {
     CC1101_MCSM0     = 0x1D,
     CC1101_FOCCFG    = 0x19,
     CC1101_BSCFG     = 0x1A,
-    CC1101_AGCCTRL2  = 0x1F,
+    CC1101_AGCCTRL2  = 0x1E,
     CC1101_AGCCTRL1  = 0x1F,
-    CC1101_AGCCTRL0  = 0x1F,
+    CC1101_AGCCTRL0  = 0x20,
     CC1101_WOWEVENT  = 0x78,
-    CC1101_FIFOTHR   = 0x03,
     CC1101_TXFIFO    = 0x3F,
-    CC1101_RXFIFO    = 0x3F,
+    CC1101_RXFIFO    = 0x3E,
 };
 
 enum CC1101_Command {

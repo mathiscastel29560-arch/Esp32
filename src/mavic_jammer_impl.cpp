@@ -48,7 +48,7 @@ JammerResult jammMavicController(const JammerConfig& config) {
                   config.method == 1 ? "SWEEP" : "SYNC",
                   config.durationMs);
 
-    NRF24Driver::setTX();
+    NRF24Driver::setTX(true);
 
     while ((millis() - startTime) < config.durationMs) {
         if (!TxArm::isArmed()) {
@@ -162,7 +162,7 @@ JammerResult replayMavicCommand(const std::vector<uint8_t>& capturedFrame) {
     }
 
     NRF24Driver::setChannel(targetChannel);
-    NRF24Driver::setTX();
+    NRF24Driver::setTX(true);
     NRF24Driver::setPayloadSize(capturedFrame.size());
 
     // Transmit frame multiple times for reliability
@@ -201,7 +201,7 @@ JammerResult analyzeMavicHoppingPattern(uint32_t scanDurationMs) {
         7, 19, 37, 55, 72  // DJI common channels
     };
 
-    NRF24Driver::setRX();
+    NRF24Driver::setRX(true);
 
     while ((millis() - startTime) < scanDurationMs) {
         for (uint8_t ch : testChannels) {

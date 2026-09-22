@@ -17,15 +17,14 @@ ReadResult readMifareCard(uint32_t durationMs) {
     Serial.println("\n=== MIFARE Classic Card Read (Real PN532) ===");
     Serial.printf("Duration: %lums\n", durationMs);
 
-    PN532Driver::Card card = PN532Driver::scanCard();
-
-    if (!card.hasCard) {
+    PN532Driver::Card card;
+    if (!PN532Driver::scanCard(card)) {
         result.sectorData = "Error: No card detected";
         result.durationMs = millis() - startTime;
         return result;
     }
 
-    Serial.printf("  Found card: %s\n", PN532Driver::getUIDString(card.uid, card.uidLength).c_str());
+    Serial.printf("  Found card: %s\n", PN532Driver::getUIDString(card).c_str());
     Serial.println("  Reading MIFARE sectors...");
 
     String data = "";
@@ -34,9 +33,8 @@ ReadResult readMifareCard(uint32_t durationMs) {
     for (uint8_t sector = 0; sector < 4; sector++) {
         uint8_t block = sector * 4;
 
-        PN532Driver::BlockData blockData = PN532Driver::readBlock(card, block);
-
-        if (blockData.hasData) {
+        PN532Driver::BlockData blockData;
+        if (PN532Driver::readBlock(card, block, blockData)) {
             data += "Sector_" + String(sector) + ": ";
             for (int i = 0; i < 16; i++) {
                 char hex[3];
@@ -82,21 +80,20 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
     };
     const int numDefaultKeys = sizeof(defaultKeys) / sizeof(defaultKeys[0]);
 
-    PN532Driver::Card card = PN532Driver::scanCard();
-
-    if (!card.hasCard) {
+    PN532Driver::Card card;
+    if (!PN532Driver::scanCard(card)) {
         result.durationMs = millis() - startTime;
         return result;
     }
 
-    Serial.printf("Found card: %s\n", PN532Driver::getUIDString(card.uid, card.uidLength).c_str());
+    Serial.printf("Found card: %s\n", PN532Driver::getUIDString(card).c_str());
 
     while (millis() - startTime < durationMs) {
         for (int i = 0; i < numDefaultKeys; i++) {
             attempts++;
 
             // Try to authenticate with this key on block 0
-            if (PN532Driver::authenticateBlock(card, 0, (uint8_t*)defaultKeys[i], true)) {
+            if (PN532Driver::authenticateBlock(card, 0, (uint8_t*)defaultKeys[i])) {
                 result.success = true;
                 result.keyFound = defaultKeys[i];
                 result.attemptCount = attempts;
@@ -128,15 +125,14 @@ CloneResult cloneMifareCard(const char* sourceUid, uint32_t durationMs) {
     Serial.printf("Source UID: %s\n", sourceUid);
 
     // Scan for target card to clone onto
-    PN532Driver::Card targetCard = PN532Driver::scanCard();
-
-    if (!targetCard.hasCard) {
+    PN532Driver::Card targetCard;
+    if (!PN532Driver::scanCard(targetCard)) {
         result.durationMs = millis() - startTime;
         return result;
     }
 
     result.sourceUid = String(sourceUid);
-    result.clonedUid = PN532Driver::getUIDString(targetCard.uid, targetCard.uidLength);
+    result.clonedUid = PN532Driver::getUIDString(targetCard);
 
     Serial.println("  Writing sectors to blank card...");
 

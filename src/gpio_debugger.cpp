@@ -27,49 +27,25 @@ DebugResult Debugger::scanDebugInterfaces(const DebugConfig& config) {
     // UART detection: Look for UART activity or standard UART characteristics
     Serial.println("[GPIO Debug] Scanning for UART debug interface...");
 
-      // Simulate debug interface detection
-      if (config.interface == UART) {
-        // Look for TX/RX patterns (alternating 1s and 0s)
-        if ((esp_random() % 100) < 15) {
-          result.interfaceFound = true;
-          result.deviceInfo = "UART found on TX=" + String(txPin) +
-                            " RX=" + String(rxPin) +
-                            " (baud=" + String(baudRates[baudIdx]) + ")";
-          result.registersRead = 4;  // Basic register read test
-          Serial.printf("[GPIO Debug] UART detected: %s\n", result.deviceInfo.c_str());
-          break;
-        }
-      } else if (config.interface == JTAG) {
-        // Look for TCK/TMS patterns
-        if ((esp_random() % 100) < 10) {
-          result.interfaceFound = true;
-          result.deviceInfo = "JTAG found on GPIO" + String(pin);
-          break;
-        }
-      } else if (config.interface == SWD) {
-        // Look for SWCLK/SWDIO patterns
-        if ((esp_random() % 100) < 12) {
-          result.interfaceFound = true;
-          result.deviceInfo = "SWD found on GPIO" + String(pin);
-          break;
-        }
-        delay(1);
-      }
-
-      // JTAG clock should show clear transitions
-      if (clockTransitions > 20) {
-        result.interfaceFound = true;
-        result.deviceInfo = "JTAG found on TCK=" + String(tckPin) +
-                          " TMS=" + String(tmsPin) + " TDO=" + String(tdoPin);
-        result.registersRead = 8;  // Read TAP controller state
-        Serial.printf("[GPIO Debug] JTAG detected: %s\n", result.deviceInfo.c_str());
-        break;
-      }
-
-      delay(50);
+    // Simulate UART detection
+    if ((esp_random() % 100) < 15) {
+      result.interfaceFound = true;
+      result.deviceInfo = "UART found on debug pins";
+      result.registersRead = 4;
+      Serial.printf("[GPIO Debug] UART detected: %s\n", result.deviceInfo.c_str());
     }
-  }
-  else if (config.interface == SWD) {
+  } else if (config.interface == JTAG) {
+    // JTAG detection: Look for TCK/TMS patterns
+    Serial.println("[GPIO Debug] Scanning for JTAG debug interface...");
+
+    // Simulate JTAG detection
+    if ((esp_random() % 100) < 10) {
+      result.interfaceFound = true;
+      result.deviceInfo = "JTAG found on debug pins";
+      result.registersRead = 8;
+      Serial.printf("[GPIO Debug] JTAG detected: %s\n", result.deviceInfo.c_str());
+    }
+  } else if (config.interface == SWD) {
     // SWD detection: Look for SWCLK/SWDIO patterns (2-wire protocol)
     // SWD uses only 2 pins: SWCLK (clock) and SWDIO (data)
     Serial.println("[GPIO Debug] Scanning for SWD debug interface...");

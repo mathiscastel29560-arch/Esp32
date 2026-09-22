@@ -8,6 +8,7 @@
 #include "results_formatter.h"
 #include "tx_arm.h"
 #include "wifi_tools.h"
+#include <WiFi.h>
 #include "ble_tools.h"
 #include "nrf24_tools.h"
 #include "subghz.h"
@@ -1110,7 +1111,7 @@ void runDeviceInfoAction(int idx) {
     switch (idx) {
         case 0: { // Full Config
             showResult("Full Configuration",
-                      "Pins configured OK\n" +
+                      String("Pins configured OK\n") +
                       "SPI: CC1101+NRF24\n" +
                       "I2C: RTC+PN532\n" +
                       "UART1: GPS\n" +
@@ -1119,7 +1120,7 @@ void runDeviceInfoAction(int idx) {
         }
         case 1: { // Pin Assignments
             showResult("Pin Assignments",
-                      "SPI: SCK=12 MOSI=11\n" +
+                      String("SPI: SCK=12 MOSI=11\n") +
                       "     MISO=13 CS(CC1101)=10\n" +
                       "     CS(NRF24)=14\n" +
                       "I2C: SDA=8 SCL=9\n" +
@@ -1128,7 +1129,7 @@ void runDeviceInfoAction(int idx) {
         }
         case 2: { // Hardware Guards
             showResult("Hardware Guards",
-                      "✓ GPS/UART1 guard active\n" +
+                      String("✓ GPS/UART1 guard active\n") +
                       "✓ CC1101/SubGhz guard\n" +
                       "✓ SPI bus arbitration\n" +
                       "✓ I2C address isolation");
@@ -1136,7 +1137,7 @@ void runDeviceInfoAction(int idx) {
         }
         case 3: { // Initialized Modules
             showResult("Initialized Modules",
-                      "✓ GPIO (buttons, buzzer)\n" +
+                      String("✓ GPIO (buttons, buzzer)\n") +
                       "✓ RTC (DS3231)\n" +
                       "✓ GPS (if active)\n" +
                       "✓ PN532 (NFC)\n" +
@@ -1186,7 +1187,7 @@ void runDebugInfoAction(int idx) {
         case 3: { // Last Errors
             ResultsFormatter::displayResult(
                 "System Status",
-                "No critical errors detected\n" +
+                String("No critical errors detected\n") +
                 "All systems operational\n" +
                 "Check logs for warnings",
                 ResultsFormatter::RESULT_INFO
@@ -1207,7 +1208,7 @@ void runCalibrationAction(int idx) {
         }
         case 1: { // RF Signal
             showResult("RF Signal Check",
-                      "CC1101: Ready\n" +
+                      String("CC1101: Ready\n") +
                       "NRF24: Ready\n" +
                       "Run RF tests for details");
             break;
@@ -1226,7 +1227,7 @@ void runAboutAction(int idx) {
     switch (idx) {
         case 0: { // Firmware Version
             showResult("Firmware Version",
-                      "ESP32-S3 Offensive\n" +
+                      String("ESP32-S3 Offensive\n") +
                       "Security Platform\n" +
                       "Version: 2.0.0\n" +
                       "Build: 20250922");
@@ -1274,19 +1275,19 @@ void runNetworkAction(int idx) {
         }
         case 1: { // IP Address
             showResult("IP Address",
-                      "IP: " + (WiFi.isConnected() ? WiFi.localIP().toString() : "Not connected") + "\n" +
+                      String("IP: ") + (WiFi.isConnected() ? WiFi.localIP().toString() : "Not connected") + "\n" +
                       "Gateway: " + (WiFi.isConnected() ? WiFi.gatewayIP().toString() : "N/A"));
             break;
         }
         case 2: { // Hostname
             showResult("Hostname",
-                      "esp32-audit.local\n" +
+                      String("esp32-audit.local\n") +
                       "or IP from WiFi section");
             break;
         }
         case 3: { // WiFi Settings
             showResult("WiFi Settings",
-                      "Use web UI for\n" +
+                      String("Use web UI for\n") +
                       "WiFi configuration:\n" +
                       "http://esp32-audit.local");
             break;

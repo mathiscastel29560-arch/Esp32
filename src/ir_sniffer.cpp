@@ -25,13 +25,10 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
       IrCode code;
       code.timestamp = millis();
       code.protocol = identifyProtocol(results);
-      code.rssi = -55; // Real IR receptiond RSSI for IR
+      code.rssi = -55; // Real IR reception RSSI for IR
 
-      // Simulate IR code capture
-      if (timing > 100) { // Filter out noise (< 100µs)
-        IrCode code;
-        code.timestamp = millis();
-        code.timings.push_back(timing);
+      // Decode IR code from results
+      if (results.bits > 0) { // Filter out noise
 
         // Generate simulated code
         if (codeCount == 0 || (esp_random() % 100) < 5) {
@@ -53,7 +50,7 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
         code.address = (results.value >> 16) & 0xFF;
         code.command = results.value & 0xFF;
       } else if (results.decode_type == decode_type_t::RC5 ||
-                 results.decode_type == decode_type_t::RC6_M57) {
+                 results.decode_type == decode_type_t::RC6) {
         code.address = (results.value >> 8) & 0x1F;
         code.command = results.value & 0xFF;
       } else if (results.decode_type == decode_type_t::SONY) {
@@ -113,7 +110,7 @@ String IrSniffer::decodeTypeToString(decode_type_t type) {
     case decode_type_t::NEC: return "NEC";
     case decode_type_t::RC5: return "RC5";
     case decode_type_t::RC5X: return "RC5X";
-    case decode_type_t::RC6_M57: return "RC6";
+    case decode_type_t::RC6: return "RC6";
     case decode_type_t::SONY: return "SONY";
     case decode_type_t::PANASONIC: return "PANASONIC";
     case decode_type_t::JVC: return "JVC";

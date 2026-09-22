@@ -18,6 +18,10 @@ DecoderResult LoRaDecoder::decodeLoRaWan(const DecoderConfig& config) {
   isRunning_ = true;
   unsigned long startTime = millis();
 
+  uint32_t frameCount = 0;
+  uint32_t devicesFound = 0;
+  uint32_t decodeErrors = 0;
+
   // Initialize LoRa module for real packet reception
   if (radio.begin(868.1)) {  // LoRaWAN EU868 frequency
     Serial.println("[LoRaWAN] Radio initialized");
@@ -27,17 +31,6 @@ DecoderResult LoRaDecoder::decodeLoRaWan(const DecoderConfig& config) {
     radio.setBandwidth(125000);       // 125 kHz bandwidth
     radio.setCodingRate(5);           // CR4/5
     radio.setPreambleLength(8);       // Standard LoRaWAN preamble
-    radio.setDio0Action(NULL);        // No interrupt needed for simple RX
-
-  while (isRunning_ && (millis() - startTime) < config.scanDurationMs) {
-    if ((esp_random() % 100) < 15) { // 15% chance per cycle
-      LoRaFrame frame;
-      frame.timestamp = millis();
-      frame.mhdr = (esp_random() % 128);
-      frame.appEui = (esp_random() % 4294967295);
-      frame.devEui = (esp_random() % 4294967295);
-      frame.devNonce = (esp_random() % 65535);
-      frame.rssi = ((esp_random() % 50) + -120);
 
     Serial.println("[LoRaWAN] Starting RX mode - scanning for frames");
 
@@ -47,7 +40,7 @@ DecoderResult LoRaDecoder::decodeLoRaWan(const DecoderConfig& config) {
       size_t rxLen = 255;
 
       // Receive LoRa packet (non-blocking with timeout)
-      int state = radio.receive(rxBuf, &rxLen);
+      int state = radio.receive(rxBuf, rxLen);
 
       if (state == RADIOLIB_ERR_NONE && rxLen > 0) {
         // Successfully received LoRa frame
@@ -123,8 +116,8 @@ DecoderResult LoRaDecoder::decodeLoRaWan(const DecoderConfig& config) {
 
     radio.sleep();  // Put radio to sleep
   } else {
-    result.error = "Failed to initialize LoRa radio";
     Serial.println("[LoRaWAN] ERROR: Radio init failed");
+    result.success = false;
   }
 
   result.logFile = "/logs/handshakes/lorawan.csv";

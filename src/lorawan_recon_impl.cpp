@@ -41,15 +41,12 @@ ScanResult scanLoRawanNetwork(uint32_t durationMs) {
             gatewayCount++;
             deviceCount += ((esp_random() % 45) + 5);  // Estimate devices per gateway
 
-        discoveredGateways.push_back(gw);
-        gatewayCount++;
-        deviceCount += 10 + gatewayCount;
+            Serial.printf("  [Gateway %u] ID: %s | Region: %s | RSSI: %d\n",
+                         gatewayCount, gw.gwId.c_str(), gw.region, gw.rssi);
 
-        Serial.printf("  [Gateway %u] ID: %s | Region: %s | RSSI: %d\n",
-                     gatewayCount, gw.gwId.c_str(), gw.region, gw.rssi);
-
-        if (gw.rssi > strongestRssi) {
-            strongestRssi = gw.rssi;
+            if (gw.rssi > strongestRssi) {
+                strongestRssi = gw.rssi;
+            }
         }
         delay(100);
     }
@@ -77,11 +74,7 @@ InjectionResult injectLoRawanFrames(uint32_t durationMs) {
     uint32_t framesSent = 0;
 
     const char* frameTypes[] = {"UNCONFIRMED_DATA_UP", "CONFIRMED_DATA_UP", "MAC_COMMAND", "BEACON"};
-    String type = frameTypes[(esp_random() % 4)];
 
-    const char* frameTypes[] = {"UNCONFIRMED_DATA_UP", "CONFIRMED_DATA_UP", "MAC_COMMAND", "BEACON"};
-
-    uint32_t typeIndex = 0;
     while (millis() - startTime < durationMs) {
         framesSent += ((esp_random() % 30) + 10);
         delay(200);

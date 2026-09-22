@@ -118,20 +118,18 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
     HTTPClient http;
     http.setConnectTimeout(3000);
     http.setTimeout(5000);
+    http.begin(testUrl);
+
+    int httpCode = http.GET();
 
     if (httpCode == HTTP_REDIRECT || httpCode == HTTP_REDIRECT_TEMP || httpCode == HTTP_OK) {
-      String location = http.getHeader("Location");
-      if (!location.isEmpty()) {
-        portal.redirectUrl = location;
-        portal.portalUrl = location;
-        result.portals.push_back(portal);
-        result.portalsFound++;
-        result.success = true;
-        logPortal(portal);
-        break;
-      }
-
+      portal.portalUrl = testUrl;
+      result.portals.push_back(portal);
+      result.portalsFound++;
+      result.success = true;
+      logPortal(portal);
       http.end();
+      break;
     }
 
     http.end();

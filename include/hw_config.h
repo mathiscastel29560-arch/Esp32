@@ -31,13 +31,13 @@
 #define GPS_RX     PIN_GPS_RX      // 18 (ESP32 RX <- GPS TX)
 #define GPS_TX     PIN_GPS_TX      // 17 (ESP32 TX -> GPS RX)
 #define GPS_UART   1               // UART1 (Serial1)
-#define GPS_BAUD   GPS_BAUD        // 9600
+#define GPS_BAUD   9600            // Baud rate
 
 // ---- RTC DS3231 Module (I2C) ----
 // Shares I2C bus 0 with PN532 (SDA=8, SCL=9)
 #define RTC_I2C_SDA   PIN_I2C_SDA    // 8
 #define RTC_I2C_SCL   PIN_I2C_SCL    // 9
-#define RTC_I2C_ADDR  RTC_I2C_ADDR   // 0x68
+#define RTC_I2C_ADDR  0x68           // I2C address
 
 // ---- IR Receiver/Transmitter (GPIO) ----
 #define IR_RX_PIN  PIN_IR_RX    // 39 (receiver input)
@@ -57,7 +57,6 @@
 // ---- Battery Monitoring (ADC) ----
 #define BATTERY_ADC_PIN  PIN_BATTERY_ADC    // 7
 #define BATTERY_VOLTAGE_DIVIDER 2.0         // 2:1 voltage divider
-#define BATTERY_SAMPLES  4                  // Average 4 ADC samples
 #define TFT_DC   47
 #define TFT_RST  48
 #define TFT_BL   -1    // No backlight PWM (always on)

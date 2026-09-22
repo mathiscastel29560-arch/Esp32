@@ -1,4 +1,5 @@
 #include "ir_fuzzing.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 #include <IRsend.h>
 

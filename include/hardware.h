@@ -1,4 +1,5 @@
 #pragma once
+#include <Arduino.h>
 
 // Hardware abstraction layer - Centralizes all real driver initialization
 
