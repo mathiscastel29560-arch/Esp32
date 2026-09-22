@@ -97,6 +97,17 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 </div>
 
 <div class="card">
+  <h2>📡 Capture Handshake (WPA2/EAPOL)</h2>
+  <p style="font-size:12px;color:#9ecbff">Capture passive des 4-way handshake pour cracking hors-ligne. Besoin: BSSID de l'AP et numéro de canal.</p>
+  <input id="handshakeBssid" placeholder="BSSID AP (ex: AA:BB:CC:DD:EE:FF)">
+  <input id="handshakeChannel" placeholder="canal" size="3" value="6">
+  <input id="handshakeDuration" placeholder="durée (ms)" size="6" value="30000">
+  <button onclick="captureHandshake()">Démarrer capture</button>
+  <button onclick="handshakeDownload()">Télécharger fichier PCAP</button>
+  <pre id="handshakeOut"></pre>
+</div>
+
+<div class="card">
   <h2>&#9888; Beacon spam (SSID de test que tu fournis)</h2>
   <p style="font-size:12px;color:#9ecbff">Maintiens le bouton RETOUR sur l'appareil au moment de cliquer "Démarrer".</p>
   <input id="beaconSsids" placeholder="ssid1,ssid2,ssid3">
@@ -241,6 +252,28 @@ async function deauth() {
   const channel = document.getElementById('deauthChannel').value || 1;
   const res = await j(`/api/wifi/deauth?bssid=${encodeURIComponent(bssid)}&client=${encodeURIComponent(client)}&channel=${channel}`, {method: 'POST'});
   document.getElementById('deauthOut').textContent = res.ok ? 'envoyé' : 'bloqué (interrupteur de sécurité désarmé ?)';
+}
+
+async function captureHandshake() {
+  const bssid = document.getElementById('handshakeBssid').value;
+  const channel = document.getElementById('handshakeChannel').value || 6;
+  const duration = document.getElementById('handshakeDuration').value || 30000;
+  if (!bssid) { document.getElementById('handshakeOut').textContent = 'BSSID requis'; return; }
+  document.getElementById('handshakeOut').textContent = 'capture en cours...';
+  try {
+    const res = await j(`/api/wifi/handshake?bssid=${encodeURIComponent(bssid)}&channel=${channel}&ms=${duration}`, {method: 'POST'});
+    document.getElementById('handshakeOut').textContent = res.ok
+      ? `capturé: ${res.eapolFrames} trames EAPOL\nfichier: ${res.file}`
+      : `échec: ${res.error || 'erreur serveur'}`;
+  } catch (e) {
+    document.getElementById('handshakeOut').textContent = `erreur: ${e.message}`;
+  }
+}
+
+async function handshakeDownload() {
+  const filename = prompt('Nom du fichier (ex: handshake_20240101.pcap):');
+  if (!filename) return;
+  window.open(`/api/wifi/handshake/download?file=${encodeURIComponent(filename)}`);
 }
 
 async function beaconStart() {

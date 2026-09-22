@@ -95,6 +95,28 @@ static const Topic TOPICS[] = {
      "Use case: mapping all WiFi networks\n"
      "in a large area over time."},
 
+    {"WiFi", "W", "Capture Handshake",
+     "WPA2 EAPOL 4-way Handshake Sniffing:\n"
+     "\n"
+     "Capture passive des frames EAPOL\n"
+     "d'authentification pour cracking.\n"
+     "\n"
+     "Besoin: BSSID du routeur + canal.\n"
+     "Duree: 30s recommandes (defaut).\n"
+     "\n"
+     "Resultat: fichier .pcap (LittleFS).\n"
+     "Format: 802.11 raw, DLT_IEEE802_11.\n"
+     "\n"
+     "Cracking hors-ligne sur PC:\n"
+     "- aircrack-ng (avec dictionnaire)\n"
+     "- hashcat (GPU accelere)\n"
+     "\n"
+     "TX arm: deauth optionnel (si arme).\n"
+     "Sans TX arm = sniff passif seulement.\n"
+     "\n"
+     "Note: Legalement valide sur VOSES\n"
+     "reseaux, jamais sur d'autres!"},
+
     // ========== BLE CATEGORY ==========
     {"BLE", "B", "Scan Devices",
      "Bluetooth Low Energy Inventory (5s):\n"

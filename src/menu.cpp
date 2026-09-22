@@ -46,6 +46,7 @@
 #include "wifi_association_hijacker.h"
 #include "http_downgrade_attack.h"
 #include "rf_signal_recorder.h"
+#include "handshake_capture.h"
 #include "signal_decoder.h"
 #include "advanced_signal_cloner.h"
 #include "zigbee_scanner.h"
@@ -128,6 +129,7 @@ std::vector<String> wifiMenuItems() {
         "📡 Association Hijacker",
         "📡 HTTP Downgrade Attack",
         "📡 WPA2 Handshake Cracker",
+        "📡 Capture Handshake (WPA2)",
         "🔙 Back",
     };
 }
@@ -382,6 +384,24 @@ void runWifiAction(int idx) {
             showResult("WPA2 Cracker",
                       "Password: " + (result.passwordFound ? result.password : "NOT FOUND") + "\n" +
                       "Attempts: " + String(result.attemptsCount));
+            break;
+        }
+        case 12: { // Capture Handshake (WPA2)
+            // Use HTTP API to capture handshake with specific target
+            // Default example: common AP BSSID + channel
+            String targetBssid = "AA:BB:CC:DD:EE:FF";  // Replace with real AP
+            uint8_t channel = 6;  // Replace with real channel from scan
+            auto result = HandshakeCapture::capture(targetBssid, channel, 30000);
+            if (result.filePath.length() > 0) {
+                showResult("Handshake Captured",
+                          "File: " + result.filePath + "\n" +
+                          "EAPOL frames: " + String(result.eapolFrames) + "\n" +
+                          "Use web API for targeting");
+            } else {
+                showResult("Handshake Capture",
+                          String("No EAPOL frames captured.\n") +
+                          "Use /api/wifi/handshake API");
+            }
             break;
         }
     }

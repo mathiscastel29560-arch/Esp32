@@ -17,6 +17,7 @@
 #include "ble_gatt_audit.h"
 #include "ble_fuzzer.h"
 #include "ble_spam_detector.h"
+#include "handshake_capture.h"
 
 #include <WebServer.h>
 #include <WiFi.h>
@@ -320,6 +321,53 @@ void handleBeaconStatus() {
                 String("{\"active\":") + (BeaconSpam::active() ? "true" : "false") + "}");
 }
 
+void handleHandshakeCapture() {
+    String bssid = server.arg("bssid");
+    String channelStr = server.arg("channel");
+    uint32_t durationMs = server.hasArg("ms") ? server.arg("ms").toInt() : 30000;
+
+    if (bssid.length() == 0 || channelStr.length() == 0) {
+        note("Handshake capture error: missing bssid or channel");
+        server.send(400, "application/json", "{\"ok\":false,\"error\":\"bssid and channel required\"}");
+        return;
+    }
+
+    uint8_t channel = (uint8_t)channelStr.toInt();
+    if (channel < 1 || channel > 11) {
+        note("Handshake capture error: invalid channel " + String(channel));
+        server.send(400, "application/json", "{\"ok\":false,\"error\":\"invalid channel (1-11)\"}");
+        return;
+    }
+
+    auto result = HandshakeCapture::capture(bssid, channel, durationMs);
+    note("Handshake capture: " + String(result.eapolFrames) + " EAPOL frames -> " + result.filePath);
+
+    String json = "{\"ok\":" + String(result.filePath.length() > 0 ? "true" : "false");
+    json += ",\"eapolFrames\":" + String(result.eapolFrames);
+    json += ",\"file\":\"" + jsonEscape(result.filePath) + "\"";
+    json += "}";
+    server.send(200, "application/json", json);
+}
+
+void handleHandshakeDownload() {
+    String filename = server.arg("file");
+    if (filename.length() == 0 || filename.indexOf("..") >= 0) {
+        server.send(400, "text/plain", "invalid filename");
+        return;
+    }
+
+    String filepath = String(HANDSHAKE_CAPTURE_DIR) + "/" + filename;
+    if (!LittleFS.exists(filepath)) {
+        server.send(404, "text/plain", "file not found");
+        return;
+    }
+
+    File f = LittleFS.open(filepath, FILE_READ);
+    server.streamFile(f, "application/octet-stream");
+    f.close();
+    note("Handshake file downloaded: " + filename);
+}
+
 void handlePortalStart() {
     String ssid = server.arg("ssid");
     uint32_t maxMs = server.hasArg("maxMs") ? server.arg("maxMs").toInt() : 600000;
@@ -407,6 +455,8 @@ void begin() {
     server.on("/api/wifi/beacon/start", HTTP_POST, handleBeaconStart);
     server.on("/api/wifi/beacon/stop", HTTP_POST, handleBeaconStop);
     server.on("/api/wifi/beacon/status", handleBeaconStatus);
+    server.on("/api/wifi/handshake", HTTP_POST, handleHandshakeCapture);
+    server.on("/api/wifi/handshake/download", handleHandshakeDownload);
     server.on("/api/portal/start", HTTP_POST, handlePortalStart);
     server.on("/api/portal/stop", HTTP_POST, handlePortalStop);
     server.on("/api/portal/status", handlePortalStatus);
