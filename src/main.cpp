@@ -65,6 +65,20 @@ void setup() {
     // Initialize all modules with graceful error handling
     // Each begin() is already designed to not crash if hardware is missing
     WifiTools::begin(apSsid, AP_PASSWORD);
+
+    // Warn if using default AP password
+    if (String(AP_PASSWORD) == "auditctrl123") {
+        Serial.println("\n");
+        Serial.println("⚠️  WARNING: DEFAULT AP PASSWORD DETECTED ⚠️");
+        Serial.println("═══════════════════════════════════════════════════");
+        Serial.println("AP Password is still 'auditctrl123' (default).");
+        Serial.println("This is NOT SECURE for field deployment!");
+        Serial.println("");
+        Serial.println("Change AP_PASSWORD in include/config.h before use.");
+        Serial.println("═══════════════════════════════════════════════════");
+        Serial.println("\n");
+    }
+
     BleTools::begin();
     BleSpamDetector::begin();
     Nrf24Tools::begin();

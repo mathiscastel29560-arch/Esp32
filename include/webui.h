@@ -29,6 +29,13 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
   <div id="status">loading status...</div>
 </div>
 
+<div class="card" id="warningBanner" hidden style="background:#c0392b;border:2px solid #e74c3c;">
+  <h2 style="color:#fff;margin-top:0">⚠️ SECURITY WARNING</h2>
+  <p style="color:#fff;margin:0">
+    <strong>DEFAULT AP PASSWORD IN USE:</strong> Change AP_PASSWORD in config.h before field deployment!
+  </p>
+</div>
+
 <div class="card">
   <h2>Wi-Fi scan</h2>
   <button onclick="wifiScan()">Scan networks</button>
@@ -156,6 +163,7 @@ async function refreshStatus() {
       `<span class="badge">AP clients: ${s.apClients}</span>` +
       `<span class="badge">Batt: ${s.battV}V (${s.battPct}%)</span>` +
       `<span class="badge ${s.safetyArmed ? 'armed' : 'safe'}">TX arm (BACK): ${s.safetyArmed ? 'HELD' : 'off'}</span>`;
+    document.getElementById('warningBanner').hidden = !s.defaultApPassword;
   } catch (e) {}
 }
 setInterval(refreshStatus, 2000);

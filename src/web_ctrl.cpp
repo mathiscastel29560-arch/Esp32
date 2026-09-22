@@ -52,6 +52,7 @@ void handleRoot() {
 
 void handleStatus() {
     try {
+        bool defaultPassword = (String(AP_PASSWORD) == "auditctrl123");
         String json = "{";
         json += "\"time\":\"" + jsonEscape(RtcClock::isoTimestamp()) + "\",";
         json += "\"gpsFix\":" + String(GpsModule::hasFix() ? "true" : "false") + ",";
@@ -59,7 +60,8 @@ void handleStatus() {
         json += "\"apClients\":" + String(WiFi.softAPgetStationNum()) + ",";
         json += "\"battV\":" + String(Battery::voltage(), 2) + ",";
         json += "\"battPct\":" + String(Battery::percent()) + ",";
-        json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false");
+        json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false") + ",";
+        json += "\"defaultApPassword\":" + String(defaultPassword ? "true" : "false");
         json += "}";
         server.send(200, "application/json", json);
     } catch (...) {
