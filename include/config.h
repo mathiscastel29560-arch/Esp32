@@ -74,8 +74,16 @@
 // second switch if you'd rather have that back.
 
 // ---- Wi-Fi control-panel access point ----
+// ⚠️  SECURITY WARNING: Default credentials below are for AUDIT/LAB use only!
+// This firmware is designed for:
+//   ✓ Personal devices you own
+//   ✓ Lab environments with air-gapped WiFi
+//   ✓ Authorized penetration testing engagements
+//
+// NEVER deploy in production without changing these credentials.
+// See CREDENTIALS_SECURITY.md for hardening steps.
 #define AP_SSID_PREFIX      "ESP32-Audit-"
-#define AP_PASSWORD         "auditctrl123"   // change before field use
+#define AP_PASSWORD         "auditctrl123"   // ⚠️  REQUIRED: Change before any field use
 #define AP_CHANNEL          6
 
 // ---- Wardriving / logs on LittleFS ----
