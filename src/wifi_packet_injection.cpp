@@ -19,8 +19,8 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.durationMs;
 
-  // Guard against division by zero
   uint32_t pps = (config.packetsPerSec == 0) ? 1 : config.packetsPerSec;
   uint32_t delayMs = 1000 / pps;
 
@@ -35,8 +35,12 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
     return result;
   }
 
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    std::vector<uint8_t> beacon = buildFrame(BEACON, bssidBytes);
+  std::vector<uint8_t> beacon;
+  beacon.reserve(256);
+
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
+    beacon.clear();
+    beacon = buildFrame(BEACON, bssidBytes);
 
     if (config.fuzzPayload) {
       auto fuzzVec = generateFuzzVector();
@@ -71,6 +75,7 @@ InjectionResult PacketInjector::injectProbe(const InjectionConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.durationMs;
 
   uint32_t pps = (config.packetsPerSec == 0) ? 1 : config.packetsPerSec;
   uint32_t delayMs = 1000 / pps;
@@ -86,10 +91,13 @@ InjectionResult PacketInjector::injectProbe(const InjectionConfig& config) {
     return result;
   }
 
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    // Alternate between Probe Request and Response
+  std::vector<uint8_t> probe;
+  probe.reserve(256);
+
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
+    probe.clear();
     FrameType type = (result.packetsSent % 2 == 0) ? PROBE_REQUEST : PROBE_RESPONSE;
-    std::vector<uint8_t> probe = buildFrame(type, bssidBytes);
+    probe = buildFrame(type, bssidBytes);
 
     sendRawFrame(probe.data(), probe.size());
     result.packetsSent++;
@@ -118,6 +126,7 @@ InjectionResult PacketInjector::injectAuth(const InjectionConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.durationMs;
 
   uint32_t pps = (config.packetsPerSec == 0) ? 1 : config.packetsPerSec;
   uint32_t delayMs = 1000 / pps;
@@ -133,8 +142,12 @@ InjectionResult PacketInjector::injectAuth(const InjectionConfig& config) {
     return result;
   }
 
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    std::vector<uint8_t> auth = buildFrame(AUTH_REQUEST, bssidBytes);
+  std::vector<uint8_t> auth;
+  auth.reserve(256);
+
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
+    auth.clear();
+    auth = buildFrame(AUTH_REQUEST, bssidBytes);
 
     // Add random auth algorithm and status code
     auth.push_back((esp_random() % 2)); // auth type (open/shared)
@@ -167,6 +180,7 @@ InjectionResult PacketInjector::injectAssoc(const InjectionConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.durationMs;
 
   uint8_t bssidBytes[6] = {0};
   int parseCount = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
@@ -179,8 +193,12 @@ InjectionResult PacketInjector::injectAssoc(const InjectionConfig& config) {
     return result;
   }
 
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    std::vector<uint8_t> assoc = buildFrame(ASSOC_REQUEST, bssidBytes);
+  std::vector<uint8_t> assoc;
+  assoc.reserve(256);
+
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
+    assoc.clear();
+    assoc = buildFrame(ASSOC_REQUEST, bssidBytes);
 
     sendRawFrame(assoc.data(), assoc.size());
     result.packetsSent++;
@@ -210,6 +228,7 @@ InjectionResult PacketInjector::fuzzFrames(const InjectionConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.durationMs;
 
   uint8_t bssidBytes[6] = {0};
   int parseCount = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
@@ -223,10 +242,13 @@ InjectionResult PacketInjector::fuzzFrames(const InjectionConfig& config) {
   }
 
   const FrameType frameTypes[] = {BEACON, PROBE_REQUEST, AUTH_REQUEST, DATA_FRAME, NULL_FRAME};
+  std::vector<uint8_t> frame;
+  frame.reserve(256);
 
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
+    frame.clear();
     FrameType type = frameTypes[(esp_random() % 5)];
-    std::vector<uint8_t> frame = buildFrame(type, bssidBytes);
+    frame = buildFrame(type, bssidBytes);
 
     // Fuzz payload
     auto fuzzVec = generateFuzzVector();

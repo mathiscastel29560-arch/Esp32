@@ -21,13 +21,16 @@ FuzzResult FuzzingEngine::fuzzSubGhz(const FuzzConfig& config) {
   uint32_t mutations = 0;
   uint32_t deadline = startTime_ + config.durationMs;
 
+  std::vector<uint8_t> payload;
+  payload.reserve(64);
+
   while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
-    std::vector<uint8_t> payload;
+    payload.clear();
     generateFuzzVector(payload);
 
     uint32_t freq = config.baseFreq;
     if (config.randomizeFreq) {
-      freq += ((esp_random() % 200000) + -100000);
+      freq += ((esp_random() % 200000) - 100000);
     }
 
     uint32_t modulation = config.modulation;

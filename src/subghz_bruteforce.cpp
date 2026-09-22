@@ -103,6 +103,8 @@ void transmitCode(uint32_t code) {
     }
 }
 
+}  // namespace (anonymous)
+
 namespace SubghzBruteforce {
 
 std::vector<uint32_t> getCommonCodes(const String &deviceType) {

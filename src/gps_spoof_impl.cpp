@@ -73,6 +73,8 @@ void sendSpoofSignal(float lat, float lon, const String &method) {
     }
 }
 
+}  // namespace (anonymous)
+
 namespace GPSSpoof {
 
 SpoofResult spoofGPS(float latitude, float longitude, uint32_t durationMs, const String &method) {
