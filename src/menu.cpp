@@ -1278,18 +1278,38 @@ void runNetworkAction(int idx) {
     }
 }
 
-void drawStatusBar() {
-    String wifiStatus = WiFi.isConnected() ? "📡 WiFi" : "☓ WiFi";
-    String batStatus = "🔋 " + String(Battery::percent()) + "%";
-    String timeStatus = "🕐 " + Settings::formatRTCTime(Settings::getRTCTime()).substring(11, 16);
+String drawBatteryBar(uint8_t percent) {
+    String bar = "";
+    uint8_t filled = percent / 10;
+    for (uint8_t i = 0; i < 10; i++) {
+        bar += (i < filled) ? "█" : "░";
+    }
+    return bar;
+}
 
-    Serial.print(COLOR_CYAN);
+void drawStatusBar() {
+    uint8_t batPercent = Battery::percent();
+    String batBar = drawBatteryBar(batPercent);
+    String wifiStatus = WiFi.isConnected() ? "✓ WiFi" : "✗ WiFi";
+    String timeStatus = Settings::formatRTCTime(Settings::getRTCTime()).substring(11, 16);
+
+    // Color based on battery level
+    if (batPercent > 50) Serial.print(COLOR_GREEN);
+    else if (batPercent > 20) Serial.print(COLOR_YELLOW);
+    else Serial.print(COLOR_RED);
+
     Serial.println("┌─────────────────────────────────────────┐");
-    Serial.print("│ " + wifiStatus);
-    Serial.print(String(6 - wifiStatus.length(), ' '));
-    Serial.print(" │ " + batStatus);
-    Serial.print(String(8 - batStatus.length(), ' '));
-    Serial.print(" │ " + timeStatus + " │\n");
+    Serial.print("│ ");
+    Serial.print(COLOR_CYAN);
+    Serial.print(wifiStatus);
+    Serial.print(COLOR_RESET);
+    if (batPercent > 50) Serial.print(COLOR_GREEN);
+    else if (batPercent > 20) Serial.print(COLOR_YELLOW);
+    else Serial.print(COLOR_RED);
+    Serial.print(" │ 🔋" + batBar + " ");
+    Serial.print(String(batPercent < 10 ? "  " : (batPercent < 100 ? " " : "")));
+    Serial.print(String(batPercent) + "% │ 🕐 " + timeStatus + " │\n");
+    Serial.print(COLOR_CYAN);
     Serial.println("└─────────────────────────────────────────┘");
     Serial.print(COLOR_RESET);
 }
