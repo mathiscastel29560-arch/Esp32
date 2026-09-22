@@ -41,10 +41,12 @@ DecodedSignal decodeSignal() {
     PatternMatch pattern = findRepeatingPattern();
     result.patternLength = pattern.length;
 
-    // Decode to hex
+    // Decode to hex with bounds checking
     char hexBuf[513] = {0};
     for (uint32_t i = 0; i < min((uint32_t)256, dataLen); i++) {
-        snprintf(hexBuf + (i*2), 512 - (i*2), "%02X", data[i]);
+        size_t remaining = sizeof(hexBuf) - (i * 2);
+        if (remaining < 3) break;  // Need 2 chars + null terminator
+        snprintf(hexBuf + (i * 2), remaining, "%02X", data[i]);
     }
     result.decodedData = String(hexBuf);
 
