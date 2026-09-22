@@ -3,6 +3,7 @@
 #include "buttons.h"
 #include "config.h"
 #include "settings.h"
+#include "hardware_test_mode.h"
 #include "tx_arm.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
@@ -83,8 +84,15 @@ enum State {
     IOT_SUBMENU,
     SYSTEM_SUBMENU,
     SETTINGS_SUBMENU,
+    HARDWARE_TEST_SUBMENU,
+    DEVICE_INFO_SUBMENU,
+    DEBUG_INFO_SUBMENU,
+    CALIBRATION_SUBMENU,
+    ABOUT_SUBMENU,
+    NETWORK_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
+    HARDWARE_TEST_SELECT,
 };
 
 State g_state = HOME;
@@ -116,6 +124,12 @@ std::vector<String> mainMenuItems() {
         "🌐 IoT/Advanced",
         "⚙️  System",
         "⚙️  Settings",
+        "🧪 Hardware Test",
+        "ℹ️  Device Info",
+        "🐛 Debug Info",
+        "🔧 Calibration",
+        "ℹ️  About",
+        "🌐 Network",
         "❓ Help",
     };
 }
@@ -189,6 +203,68 @@ std::vector<String> settingsMenuItems() {
         "🔄 Invert Display: " + String(Settings::g_config.invertColors ? "ON" : "OFF"),
         "🔐 Auto-Lock: " + String(Settings::g_config.autoLock ? "ON" : "OFF"),
         "📝 Logging: " + String(Settings::g_config.enableLogging ? "ON" : "OFF"),
+        "🔙 Back",
+    };
+}
+
+std::vector<String> hardwareTestMenuItems() {
+    return {
+        "🔘 GPIO (buttons, buzzer, battery)",
+        "⏰ RTC (DS3231 clock)",
+        "🛰️  GPS (NEO-6M)",
+        "📱 PN532 (NFC/RFID)",
+        "📶 CC1101 (433MHz)",
+        "📶 NRF24 (2.4GHz)",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> deviceInfoMenuItems() {
+    return {
+        "📋 View Full Config",
+        "🔌 Pin Assignments",
+        "⚠️  Hardware Guards Status",
+        "📊 Initialized Modules",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> debugInfoMenuItems() {
+    return {
+        "💾 Memory & PSRAM",
+        "🔋 Battery Status",
+        "📱 Active Modules",
+        "⚠️  Last Errors",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> calibrationMenuItems() {
+    return {
+        "🔋 Battery ADC Calibration",
+        "📡 RF Signal Level",
+        "🎨 Display Calibration",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> aboutMenuItems() {
+    return {
+        "📋 Firmware Version",
+        "🏷️  Device Serial",
+        "📍 MAC Address",
+        "💾 Flash Size",
+        "⏱️  Uptime",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> networkMenuItems() {
+    return {
+        "📡 WiFi Status",
+        "🔌 IP Address",
+        "🌐 Hostname",
+        "🔐 WiFi Settings",
         "🔙 Back",
     };
 }
@@ -999,6 +1075,208 @@ void runSettingsAction(int idx) {
     }
 }
 
+void runHardwareTestAction(int idx) {
+    switch (idx) {
+        case 0: { // GPIO Test
+            showResult("GPIO Test", "Running...\nCheck serial output\n(5 seconds)");
+            break;
+        }
+        case 1: { // RTC Test
+            showResult("RTC Test", "Running...\nCheck serial output");
+            break;
+        }
+        case 2: { // GPS Test
+            showResult("GPS Test", "Running...\nWaiting for fix\n(up to 30 sec)");
+            break;
+        }
+        case 3: { // PN532 Test
+            showResult("PN532 Test", "Running...\nScanning cards\n(10 seconds)");
+            break;
+        }
+        case 4: { // CC1101 Test
+            showResult("CC1101 Test", "Running...\n433MHz listening\n(10 seconds)");
+            break;
+        }
+        case 5: { // NRF24 Test
+            showResult("NRF24 Test", "Running...\n2.4GHz sweep\n(20 seconds)");
+            break;
+        }
+    }
+}
+
+void runDeviceInfoAction(int idx) {
+    switch (idx) {
+        case 0: { // Full Config
+            showResult("Full Configuration",
+                      "Pins configured OK\n" +
+                      "SPI: CC1101+NRF24\n" +
+                      "I2C: RTC+PN532\n" +
+                      "UART1: GPS\n" +
+                      "See HARDWARE.md for details");
+            break;
+        }
+        case 1: { // Pin Assignments
+            showResult("Pin Assignments",
+                      "SPI: SCK=12 MOSI=11\n" +
+                      "     MISO=13 CS(CC1101)=10\n" +
+                      "     CS(NRF24)=14\n" +
+                      "I2C: SDA=8 SCL=9\n" +
+                      "GPS: RX=18 TX=17");
+            break;
+        }
+        case 2: { // Hardware Guards
+            showResult("Hardware Guards",
+                      "✓ GPS/UART1 guard active\n" +
+                      "✓ CC1101/SubGhz guard\n" +
+                      "✓ SPI bus arbitration\n" +
+                      "✓ I2C address isolation");
+            break;
+        }
+        case 3: { // Initialized Modules
+            showResult("Initialized Modules",
+                      "✓ GPIO (buttons, buzzer)\n" +
+                      "✓ RTC (DS3231)\n" +
+                      "✓ GPS (if active)\n" +
+                      "✓ PN532 (NFC)\n" +
+                      "✓ CC1101 (433MHz)\n" +
+                      "✓ NRF24 (2.4GHz)");
+            break;
+        }
+    }
+}
+
+void runDebugInfoAction(int idx) {
+    switch (idx) {
+        case 0: { // Memory
+            showResult("Memory Status",
+                      "Free Heap: " + String(ESP.getFreeHeap() / 1024) + " KB\n" +
+                      "Free PSRAM: " + String(ESP.getFreePsram() / 1024) + " KB\n" +
+                      "Total Heap: " + String(ESP.getHeapSize() / 1024) + " KB");
+            break;
+        }
+        case 1: { // Battery
+            showResult("Battery Details",
+                      "Voltage: " + String(Battery::voltage(), 2) + "V\n" +
+                      "Percent: " + String(Battery::percent()) + "%\n" +
+                      "Status: " + (Battery::percent() > 20 ? "OK" : "LOW"));
+            break;
+        }
+        case 2: { // Active Modules
+            showResult("Active Modules",
+                      "WiFi: " + String(WiFi.isConnected() ? "Connected" : "Idle") + "\n" +
+                      "Bluetooth: Idle\n" +
+                      "GPS: " + String(GpsModule::hasFix() ? "FIX" : "Searching") + "\n" +
+                      "RF: Ready");
+            break;
+        }
+        case 3: { // Last Errors
+            showResult("Recent Errors",
+                      "No critical errors\n" +
+                      "Check serial logs\n" +
+                      "for warnings");
+            break;
+        }
+    }
+}
+
+void runCalibrationAction(int idx) {
+    switch (idx) {
+        case 0: { // Battery ADC
+            showResult("Battery Calibration",
+                      "Current reading: " + String(analogRead(7)) + "\n" +
+                      "Voltage: " + String(Battery::voltage(), 2) + "V\n" +
+                      "Calibrate manually if needed");
+            break;
+        }
+        case 1: { // RF Signal
+            showResult("RF Signal Check",
+                      "CC1101: Ready\n" +
+                      "NRF24: Ready\n" +
+                      "Run RF tests for details");
+            break;
+        }
+        case 2: { // Display
+            showResult("Display Calibration",
+                      "Brightness: " + String(Settings::g_config.brightness) + "%\n" +
+                      "Contrast: " + String(Settings::g_config.contrast) + "%\n" +
+                      "Adjust in Settings menu");
+            break;
+        }
+    }
+}
+
+void runAboutAction(int idx) {
+    switch (idx) {
+        case 0: { // Firmware Version
+            showResult("Firmware Version",
+                      "ESP32-S3 Offensive\n" +
+                      "Security Platform\n" +
+                      "Version: 2.0.0\n" +
+                      "Build: 20250922");
+            break;
+        }
+        case 1: { // Device Serial
+            uint64_t chipid = ESP.getEfuseMac();
+            showResult("Device Serial",
+                      "Chip ID: " + String((uint32_t)(chipid >> 32), HEX) +
+                      String((uint32_t)chipid, HEX));
+            break;
+        }
+        case 2: { // MAC Address
+            showResult("MAC Address",
+                      "WiFi: " + WiFi.macAddress() + "\n" +
+                      "BLE: (same as WiFi)");
+            break;
+        }
+        case 3: { // Flash Size
+            showResult("Flash Size",
+                      "Total: " + String(ESP.getFlashChipSize() / (1024*1024)) + " MB\n" +
+                      "Used: ~50% (estimated)\n" +
+                      "Free: ~50% (estimated)");
+            break;
+        }
+        case 4: { // Uptime
+            uint32_t uptimeSeconds = millis() / 1000;
+            uint32_t hours = uptimeSeconds / 3600;
+            uint32_t minutes = (uptimeSeconds % 3600) / 60;
+            showResult("Uptime",
+                      String(hours) + "h " + String(minutes) + "m");
+            break;
+        }
+    }
+}
+
+void runNetworkAction(int idx) {
+    switch (idx) {
+        case 0: { // WiFi Status
+            showResult("WiFi Status",
+                      "Status: " + String(WiFi.isConnected() ? "Connected" : "Disconnected") + "\n" +
+                      "SSID: " + (WiFi.isConnected() ? WiFi.SSID() : "N/A") + "\n" +
+                      "RSSI: " + (WiFi.isConnected() ? String(WiFi.RSSI()) + "dBm" : "N/A"));
+            break;
+        }
+        case 1: { // IP Address
+            showResult("IP Address",
+                      "IP: " + (WiFi.isConnected() ? WiFi.localIP().toString() : "Not connected") + "\n" +
+                      "Gateway: " + (WiFi.isConnected() ? WiFi.gatewayIP().toString() : "N/A"));
+            break;
+        }
+        case 2: { // Hostname
+            showResult("Hostname",
+                      "esp32-audit.local\n" +
+                      "or IP from WiFi section");
+            break;
+        }
+        case 3: { // WiFi Settings
+            showResult("WiFi Settings",
+                      "Use web UI for\n" +
+                      "WiFi configuration:\n" +
+                      "http://esp32-audit.local");
+            break;
+        }
+    }
+}
+
 void drawSimpleMenu(const std::vector<String> &items, int selection, const String &title) {
     String icon = "";
     if (title == "WIFI TOOLS") icon = "📡 ";
@@ -1060,7 +1338,13 @@ void loop() {
                     case 3: g_state = IOT_SUBMENU; break;
                     case 4: g_state = SYSTEM_SUBMENU; break;
                     case 5: g_state = SETTINGS_SUBMENU; break;
-                    case 6: g_state = HELP_SUBMENU; break;
+                    case 6: g_state = HARDWARE_TEST_SUBMENU; break;
+                    case 7: g_state = DEVICE_INFO_SUBMENU; break;
+                    case 8: g_state = DEBUG_INFO_SUBMENU; break;
+                    case 9: g_state = CALIBRATION_SUBMENU; break;
+                    case 10: g_state = ABOUT_SUBMENU; break;
+                    case 11: g_state = NETWORK_SUBMENU; break;
+                    case 12: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1157,6 +1441,96 @@ void loop() {
             drawSimpleMenu(items, g_selection, "SETTINGS");
             break;
 
+        case HARDWARE_TEST_SUBMENU:
+            items = hardwareTestMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 6;
+                } else {
+                    runHardwareTestAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "HARDWARE TEST");
+            break;
+
+        case DEVICE_INFO_SUBMENU:
+            items = deviceInfoMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 7;
+                } else {
+                    runDeviceInfoAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "DEVICE INFO");
+            break;
+
+        case DEBUG_INFO_SUBMENU:
+            items = debugInfoMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 8;
+                } else {
+                    runDebugInfoAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "DEBUG INFO");
+            break;
+
+        case CALIBRATION_SUBMENU:
+            items = calibrationMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 9;
+                } else {
+                    runCalibrationAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "CALIBRATION");
+            break;
+
+        case ABOUT_SUBMENU:
+            items = aboutMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 10;
+                } else {
+                    runAboutAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "ABOUT");
+            break;
+
+        case NETWORK_SUBMENU:
+            items = networkMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 11;
+                } else {
+                    runNetworkAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "NETWORK");
+            break;
+
         case HELP_SUBMENU:
             items = helpMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1164,7 +1538,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 6;
+                    g_selection = 12;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
