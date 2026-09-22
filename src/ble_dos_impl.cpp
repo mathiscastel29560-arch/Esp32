@@ -9,10 +9,11 @@ DOSResult launchDOS(const String &targetDevice, uint32_t durationMs) {
     Serial.println("Target: " + targetDevice);
     Serial.println("Method: Link Layer Attack");
     Serial.println("Duration: " + String(durationMs) + "ms");
-    
+
     uint32_t start = millis();
-    
-    while (millis() - start < durationMs) {
+    uint32_t deadline = start + durationMs;
+
+    while ((int32_t)(millis() - deadline) < 0) {
         result.packetsCount++;
         
         if (result.packetsCount % 100 == 0) {

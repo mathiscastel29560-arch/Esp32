@@ -11,14 +11,15 @@ LearnResult learn(uint16_t timeoutMs) {
     LearnResult result{false, "", 0, ""};
 
     learning = true;
-    unsigned long startTime = millis();
+    uint32_t startTime = millis();
+    uint32_t deadline = startTime + timeoutMs;
     uint16_t pulseCount = 0;
     String irCode = "";
 
     Serial.println("IR Learning started - point remote at device and press button");
     Serial.println("Timeout: " + String(timeoutMs) + "ms");
 
-    while (millis() - startTime < timeoutMs && learning) {
+    while ((int32_t)(millis() - deadline) < 0 && learning) {
         pulseCount++;
         delay(10);
     }
