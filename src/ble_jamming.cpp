@@ -40,7 +40,7 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
         uint8_t jamPayload[31];
 
         for (int i = 0; i < 31; i++) {
-            jamPayload[i] = random(0, 256);
+            jamPayload[i] = esp_random() & 0xFF;
         }
 
         NimBLEAdvertisementData advData;

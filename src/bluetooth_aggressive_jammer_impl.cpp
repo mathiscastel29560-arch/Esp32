@@ -11,7 +11,7 @@ NimBLEAdvertising* g_pAdvertising = nullptr;
 void sendAggressiveJamFrame() {
     uint8_t jamFrame[31];
     for (int i = 0; i < 31; i++) {
-        jamFrame[i] = random(0, 256);
+        jamFrame[i] = esp_random() & 0xFF;
     }
 
     NimBLEAdvertisementData advData;
