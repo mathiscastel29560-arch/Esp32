@@ -149,6 +149,11 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 </div>
 
 <script>
+function escapeHtml(text) {
+  const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 async function j(url, opts) {
   const r = await fetch(url, opts);
   return r.json();

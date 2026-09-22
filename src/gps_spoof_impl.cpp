@@ -30,7 +30,7 @@ String generateNMEA(float lat, float lon, uint32_t timestamp) {
     char nsEW[2] = {lat >= 0 ? 'N' : 'S', lon >= 0 ? 'E' : 'W'};
 
     // GGA sentence: $GPGGA,hhmmss.ss,ddmm.mmmm,N,dddmm.mmmm,E,1,08,0.9,545.4,M,46.9,M,,*47
-    char sentence[128];
+    char sentence[256];
     uint8_t hour = (timestamp / 3600000) % 24;
     uint8_t min = (timestamp / 60000) % 60;
     uint8_t sec = (timestamp / 1000) % 60;
