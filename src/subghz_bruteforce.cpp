@@ -102,7 +102,6 @@ void transmitCode(uint32_t code) {
         delayMicroseconds(500);
     }
 }
-}
 
 namespace SubghzBruteforce {
 

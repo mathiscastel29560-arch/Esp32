@@ -9,11 +9,14 @@ namespace HexUtils {
 inline String toHexString(const uint8_t* data, uint32_t len) {
     if (!data || len == 0) return "";
 
-    char hexStr[len * 2 + 1];
-    for (uint32_t i = 0; i < len; i++) {
+    // Prevent stack overflow: limit to 256 bytes max (512 hex chars)
+    uint32_t maxLen = (len > 256) ? 256 : len;
+    char hexStr[513];  // 512 hex chars + null terminator
+
+    for (uint32_t i = 0; i < maxLen; i++) {
         snprintf(&hexStr[i * 2], 3, "%02X", data[i]);
     }
-    hexStr[len * 2] = '\0';
+    hexStr[maxLen * 2] = '\0';
     return String(hexStr);
 }
 

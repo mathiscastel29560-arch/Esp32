@@ -19,12 +19,21 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
-  uint32_t delayMs = 1000 / config.packetsPerSec;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  // Guard against division by zero
+  uint32_t pps = (config.packetsPerSec == 0) ? 1 : config.packetsPerSec;
+  uint32_t delayMs = 1000 / pps;
+
+  uint8_t bssidBytes[6] = {0};
+  int parseCount = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parseCount != 6) {
+    result.error = "Failed to parse BSSID";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     std::vector<uint8_t> beacon = buildFrame(BEACON, bssidBytes);

@@ -73,7 +73,6 @@ void sendDeauthPacket(uint8_t *destAddr, uint8_t *srcAddr, uint8_t *bssidAddr) {
         g_deauthCount++;
     }
 }
-}
 
 namespace WiFiDeauth {
 

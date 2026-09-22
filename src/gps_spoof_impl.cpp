@@ -72,7 +72,6 @@ void sendSpoofSignal(float lat, float lon, const String &method) {
         generateRawSignal(lat + jitter_lat, lon + jitter_lon);
     }
 }
-}
 
 namespace GPSSpoof {
 
