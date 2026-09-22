@@ -59,7 +59,8 @@ void handleStatus() {
     json += "\"apClients\":" + String(WiFi.softAPgetStationNum()) + ",";
     json += "\"battV\":" + String(Battery::voltage(), 2) + ",";
     json += "\"battPct\":" + String(Battery::percent()) + ",";
-    json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false");
+    json += "\"safetyArmed\":" + String(TxArm::isArmed() ? "true" : "false") + ",";
+    json += "\"apPasswordWarning\":" + String(String(AP_PASSWORD) == "auditctrl123" ? "true" : "false");
     json += "}";
     server.send(200, "application/json", json);
 }

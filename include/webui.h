@@ -25,6 +25,10 @@ pre{white-space:pre-wrap;font-size:12px;background:#0f1216;padding:8px;border-ra
 
 <h1>ESP32 Audit Tool</h1>
 
+<div id="apWarning" style="display:none;background:#c0392b;color:#fff;padding:12px;border-radius:8px;margin-bottom:12px;font-weight:bold">
+  ⚠️ WARNING: AP password is at default compile-time value 'auditctrl123'. Edit config.h before field deployment.
+</div>
+
 <div class="card">
   <div id="status">loading status...</div>
 </div>
@@ -149,6 +153,7 @@ async function j(url, opts) {
 async function refreshStatus() {
   try {
     const s = await j('/api/status');
+    document.getElementById('apWarning').style.display = s.apPasswordWarning ? 'block' : 'none';
     document.getElementById('status').innerHTML =
       `<span class="badge">${s.time}</span>` +
       `<span class="badge">GPS: ${s.gpsFix ? ('fix, sats=' + s.sats) : 'no fix'}</span>` +

@@ -33,6 +33,13 @@ uint32_t lastDisplayUpdate = 0;
 void setup() {
     Serial.begin(115200);
 
+    // Warn if AP password is still at default compile-time value
+    if (String(AP_PASSWORD) == "auditctrl123") {
+        Serial.println("\n⚠️  WARNING: AP password is at compile-time default 'auditctrl123'");
+        Serial.println("    This is a SECURITY RISK in field use.");
+        Serial.println("    Edit config.h line 78 before compiling for deployment.\n");
+    }
+
     LittleFS.begin(true); // format on first boot if no filesystem is found
 
     Buzzer::begin();
