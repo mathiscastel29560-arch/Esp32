@@ -186,8 +186,9 @@ PortalResult start(const PortalConfig &config) {
     WiFi.softAP(config.ssidName.c_str(), "");
     WiFi.softAPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
 
-    // Setup DNS captive portal
-    // Any DNS request → 192.168.1.1 (our portal)
+    // Enable DHCP server for connected clients
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPsetHostname("captiveportal");
 
     // Setup web server
     server.on("/", handleRoot);
