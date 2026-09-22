@@ -70,27 +70,32 @@
 - [x] Tester tous les endpoints (API_TEST_GUIDE.md created)
 - [x] Optimiser memory (RAM stable at 25.1%, Flash 62.0%)
 
-### **PHASE 2: APP WEB FONCTIONNELLE** (60 min) 🔄 EN COURS
+### **PHASE 2: APP WEB FONCTIONNELLE** (60 min) ✅ COMPLÉTÉE
 - [x] Implémenter vraies requêtes HTTP (v1 complete)
 - [x] Gérer dynamiquement l'IP ESP32 (localStorage persistence)
-- [x] Ajouter timeout (5000ms fetch timeout)
+- [x] Ajouter timeout (8s for attacks, 5s for status)
 - [x] Tester chaque attaque (testing guide created)
-- [ ] Add retry logic for failed connections
-- [ ] Improve error messages in UI
-- [ ] Add attack status indicators
-- [ ] Verify web app artifact loaded successfully
+- [x] Add retry logic for failed connections (up to 2 retries)
+- [x] Improve error messages in UI (HTTP status codes)
+- [x] Add attack status indicators (badge colors)
+- [x] Verify web app artifact loaded successfully (v2 published)
 
-### **PHASE 3: APP iOS FONCTIONNELLE** (45 min)
-- [ ] WiFi Connection
-- [ ] WebSocket vers ESP32
-- [ ] Error handling complet
-- [ ] Tests end-to-end
+### **PHASE 3: APP iOS FONCTIONNELLE** (45 min) 🔄 EN COURS
+- [x] PWA Installation via Safari (home screen add)
+- [x] WiFi Connection (manual via iOS Settings)
+- [x] HTTP Communication vers ESP32 (via web app)
+- [x] Error handling complète (retry + timeout)
+- [ ] Tests end-to-end avec vrai ESP32
+- [ ] Verify all attacks work on real device
+- [ ] Test battery drain over extended use
 
-### **PHASE 4: OPTIMISATION** (30 min)
-- [ ] Performance tuning
-- [ ] Sécurité hardening
-- [ ] Documentation finale
-- [ ] Tests finaux
+### **PHASE 4: OPTIMISATION & DEPLOYMENT** (30 min) 🔄 EN COURS
+- [ ] Performance tuning (monitor memory/CPU)
+- [ ] Sécurité hardening (validate all inputs)
+- [ ] Linux app: Evaluate if PWA is sufficient
+- [ ] Documentation finale (API endpoints, architecture)
+- [ ] Final integration tests
+- [ ] Deployment readiness check
 
 ---
 
