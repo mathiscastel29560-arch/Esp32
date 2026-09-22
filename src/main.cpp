@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 
 #include "config.h"
+#include "hardware.h"
 #include "rtc_clock.h"
 #include "gps_module.h"
 #include "display.h"
@@ -50,6 +51,9 @@ void setup() {
     // when no TFT was physically attached.
     Display::begin();
     Ui::begin();
+
+    // Initialize all real hardware drivers (CC1101, NRF24, PN532, GPS, RTC, GPIO)
+    Hardware::initAll();
 
     // Hardware diagnostics: test each component at boot
     auto diagResults = SystemDiagnostics::runDiagnostics();

