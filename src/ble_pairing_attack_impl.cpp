@@ -1,4 +1,5 @@
 #include "ble_pairing_attack.h"
+#include "results_display.h"
 #include <vector>
 #include <cstring>
 
@@ -146,13 +147,28 @@ PairingResult attackPairing(const String &targetDevice, uint32_t timeoutMs) {
     result.success = true;
     result.method = "ECDH Shared Secret Interception (SMP)";
     result.attemptsCount = attackStep;
+    uint32_t duration = millis() - startTime;
 
     Serial.printf("\n✓ Attack Successful!\n");
     Serial.printf("  MITM Link Key: %08X%08X...\n",
                  (link_key_hash >> 24) & 0xFF, (link_key_hash >> 16) & 0xFF);
     Serial.printf("  Pairing: %s\n", targetDevice.c_str());
     Serial.printf("  Encryption established between MITM and device\n");
-    Serial.printf("  Duration: %lu ms\n", millis() - startTime);
+    Serial.printf("  Duration: %lu ms\n", duration);
+
+    ResultsDisplay::showResult("BLE Pairing", {
+        "Pairing Attack",
+        "Attack Successful",
+        100,
+        {
+            "Target: " + targetDevice,
+            "Method: ECDH MITM",
+            "Key: " + String((link_key_hash >> 24) & 0xFF, 16) + String((link_key_hash >> 16) & 0xFF, 16),
+            "Encryption: Established",
+            "Duration: " + String(duration) + "ms"
+        },
+        ResultsDisplay::ResultType::SUCCESS
+    });
 
     return result;
 }

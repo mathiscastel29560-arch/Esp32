@@ -1,6 +1,7 @@
 #include "smart_lock_scanner.h"
 #include "wifi_tools.h"
 #include "ble_tools.h"
+#include "results_display.h"
 #include <vector>
 
 namespace SmartLockScanner {
@@ -127,18 +128,39 @@ ScanResult scanSmartLocks(uint32_t durationMs) {
 
     if (result.locksFound == 0) {
         Serial.println("✗ No smart locks detected");
+        ResultsDisplay::showResult("SmartLock", {
+            "Smart Lock Scanner",
+            "No devices found",
+            0,
+            {"Scan completed. No smart locks detected"},
+            ResultsDisplay::ResultType::INFO
+        });
     } else {
         Serial.printf("✓ Found %u smart lock(s):\n", result.locksFound);
         Serial.printf("  WiFi Locks: %u\n", wifiLocksFound);
         Serial.printf("  BLE Locks: %u\n", bleLocksFound);
         Serial.printf("  Total vulnerable: %u\n", result.locksFound);
 
-        // Attack recommendations
-        Serial.println("\nRecommended Exploits:");
+        // Build display results
+        std::vector<String> displayLines;
+        displayLines.push_back(String(result.locksFound) + " lock(s) found");
+        displayLines.push_back("WiFi: " + String(wifiLocksFound));
+        displayLines.push_back("BLE: " + String(bleLocksFound));
+        displayLines.push_back("");
+
         for (const auto& det : result.detections) {
             Serial.printf("  • %s: Default credential brute-force\n", det.manufacturer.c_str());
             Serial.printf("    Try: admin/admin, admin/12345, root/root\n");
+            displayLines.push_back(det.manufacturer);
         }
+
+        ResultsDisplay::showResult("SmartLock", {
+            "Smart Lock Scanner",
+            String(result.locksFound) + " vulnerable device(s)",
+            100,
+            displayLines,
+            ResultsDisplay::ResultType::SCAN_RESULT
+        });
     }
 
     return result;

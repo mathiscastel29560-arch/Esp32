@@ -1,4 +1,5 @@
 #include "zwave_scanner.h"
+#include "results_display.h"
 #include <vector>
 #include <LittleFS.h>
 
@@ -125,6 +126,29 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
     result.controllerNode = 1;
 
     Serial.printf("✓ Scan complete: Found %u nodes in %lums\n", nodeCount, result.durationMs);
+
+    std::vector<String> displayLines;
+    if (nodeCount > 0) {
+        displayLines.push_back(String(nodeCount) + " node(s) found");
+        displayLines.push_back("HomeID: 0x" + String(ZWAVE_HOME_ID, 16));
+        displayLines.push_back("Strongest: " + String(strongestRssi) + "dBm");
+        for (size_t i = 0; i < discoveredNodes.size() && i < 8; i++) {
+            String sec = discoveredNodes[i].securityLevel == 2 ? "S2" :
+                        discoveredNodes[i].securityLevel == 1 ? "S0" : "None";
+            displayLines.push_back(String(discoveredNodes[i].nodeId) + ": " +
+                                  discoveredNodes[i].deviceType + " [" + sec + "]");
+        }
+    } else {
+        displayLines.push_back("No Z-Wave nodes found");
+    }
+
+    ResultsDisplay::showResult("Z-Wave", {
+        "Z-Wave Network Scan",
+        String(nodeCount) + " node(s)",
+        100,
+        displayLines,
+        nodeCount > 0 ? ResultsDisplay::ResultType::SCAN_RESULT : ResultsDisplay::ResultType::INFO
+    });
 
     return result;
 }

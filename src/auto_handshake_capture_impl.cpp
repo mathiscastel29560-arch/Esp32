@@ -1,4 +1,5 @@
 #include "auto_handshake_capture.h"
+#include "results_display.h"
 #include <esp_wifi.h>
 #include <vector>
 
@@ -123,6 +124,28 @@ CaptureResult autoCaptureHandshakes(uint32_t durationMs) {
 
     Serial.printf("\n✓ Capture complete: %u complete handshakes from %u networks\n",
                  completeHandshakes, networkCount);
+
+    std::vector<String> displayLines;
+    if (completeHandshakes > 0) {
+        displayLines.push_back(String(completeHandshakes) + " handshake(s)");
+        displayLines.push_back(String(networkCount) + " network(s)");
+        displayLines.push_back("Duration: " + String(result.durationMs) + "ms");
+        if (!networksLog.isEmpty()) {
+            displayLines.push_back("Networks: " + networksLog);
+        }
+    } else {
+        displayLines.push_back("No handshakes captured");
+        displayLines.push_back("Duration: " + String(result.durationMs) + "ms");
+    }
+
+    ResultsDisplay::showResult("Handshake", {
+        "Handshake Capture",
+        String(completeHandshakes) + " handshake(s)",
+        100,
+        displayLines,
+        completeHandshakes > 0 ? ResultsDisplay::ResultType::SUCCESS : ResultsDisplay::ResultType::INFO
+    });
+
     return result;
 }
 

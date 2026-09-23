@@ -1,4 +1,5 @@
 #include "ble_dos.h"
+#include "results_display.h"
 #include <vector>
 
 namespace BLE_DOS {
@@ -96,6 +97,21 @@ DOSResult launchDOS(const String &targetDevice, uint32_t durationMs) {
     Serial.printf("  Target will miss legitimate advertisements\n");
     Serial.printf("  Avg frame rate: %.1f PDU/sec\n",
                  (float)framesTransmitted / (durationMs / 1000.0f));
+
+    float frameRate = (float)framesTransmitted / (durationMs / 1000.0f);
+    ResultsDisplay::showResult("BLE DoS", {
+        "BLE Denial of Service",
+        "Attack Complete",
+        100,
+        {
+            "Target: " + targetDevice,
+            "PDUs: " + String(framesTransmitted),
+            "Channels: 37, 38, 39",
+            "Rate: " + String((int)frameRate) + " PDU/sec",
+            "Duration: " + String(durationMs) + "ms"
+        },
+        ResultsDisplay::ResultType::SUCCESS
+    });
 
     return result;
 }

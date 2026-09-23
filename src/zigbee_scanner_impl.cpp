@@ -1,5 +1,6 @@
 #include "zigbee_scanner.h"
 #include "config.h"
+#include "results_display.h"
 #include <vector>
 
 namespace ZigbeeScanner {
@@ -64,6 +65,27 @@ ScanResult scanZigbeeDevices(uint32_t durationMs) {
 
     Serial.printf("✓ Scan complete: Found %u devices on channel %u in %lums\n",
                  deviceCount, strongestChannel, result.durationMs);
+
+    std::vector<String> displayLines;
+    if (deviceCount > 0) {
+        displayLines.push_back(String(deviceCount) + " device(s) found");
+        displayLines.push_back("Strongest: Ch" + String(strongestChannel));
+        displayLines.push_back("RSSI: " + String(strongestRssi) + "dBm");
+        for (size_t i = 0; i < discoveredDevices.size() && i < 8; i++) {
+            displayLines.push_back(discoveredDevices[i].deviceType + " - PAN:" + String(discoveredDevices[i].panId, 16));
+        }
+    } else {
+        displayLines.push_back("No Zigbee devices found");
+    }
+
+    ResultsDisplay::showResult("Zigbee", {
+        "Zigbee Device Scan",
+        String(deviceCount) + " device(s)",
+        100,
+        displayLines,
+        deviceCount > 0 ? ResultsDisplay::ResultType::SCAN_RESULT : ResultsDisplay::ResultType::INFO
+    });
+
     return result;
 }
 
@@ -84,28 +106,49 @@ InjectionResult injectZigbeeFrames(uint32_t durationMs, const char* attackType) 
 
     String type = String(attackType);
 
+    uint32_t lastUpdate = startTime;
     if (type == "BEACON_FLOOD") {
         Serial.println("Flooding Zigbee beacons to disrupt discovery...");
         while (millis() - startTime < durationMs) {
             framesSent += ((esp_random() % 40) + 10);  // Send 10-50 frames per iteration
+            if (millis() - lastUpdate > 500) {
+                int percent = (millis() - startTime) * 100 / durationMs;
+                ResultsDisplay::updateProgress(percent, "Beacon Flood: " + String(framesSent) + " frames");
+                lastUpdate = millis();
+            }
             delay(100);
         }
     } else if (type == "PERMIT_JOIN") {
         Serial.println("Exploiting permit join mode for unauthorized pairing...");
         while (millis() - startTime < durationMs) {
             framesSent += ((esp_random() % 10) + 5);
+            if (millis() - lastUpdate > 500) {
+                int percent = (millis() - startTime) * 100 / durationMs;
+                ResultsDisplay::updateProgress(percent, "Permit Join: " + String(framesSent) + " frames");
+                lastUpdate = millis();
+            }
             delay(200);
         }
     } else if (type == "LEAVE_NETWORK") {
         Serial.println("Forcing devices to leave network...");
         while (millis() - startTime < durationMs) {
             framesSent += ((esp_random() % 7) + 3);
+            if (millis() - lastUpdate > 500) {
+                int percent = (millis() - startTime) * 100 / durationMs;
+                ResultsDisplay::updateProgress(percent, "Leave Network: " + String(framesSent) + " frames");
+                lastUpdate = millis();
+            }
             delay(300);
         }
     } else if (type == "KEY_REQUEST") {
         Serial.println("Intercepting key establishment frames...");
         while (millis() - startTime < durationMs) {
             framesSent += ((esp_random() % 6) + 2);
+            if (millis() - lastUpdate > 500) {
+                int percent = (millis() - startTime) * 100 / durationMs;
+                ResultsDisplay::updateProgress(percent, "Key Request: " + String(framesSent) + " frames");
+                lastUpdate = millis();
+            }
             delay(500);
         }
     }
@@ -116,6 +159,19 @@ InjectionResult injectZigbeeFrames(uint32_t durationMs, const char* attackType) 
     result.attackType = type;
 
     Serial.printf("✓ Injection complete: %u frames in %lums\n", framesSent, result.durationMs);
+
+    ResultsDisplay::showResult("Zigbee Attack", {
+        "Zigbee Injection",
+        String(attackType) + " Complete",
+        100,
+        {
+            "Type: " + type,
+            "Frames: " + String(framesSent),
+            "Duration: " + String(result.durationMs) + "ms"
+        },
+        ResultsDisplay::ResultType::SUCCESS
+    });
+
     return result;
 }
 

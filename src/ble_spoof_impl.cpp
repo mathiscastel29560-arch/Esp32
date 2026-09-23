@@ -1,5 +1,6 @@
 #include "ble_spoof.h"
 #include "ble_tools.h"
+#include "results_display.h"
 #include <NimBLEDevice.h>
 
 namespace BLESpoof {
@@ -90,6 +91,20 @@ SpoofResult spoofBLEAddress(const String &targetDevice, const String &newMAC) {
     Serial.printf("  Device advertising as: %s\n", targetDevice.c_str());
     Serial.printf("  Spoofed MAC: %s\n", result.spoofedMAC.c_str());
     Serial.println("  BLE advertising active on all 3 channels (37, 38, 39)");
+
+    ResultsDisplay::showResult("BLE Spoof", {
+        "BLE Address Spoofing",
+        "Spoofing Active",
+        100,
+        {
+            "Device: " + targetDevice,
+            "Spoofed: " + result.spoofedMAC,
+            "Original: " + result.originalMAC,
+            "Channels: 37, 38, 39",
+            "Status: Advertising"
+        },
+        ResultsDisplay::ResultType::SUCCESS
+    });
 
     return result;
 }

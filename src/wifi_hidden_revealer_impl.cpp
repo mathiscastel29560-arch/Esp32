@@ -1,5 +1,6 @@
 #include "wifi_hidden_revealer.h"
 #include "wifi_tools.h"
+#include "results_display.h"
 #include <esp_wifi.h>
 #include <vector>
 
@@ -160,15 +161,33 @@ RevealResult revealHiddenNetworks(uint32_t durationMs) {
     Serial.printf("Probe responses heard: %u\n", probesHeard);
     Serial.printf("Hidden networks identified: %u\n", result.networksFound);
 
+    std::vector<String> displayLines;
     if (result.networksFound > 0) {
         Serial.println("\n✓ Hidden Networks Revealed:");
+        displayLines.push_back(String(result.networksFound) + " networks found");
         for (size_t i = 0; i < result.networks.size(); i++) {
             Serial.printf("  [%u] BSSID: %s | CH: %d | RSSI: %d dBm\n",
                          i + 1, result.networks[i].bssid.c_str(),
                          result.networks[i].channel, result.networks[i].rssi);
+            displayLines.push_back(result.networks[i].bssid);
+            displayLines.push_back("Ch: " + String(result.networks[i].channel) + " | " + String(result.networks[i].rssi) + "dBm");
         }
+        ResultsDisplay::showResult("WiFi Hidden", {
+            "Hidden Networks Revealed",
+            String(result.networksFound) + " networks",
+            100,
+            displayLines,
+            ResultsDisplay::ResultType::SCAN_RESULT
+        });
     } else {
         Serial.println("✗ No hidden networks detected");
+        ResultsDisplay::showResult("WiFi Hidden", {
+            "Network Revealer",
+            "No networks found",
+            0,
+            {"Scan completed. No hidden networks detected"},
+            ResultsDisplay::ResultType::INFO
+        });
     }
 
     return result;

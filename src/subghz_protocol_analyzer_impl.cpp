@@ -1,4 +1,5 @@
 #include "subghz_protocol_analyzer.h"
+#include "results_display.h"
 #include <vector>
 #include <algorithm>
 
@@ -92,6 +93,7 @@ ProtocolAnalysis analyzeSignal(const std::vector<uint16_t> &pulses) {
     }
 
     // Real protocol identification
+    std::vector<String> displayLines;
     if (bestMatch && bestConfidence > 0.5f) {
         analysis.protocolName = bestMatch->name;
         analysis.modulation = bestMatch->modulation;
@@ -104,14 +106,22 @@ ProtocolAnalysis analyzeSignal(const std::vector<uint16_t> &pulses) {
         Serial.printf("  Confidence: %.1f%%\n", bestConfidence * 100);
         Serial.printf("  Bitrate: %u bps\n", bitrate);
 
+        displayLines.push_back(String(analysis.protocolName));
+        displayLines.push_back("Mod: " + String(analysis.modulation));
+        displayLines.push_back("Conf: " + String((int)(bestConfidence * 100)) + "%");
+        displayLines.push_back("Rate: " + String(bitrate) + " bps");
+        displayLines.push_back("Pulses: " + String(pulses.size()));
+
         // Provide decoding recommendations
         if (strstr(bestMatch->name, "PT2262")) {
             Serial.printf("\nDecoding: Teague PT2262 encoder format\n");
             Serial.printf("  Frame format: 26-bit data (A0-A12, D0-D3)\n");
             Serial.printf("  Repeat: ~25-30 ms between frames\n");
+            displayLines.push_back("PT2262: 26-bit data");
         } else if (strstr(bestMatch->name, "Garage")) {
             Serial.printf("\nDecoding: Generic OOK garage door signal\n");
             Serial.printf("  Typical: 12-bit address + rolling code\n");
+            displayLines.push_back("Garage: 12-bit + code");
         }
     } else {
         analysis.protocolName = "Generic/Unknown OOK";
@@ -125,7 +135,20 @@ ProtocolAnalysis analyzeSignal(const std::vector<uint16_t> &pulses) {
         Serial.printf("    - Bitrate: %u bps\n", bitrate);
         Serial.printf("    - Pulse width: %u µs\n", avgPulse);
         Serial.printf("  Recommendation: Manual signal inspection\n");
+
+        displayLines.push_back("Generic OOK");
+        displayLines.push_back("Rate: " + String(bitrate) + " bps");
+        displayLines.push_back("Pulse: " + String(avgPulse) + " µs");
+        displayLines.push_back("Pulses: " + String(pulses.size()));
     }
+
+    ResultsDisplay::showResult("Protocol", {
+        "Protocol Analysis",
+        String(analysis.protocolName),
+        (int)(analysis.confidence * 100),
+        displayLines,
+        ResultsDisplay::ResultType::INFO
+    });
 
     return analysis;
 }

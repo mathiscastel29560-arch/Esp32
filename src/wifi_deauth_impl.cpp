@@ -1,6 +1,7 @@
 #include "wifi_deauth.h"
 #include "tx_arm.h"
 #include "config.h"
+#include "results_display.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 
@@ -76,6 +77,7 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     g_deauthActive = true;
     g_deauthCount = 0;
     uint32_t startTime = millis();
+    uint32_t lastUpdate = startTime;
 
     Serial.println("Starting deauth flood...");
 
@@ -97,6 +99,12 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
             Serial.println("  [" + String(g_deauthCount) + "] deauth frames in " +
                          String(millis() - startTime) + "ms");
         }
+
+        if (millis() - lastUpdate > 500) {
+            int percent = (millis() - startTime) * 100 / durationMs;
+            ResultsDisplay::updateProgress(percent, String(g_deauthCount) + " frames");
+            lastUpdate = millis();
+        }
     }
 
     g_deauthActive = false;
@@ -104,12 +112,27 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
 
     result.success = true;
     result.deauthCount = g_deauthCount;
+    uint32_t elapsed = millis() - startTime;
 
     Serial.println("✓ Deauth attack complete");
     Serial.println("Total frames: " + String(result.deauthCount));
-    Serial.println("Duration: " + String(millis() - startTime) + "ms");
-    Serial.println("Rate: ~" + String((result.deauthCount * 1000) / (millis() - startTime)) + " frames/sec");
+    Serial.println("Duration: " + String(elapsed) + "ms");
+    Serial.println("Rate: ~" + String((result.deauthCount * 1000) / elapsed) + " frames/sec");
     Serial.println("⚠️  Connected clients should disconnect");
+
+    ResultsDisplay::showResult("WiFi Deauth", {
+        "Deauth Attack Complete",
+        "Attack Success",
+        100,
+        {
+            "Target: " + targetBSSID,
+            "Frames: " + String(result.deauthCount),
+            "Duration: " + String(elapsed) + "ms",
+            "Rate: " + String((result.deauthCount * 1000) / elapsed) + " fps",
+            String(broadcastClients ? "Broadcast" : "Targeted")
+        },
+        ResultsDisplay::ResultType::SUCCESS
+    });
 
     return result;
 }

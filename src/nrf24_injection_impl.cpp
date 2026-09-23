@@ -1,6 +1,7 @@
 #include "nrf24_injection.h"
 #include "config.h"
 #include "tx_arm.h"
+#include "results_display.h"
 #include <RF24.h>
 #include <vector>
 
@@ -124,13 +125,27 @@ InjectionResult injectPacket(uint8_t channel, const std::vector<uint8_t> &payloa
     result.success = (packetsInjected > 0);
     result.packetsInjected = packetsInjected;
 
+    float successRate = (packetsInjected / (float)repeatCount) * 100;
+
     Serial.println("\n✓ NRF24 Injection Complete!");
     Serial.printf("  Packets Injected: %u/%u\n", packetsInjected, repeatCount);
     Serial.printf("  Channel: %u (2.4%u MHz)\n", channel, 400 + channel);
     Serial.printf("  Total bytes transmitted: %u\n",
                  packetsInjected * payload.size());
-    Serial.printf("  Success Rate: %.1f%%\n",
-                 (packetsInjected / (float)repeatCount) * 100);
+    Serial.printf("  Success Rate: %.1f%%\n", successRate);
+
+    ResultsDisplay::showResult("NRF24", {
+        "Packet Injection",
+        "Injection Complete",
+        (int)successRate,
+        {
+            "Packets: " + String(packetsInjected) + "/" + String(repeatCount),
+            "Channel: " + String(channel) + " (2.4" + String(400 + channel) + " MHz)",
+            "Bytes: " + String(packetsInjected * payload.size()),
+            "Success: " + String((int)successRate) + "%"
+        },
+        result.success ? ResultsDisplay::ResultType::SUCCESS : ResultsDisplay::ResultType::WARNING
+    });
 
     radio.powerDown();
     return result;
