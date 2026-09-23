@@ -47,6 +47,8 @@
 #include "subghz_jammer_suite.h"
 #include "ble_advanced_attack_suite.h"
 #include "jamming_signal_generator.h"
+#include "jammer_suite_unified.h"
+#include "ble_attack_dispatcher.h"
 #include "wpa2_handshake_cracker.h"
 #include "wifi_association_hijacker.h"
 #include "http_downgrade_attack.h"
