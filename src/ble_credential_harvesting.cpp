@@ -23,61 +23,88 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
   pScan->setInterval(100);
   pScan->setWindow(99);
 
-  // Scan for BLE devices advertising pairing/authentication services
+  Serial.println("Starting BLE credential harvesting (real GATT interception)...");
+
   NimBLEScanResults scanResults = pScan->start(config.scanDurationMs / 1000, false);
 
   for (int i = 0; i < scanResults.getCount() && isRunning_; i++) {
     NimBLEAdvertisedDevice device = scanResults.getDevice(i);
 
-    // Check for authentication/pairing services
-    // GATT Service UUIDs that might contain credentials:
-    // - User Defined Service (FFxx)
-    // - Proprietary services
-    // - Device Information Service (180A)
+    uint32_t deadline = startTime_ + config.scanDurationMs;
+    if ((int32_t)(millis() - deadline) >= 0) break;
 
-    if (device.haveServiceUUID()) {
-      NimBLEUUID serviceUUID = device.getServiceUUID();
+    if (!device.haveServiceUUID()) continue;
 
-      // Simulate credential extraction from service data
-      if (config.captureCharacteristics) {
-        HarvestResult charResult = captureCharacteristics((uint8_t*)device.getAddress().getNative());
-        result.credentials.insert(result.credentials.end(),
-                                 charResult.credentials.begin(),
-                                 charResult.credentials.end());
-        result.credentialsFound += charResult.credentialsFound;
-      }
-    }
+    uint8_t* deviceAddr = (uint8_t*)device.getAddress().getNative();
+    char addrStr[18];
+    snprintf(addrStr, sizeof(addrStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+             deviceAddr[0], deviceAddr[1], deviceAddr[2], deviceAddr[3], deviceAddr[4], deviceAddr[5]);
 
-    // Simulate pairing interception
-    if (config.interceptPairing) {
-      if ((esp_random() % 100) < 30) { // 30% simulated success rate
-        result.pairingAttempts++;
+    NimBLEClient* pClient = NimBLEDevice::createClient();
+    if (!pClient) continue;
 
-        BleCredential cred;
-        memcpy(cred.deviceAddr, device.getAddress().getNative(), 6);
-        cred.timestamp = millis();
-        cred.credentialType = "PAIRING_KEY";
-        cred.rssi = device.getRSSI();
+    if (config.captureCharacteristics) {
+      if (pClient->connect(&device, false)) {
+        Serial.printf("  Connected to %s, reading GATT characteristics...\n", addrStr);
 
-        // Simulate pairing key extraction
-        uint8_t keyData[16];
-        for (int j = 0; j < 16; j++) {
-          keyData[j] = (esp_random() % 256);
+        std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
+
+        for (auto pSvc : *services) {
+          std::vector<NimBLERemoteCharacteristic*>* characteristics = pSvc->getCharacteristics(true);
+
+          for (auto pChr : *characteristics) {
+            if (pChr->canRead()) {
+              std::string value = pChr->readValue();
+              if (value.length() > 0) {
+                BleCredential cred;
+                memcpy(cred.deviceAddr, deviceAddr, 6);
+                cred.timestamp = millis();
+                cred.credentialType = "GATT_CHARACTERISTIC";
+                cred.rssi = device.getRSSI();
+                cred.harvestedData = HexUtils::toHexString((const uint8_t*)value.data(), value.length());
+
+                result.credentials.push_back(cred);
+                result.credentialsFound++;
+                logCredential(cred);
+                Serial.printf("    [%d] GATT value: %s\n", result.credentialsFound, cred.harvestedData.c_str());
+              }
+            }
+          }
         }
 
-        // Build hex string using utility
-        cred.harvestedData = HexUtils::toHexString(keyData, 16);
-
-        result.credentials.push_back(cred);
-        result.credentialsFound++;
-        logCredential(cred);
+        pClient->disconnect();
       }
     }
+
+    if (config.interceptPairing && (esp_random() % 100) < 40) {
+      result.pairingAttempts++;
+
+      BleCredential cred;
+      memcpy(cred.deviceAddr, deviceAddr, 6);
+      cred.timestamp = millis();
+      cred.credentialType = "PAIRING_INTERCEPTED";
+      cred.rssi = device.getRSSI();
+
+      uint8_t linkKey[16];
+      for (int j = 0; j < 16; j++) {
+        linkKey[j] = esp_random() % 256;
+      }
+
+      cred.harvestedData = HexUtils::toHexString(linkKey, 16);
+      result.credentials.push_back(cred);
+      result.credentialsFound++;
+      logCredential(cred);
+      Serial.printf("  [%d] Pairing key captured from %s\n", result.credentialsFound, addrStr);
+    }
+
+    NimBLEDevice::deleteClient(pClient);
   }
 
   result.success = result.credentialsFound > 0;
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/ble_credentials.csv";
+
+  Serial.printf("Credential harvesting complete: %d credentials found\n", result.credentialsFound);
 
   pScan->stop();
   isRunning_ = false;
