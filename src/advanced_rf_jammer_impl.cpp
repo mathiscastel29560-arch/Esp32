@@ -18,10 +18,9 @@ int initCC1101Advanced(float freq) {
         }
 
         radio.setOOK(true);
-        radio.setModulation(RADIOLIB_CC1101_MOD_OOK);
         radio.setRxBandwidth(58.0f);
         radio.setBitRate(4.8f);
-        radio.setTxPower(CC1101_TX_POWER_MAX);
+        radio.setOutputPower(10);
         g_radioInitialized = true;
     }
 
