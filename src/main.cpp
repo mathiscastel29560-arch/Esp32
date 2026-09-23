@@ -30,6 +30,7 @@
 #include "system_diagnostics.h"
 #include "power_manager.h"
 #include "psram_log_buffer.h"
+#include "watchdog_timer.h"
 
 namespace {
 String apSsid;
@@ -48,6 +49,7 @@ void setup() {
     Buzzer::begin();
     Battery::begin();
     PowerManager::instance().begin(); // Power management with auto battery-based mode
+    WatchdogTimer::instance().begin(10); // 10-second watchdog for deadlock detection
 
     // Display::begin() auto-detects which screen is wired (TFT or OLED,
     // see display.h) and itself calls SPI.begin() for the shared TFT/
@@ -115,6 +117,9 @@ void setup() {
 }
 
 void loop() {
+    // Feed watchdog at start of loop to detect deadlocks
+    WatchdogTimer::instance().feed();
+
     GpsModule::poll();
     WebCtrl::loop();
     BeaconSpam::loop();
