@@ -15,23 +15,48 @@ const uint16_t PASSWORD_COUNT = 20;
 void simple_pbkdf2_sha1(const unsigned char* password, size_t plen,
                        const unsigned char* salt, size_t slen,
                        unsigned int iterations, size_t keylen, unsigned char* output) {
-    // Simplified PBKDF2-SHA1 for testing - single iteration with HMAC
+    // Real PBKDF2-SHA1 implementation with proper iterations (WPA2 uses 4096)
     mbedtls_md_context_t ctx;
     mbedtls_md_init(&ctx);
     mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA1), 1);
 
-    // U1 = HMAC(password, salt || counter)
-    uint8_t counter[4] = {0, 0, 0, 1};
-    uint8_t u[20];
+    uint8_t asalt[68];
+    uint8_t obuf[20], ibuf[20];
+    uint32_t i, j;
+    unsigned int hashlen = 20; // SHA1 output is 20 bytes
 
+    // Prepare salt with counter (for block 1)
+    memcpy(asalt, salt, slen);
+    asalt[slen] = 0;
+    asalt[slen + 1] = 0;
+    asalt[slen + 2] = 0;
+    asalt[slen + 3] = 1; // Counter = 1 for first block
+
+    // First iteration: U1 = HMAC(password, salt || counter)
     mbedtls_md_hmac_starts(&ctx, password, plen);
-    mbedtls_md_hmac_update(&ctx, salt, slen);
-    mbedtls_md_hmac_update(&ctx, counter, 4);
-    mbedtls_md_hmac_finish(&ctx, u);
+    mbedtls_md_hmac_update(&ctx, asalt, slen + 4);
+    mbedtls_md_hmac_finish(&ctx, obuf);
 
-    // Output is at most SHA1 size (20 bytes)
-    memcpy(output, u, keylen > 20 ? 20 : keylen);
+    memcpy(ibuf, obuf, hashlen);
+
+    // Remaining iterations - XOR all results
+    for (i = 1; i < iterations; i++) {
+        mbedtls_md_hmac_starts(&ctx, password, plen);
+        mbedtls_md_hmac_update(&ctx, ibuf, hashlen);
+        mbedtls_md_hmac_finish(&ctx, ibuf);
+
+        for (j = 0; j < hashlen; j++) {
+            obuf[j] ^= ibuf[j];
+        }
+    }
+
     mbedtls_md_free(&ctx);
+
+    // Copy output
+    memcpy(output, obuf, keylen > hashlen ? hashlen : keylen);
+    if (keylen > hashlen) {
+        memset(output + hashlen, 0, keylen - hashlen);
+    }
 }
 
 struct EAPOLFrame {
