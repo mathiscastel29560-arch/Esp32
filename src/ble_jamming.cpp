@@ -1,7 +1,6 @@
 #include "ble_jamming.h"
 #include "tx_arm.h"
-#include <BLEDevice.h>
-#include <BLEScan.h>
+#include <NimBLEDevice.h>
 
 namespace BLEJamming {
 
@@ -22,36 +21,43 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
     Serial.println("Duration: " + String(durationMs) + "ms");
     Serial.println("Power level: " + String(powerLevel));
 
-    // Initialize BLE in scanning mode to detect devices during jamming window
-    BLEDevice::init("");
-    BLEScan *pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(NULL, false);
-    pBLEScan->setActiveScan(true);
-    pBLEScan->setInterval(100);
-    pBLEScan->setWindow(99);
+    // Initialize NimBLE for advertising (jamming)
+    NimBLEDevice::init("");
+    NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
 
     unsigned long startTime = millis();
     uint32_t jamPacketsSent = 0;
-    uint32_t devicesAffected = 0;
 
-    // Simulate jamming: send interference patterns on BLE channels
+    // Send interference patterns on BLE channels
     while (millis() - startTime < durationMs && jamming && TxArm::isArmed()) {
-        // Scan for BLE devices to jam
-        BLEScanResults results = pBLEScan->start(1, false);
-        devicesAffected = results.getCount();
-        jamPacketsSent += (devicesAffected > 0 ? 10 : 0);
+        // Send jamming advertisements to interfere with BLE communications
+        uint8_t jamPayload[31];
+        for (int i = 0; i < 31; i++) {
+            jamPayload[i] = esp_random() % 256;
+        }
 
-        delay(100);
+        NimBLEAdvertisementData jamAdvData;
+        jamAdvData.setFlags(0x06);
+        jamAdvData.addData(std::string((const char *)jamPayload, 31));
+
+        pAdvertising->setAdvertisementData(jamAdvData);
+        pAdvertising->start(0, nullptr, nullptr);
+        delayMicroseconds(500);
+        pAdvertising->stop();
+        jamPacketsSent++;
+
+        delay(10);
     }
 
-    BLEDevice::deinit(false);
+    NimBLEDevice::deinit();
     jamming = false;
 
     result.success = true;
     result.durationMs = millis() - startTime;
     result.powerLevel = powerLevel;
+    result.error = "";
 
-    Serial.println("Jamming complete - " + String(devicesAffected) + " devices affected");
+    Serial.println("✓ Jamming complete: " + String(jamPacketsSent) + " jam packets sent");
 
     return result;
 }
