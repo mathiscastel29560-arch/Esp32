@@ -1,4 +1,5 @@
 #include "modulation_classifier.h"
+#include "results_display.h"
 #include <cmath>
 #include <vector>
 
@@ -130,6 +131,21 @@ ClassificationResult classifyModulation(uint32_t durationMs) {
     Serial.printf("  Confidence: %.1f%%\n", result.confidence * 100.0f);
     Serial.printf("  Estimated Bitrate: %u bps\n", estimateBitrate());
     Serial.printf("  Bandwidth: %.2f MHz\n", estimateSignalBandwidth());
+
+    std::vector<String> displayLines;
+    displayLines.push_back("Type: " + String(result.modulationType));
+    displayLines.push_back("Family: " + String(result.modulationFamily));
+    displayLines.push_back("Confidence: " + String((int)(result.confidence * 100)) + "%");
+    displayLines.push_back("Bitrate: " + String(estimateBitrate()) + " bps");
+    displayLines.push_back("BW: " + String(estimateSignalBandwidth(), 2) + " MHz");
+
+    ResultsDisplay::showResult("Modulation", {
+        "Modulation Classification",
+        String(result.modulationType),
+        (int)(result.confidence * 100),
+        displayLines,
+        ResultsDisplay::ResultType::INFO
+    });
 
     return result;
 }

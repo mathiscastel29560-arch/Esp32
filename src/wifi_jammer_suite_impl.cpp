@@ -1,5 +1,6 @@
 #include "wifi_jammer_suite.h"
 #include "tx_arm.h"
+#include "results_display.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <cstring>
@@ -81,6 +82,7 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
     g_jamActive = true;
     g_jamCount = 0;
     uint32_t startTime = millis();
+    uint32_t lastUpdate = startTime;
 
     Serial.println("Transmitting IEEE 802.11 jamming frames...");
 
@@ -92,6 +94,12 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
             Serial.printf("  [%u] jamming frames sent in %lums\n",
                          g_jamCount, millis() - startTime);
         }
+
+        if (millis() - lastUpdate > 500) {
+            int percent = (millis() - startTime) * 100 / durationMs;
+            ResultsDisplay::updateProgress(percent, "Jamming: " + String(g_jamCount) + " frames");
+            lastUpdate = millis();
+        }
     }
 
     g_jamActive = false;
@@ -99,9 +107,26 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
 
     result.success = true;
     result.jamPacketsCount = g_jamCount;
+    uint32_t elapsed = millis() - startTime;
+    float pktSec = (result.jamPacketsCount * 1000.0f) / elapsed;
+
     Serial.printf("✓ WiFi jamming complete: %u frames in %lums (%.1f pkt/sec)\n",
-                 result.jamPacketsCount, millis() - startTime,
-                 (result.jamPacketsCount * 1000.0f) / (millis() - startTime));
+                 result.jamPacketsCount, elapsed, pktSec);
+
+    ResultsDisplay::showResult("WiFi Jammer", {
+        "WiFi Jamming Attack",
+        "Jamming Complete",
+        100,
+        {
+            "Channel: " + String(channel) + " (2.4GHz)",
+            "Method: " + method,
+            "Frames: " + String(result.jamPacketsCount),
+            "Duration: " + String(elapsed) + "ms",
+            "Rate: " + String((int)pktSec) + " pkt/sec"
+        },
+        ResultsDisplay::ResultType::SUCCESS
+    });
+
     return result;
 }
 
