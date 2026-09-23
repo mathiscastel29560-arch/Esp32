@@ -86,8 +86,8 @@ AnalysisResult Analyzer::scanChannel(uint8_t channel, uint32_t durationMs) {
 
   unsigned long channelStartTime = millis();
 
-  // Scan networks on specific channel
-  int networkCount = WiFi.scanNetworks(false, false, false, durationMs / 100);
+  // Scan networks on specific channel (showHidden=false, passive=false, maxResults=all, maxTime=durationMs)
+  int networkCount = WiFi.scanNetworks(false, false, 0, durationMs);
 
   int32_t avgRssi = 0;
   uint32_t rssiCount = 0;

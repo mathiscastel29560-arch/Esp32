@@ -36,11 +36,12 @@ bool parseMAC(const String &macStr, uint8_t *mac) {
         }
 
         // Parse hex byte
+        String hexByte = macStr.substring(pos, pos + 2);
         char *endPtr = nullptr;
-        long val = strtol(macStr.substring(pos, pos + 2).c_str(), &endPtr, 16);
+        long val = strtol(hexByte.c_str(), &endPtr, 16);
 
-        if (val < 0 || val > 255 || endPtr == nullptr) {
-            Serial.println("ERROR: Invalid MAC hex value at position " + String(i));
+        if (val < 0 || val > 255 || endPtr == hexByte.c_str()) {
+            Serial.println("ERROR: Invalid MAC hex value at position " + String(i) + " ('" + hexByte + "')");
             return false;
         }
 

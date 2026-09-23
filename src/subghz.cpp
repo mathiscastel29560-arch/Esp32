@@ -38,9 +38,14 @@ void IRAM_ATTR onEdge() {
 namespace SubGhz {
 
 void begin() {
-    radio.begin(CC1101_FREQ_MHZ);
+    int initResult = radio.begin(CC1101_FREQ_MHZ);
+    if (initResult != RADIOLIB_ERR_NONE) {
+        Serial.println("✗ CC1101 initialization failed (code: " + String(initResult) + ")");
+        return;
+    }
     radio.setOOK(true);
     radio.receiveDirectAsync(); // GDO0 becomes the raw demodulated bitstream
+    Serial.println("✓ CC1101 initialized at " + String(CC1101_FREQ_MHZ, 2) + " MHz");
 }
 
 int8_t rssiAt(float freqMHz) {
