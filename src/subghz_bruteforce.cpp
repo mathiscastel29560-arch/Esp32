@@ -65,15 +65,19 @@ const SubghzCode ALARM_CODES[] = {
 bool initRadio() {
     Serial.println("Initializing Sub-GHz radio...");
     if (radio.begin(CC1101_FREQ_MHZ) != RADIOLIB_ERR_NONE) {
-        Serial.println("  Failed to initialize radio");
+        Serial.println("  ✗ Failed to initialize radio");
         return false;
     }
 
     // Set modulation to OOK (On-Off Keying)
     radio.setOOK(true);
-    radio.transmitDirectAsync();
+    int txResult = radio.transmitDirectAsync();
+    if (txResult != RADIOLIB_ERR_NONE) {
+        Serial.println("  ✗ Failed to enable direct transmission (code: " + String(txResult) + ")");
+        return false;
+    }
 
-    Serial.println("  Radio initialized at 433.92 MHz OOK");
+    Serial.println("  ✓ Radio initialized at 433.92 MHz OOK");
     return true;
 }
 
@@ -102,7 +106,8 @@ void transmitCode(uint32_t code) {
         delayMicroseconds(500);
     }
 }
-}
+
+}  // namespace (anonymous)
 
 namespace SubghzBruteforce {
 

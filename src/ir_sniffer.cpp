@@ -30,18 +30,21 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
       // Decode IR code from results
       if (results.bits > 0) { // Filter out noise
 
-        // Generate simulated code
-        if (codeCount == 0 || (esp_random() % 100) < 5) {
-          code.protocol = "NEC";
-          code.address = (esp_random() % 256);
-          code.command = (esp_random() % 256);
-          code.rssi = ((esp_random() % 40) + -60);
+          if (decodedCode.protocol != "UNKNOWN") {
+            decodedCode.timestamp = millis();
+            result.codes.push_back(decodedCode);
+            result.codesCapTured++;
+            codeCount++;
 
-          result.codes.push_back(code);
-          result.codesCapTured++;
-          codeCount++;
+            Serial.printf("  [%d] %s: addr=0x%02X cmd=0x%02X\n",
+              codeCount, decodedCode.protocol.c_str(),
+              decodedCode.address, decodedCode.command);
 
-          logCode(code);
+            logCode(decodedCode);
+            timingBuffer.clear();
+          } else if (timingBuffer.size() > 50) {
+            timingBuffer.erase(timingBuffer.begin());
+          }
         }
       }
 
@@ -68,9 +71,9 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
     }
 
     if (config.continuousCapture) {
-      delay(1);
+      delayMicroseconds(100);
     } else {
-      delay(10);
+      delayMicroseconds(500);
     }
   }
 
@@ -95,6 +98,9 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
 
   result.success = result.codesCapTured > 0;
   result.logFile = "/logs/handshakes/ir_capture.csv";
+
+  Serial.printf("IR capture complete: %d codes, protocol: %s\n",
+    result.codesCapTured, result.dominantProtocol.c_str());
 
   isRunning_ = false;
   return result;

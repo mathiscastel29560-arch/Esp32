@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include <LittleFS.h>
 #include <NimBLEDevice.h>
+#include "tx_arm.h"
 
 namespace BleAudioHijacking {
 
@@ -18,6 +19,7 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
   }
 
   NimBLEDevice::init("ESP32-AudioDetect");
+  NimBLEAddress bleAddr(addr, false);
 
   NimBLEClient* pClient = NimBLEDevice::createClient();
   // Convert uint8_t address array to uint64_t for NimBLEAddress
@@ -79,6 +81,9 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
     result.detectedType = SPEAKER;  // Default assumption
   }
 
+  pClient->disconnect();
+  NimBLEDevice::deleteClient(pClient);
+  result.detectedType = UNKNOWN;
   result.success = true;
   pClient->disconnect();
   return result;
@@ -98,7 +103,6 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
-  // Detect device type first
   AudioResult detection = detectAudioDevice(config.targetAddr);
   result.detectedType = detection.detectedType;
 
@@ -196,10 +200,12 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
       }
     }
 
-    if (!config.mediaControl && !config.volumeControl && !config.audioInjection) {
-      delay(100);
-    }
+    delay(100);
   }
+
+  pClient->disconnect();
+  NimBLEDevice::deleteClient(pClient);
+  NimBLEDevice::deinit();
 
   result.commandsSent = commandCount;
   result.success = (commandCount > 0);
@@ -208,6 +214,8 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
 
   pClient->disconnect();
   logHijack(result.detectedType, commandCount);
+  Serial.printf("Audio hijacking complete: %d commands sent\n", commandCount);
+
   isRunning_ = false;
   return result;
 }

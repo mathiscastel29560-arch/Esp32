@@ -556,9 +556,10 @@ void runBleAction(int idx) {
                 showResult("BLE Beacon Spam", "STOPPED");
             } else {
                 auto result = BLEBeaconSpam::spamBeacons("ALL", 15000);
+                String rateStr = (result.durationMs > 0) ? String((result.beaconsCount * 1000) / result.durationMs) : "N/A";
                 showResult("BLE Beacon Spam",
                           "Sent: " + String(result.beaconsCount) + " beacons\n" +
-                          "Rate: ~" + String((result.beaconsCount * 1000) / result.durationMs) + "/sec");
+                          "Rate: ~" + rateStr + "/sec");
             }
             break;
         }

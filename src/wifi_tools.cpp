@@ -78,7 +78,8 @@ std::vector<String> sniffClients(const String &bssid, uint8_t channel, uint32_t 
     esp_wifi_set_promiscuous(true);
 
     uint32_t start = millis();
-    while (millis() - start < durationMs) {
+    uint32_t deadline = start + durationMs;
+    while ((int32_t)(millis() - deadline) < 0) {
         delay(10);
     }
 

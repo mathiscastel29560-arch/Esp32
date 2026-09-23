@@ -1,3 +1,4 @@
 .pio/
 .vscode/
 *.o
+compile_commands.json

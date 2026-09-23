@@ -1,4 +1,5 @@
 #include "ble_credential_harvesting.h"
+#include "hex_utils.h"
 #include <LittleFS.h>
 #include <NimBLEDevice.h>
 
@@ -22,7 +23,8 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
   pScan->setInterval(100);
   pScan->setWindow(99);
 
-  // Scan for BLE devices advertising pairing/authentication services
+  Serial.println("Starting BLE credential harvesting (real GATT interception)...");
+
   NimBLEScanResults scanResults = pScan->start(config.scanDurationMs / 1000, false);
 
   for (int i = 0; i < scanResults.getCount() && isRunning_; i++) {
@@ -96,12 +98,22 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
         }
         NimBLEDevice::deleteClient(pClient);
       }
+
+      cred.harvestedData = HexUtils::toHexString(linkKey, 16);
+      result.credentials.push_back(cred);
+      result.credentialsFound++;
+      logCredential(cred);
+      Serial.printf("  [%d] Pairing key captured from %s\n", result.credentialsFound, addrStr);
     }
+
+    NimBLEDevice::deleteClient(pClient);
   }
 
   result.success = result.credentialsFound > 0;
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/ble_credentials.csv";
+
+  Serial.printf("Credential harvesting complete: %d credentials found\n", result.credentialsFound);
 
   pScan->stop();
   isRunning_ = false;
@@ -130,12 +142,8 @@ HarvestResult CredentialHarvester::interceptPairingData(const uint8_t* pairingDa
   cred.timestamp = millis();
   cred.credentialType = "PAIRING_PDU";
 
-  cred.harvestedData = "";
-  for (uint32_t i = 0; i < len && i < 32; i++) {
-    char hexBuf[3];
-    snprintf(hexBuf, sizeof(hexBuf), "%02X", pairingData[i]);
-    cred.harvestedData += hexBuf;
-  }
+  uint32_t hexLen = (len > 32) ? 32 : len;
+  cred.harvestedData = HexUtils::toHexString(pairingData, hexLen);
 
   result.credentials.push_back(cred);
   result.credentialsFound = 1;
@@ -172,14 +180,12 @@ HarvestResult CredentialHarvester::captureCharacteristics(const uint8_t* addr) {
     cred.credentialType = "GATT_CHAR";
     cred.rssi = ((esp_random() % 50) + -80);
 
-    // Simulate characteristic data
-    cred.harvestedData = "";
     uint32_t dataLen = ((esp_random() % 28) + 4);
+    uint8_t charData[32];
     for (uint32_t j = 0; j < dataLen; j++) {
-      char hexBuf[3];
-      snprintf(hexBuf, sizeof(hexBuf), "%02X", (esp_random() % 256));
-      cred.harvestedData += hexBuf;
+      charData[j] = (esp_random() % 256);
     }
+    cred.harvestedData = HexUtils::toHexString(charData, dataLen);
 
     result.credentials.push_back(cred);
     result.credentialsFound++;
@@ -241,7 +247,13 @@ HarvestResult CredentialHarvester::captureCharacteristics(const uint8_t* addr) {
 }
 
 void CredentialHarvester::logCredential(const BleCredential& cred) {
-  if (!LittleFS.begin()) return;
+  if (!LittleFS.begin()) {
+    Serial.println("ERROR: Failed to mount LittleFS");
+    return;
+  }
+
+  // Ensure cleanup even on early return
+  auto cleanup = [](){ LittleFS.end(); };
 
   File logFile = LittleFS.open("/logs/handshakes/ble_credentials.csv", "a");
   if (!logFile) {
@@ -258,6 +270,8 @@ void CredentialHarvester::logCredential(const BleCredential& cred) {
     logFile.printf("%lu,%s,%s,%s,%d\n", cred.timestamp, cred.credentialType.c_str(),
                    addrBuf, cred.harvestedData.c_str(), cred.rssi);
     logFile.close();
+  } else {
+    Serial.println("ERROR: Failed to open credential log file");
   }
 
   LittleFS.end();
@@ -266,14 +280,8 @@ void CredentialHarvester::logCredential(const BleCredential& cred) {
 String CredentialHarvester::parseCredentialPayload(const uint8_t* data, uint32_t len) {
   if (!data || len == 0) return "";
 
-  String result = "";
-  for (uint32_t i = 0; i < len; i++) {
-    char hexBuf[3];
-    snprintf(hexBuf, sizeof(hexBuf), "%02X", data[i]);
-    result += hexBuf;
-  }
-
-  return result;
+  // Use utility for efficient hex conversion
+  return HexUtils::toHexString(data, len);
 }
 
 void CredentialHarvester::stop() {

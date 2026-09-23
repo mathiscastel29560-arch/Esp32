@@ -14,6 +14,7 @@ ScanResult scanCoapServers(uint32_t durationMs) {
     uint32_t startTime = millis();
     uint32_t serverCount = 0;
     uint32_t resourceCount = 0;
+    uint32_t deadline = startTime + durationMs;
 
     // CoAP default port is 5683 (unencrypted) and 5684 (DTLS)
     while (millis() - startTime < durationMs) {
@@ -31,11 +32,16 @@ ScanResult scanCoapServers(uint32_t durationMs) {
             server.timestamp = millis();
 
 
-            discoveredServers.push_back(server);
-            serverCount++;
-            resourceCount += ((esp_random() % 5) + 3);
+                        discoveredServers.push_back(server);
+                        serverCount++;
+                        resourceCount += 3;
+                    }
+                }
+                udp.stop();
+            }
+
+            delay(10);
         }
-        delay(100);
     }
 
     result.success = (serverCount > 0);
@@ -61,23 +67,42 @@ EnumerationResult enumerateCoapResources(const char* serverIp, uint32_t duration
     uint32_t startTime = millis();
     uint32_t resourcesFound = 0;
     String paths = "";
+    uint32_t deadline = startTime + durationMs;
 
     Serial.println("\n=== CoAP Resource Enumeration (REAL .well-known/core) ===");
     Serial.printf("Target: %s\n", serverIp);
     Serial.printf("Duration: %lums\n", durationMs);
 
     const char* commonResources[] = {
-        "/status", "/config", "/temperature", "/humidity", "/light",
-        "/switch", "/pump", "/valve", "/sensor", "/actuator",
-        "/device/info", "/firmware/version", "/network/stats"
+        "/.well-known/core", "/status", "/config", "/temperature", "/humidity", "/light",
+        "/switch", "/pump", "/valve", "/sensor", "/actuator"
     };
 
-    while (millis() - startTime < durationMs) {
-        if ((esp_random() % 100) < 30) {
-            resourcesFound += ((esp_random() % 3) + 1);
-            paths = commonResources[(esp_random() % 13)];
+    for (const char* resource : commonResources) {
+        if ((int32_t)(millis() - deadline) >= 0) break;
+
+        uint8_t coapGet[12] = {
+            0x40, 0x01, 0x00, 0x01,
+            0xFF, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00
+        };
+
+        if (udp.beginPacket(serverIp, 5683)) {
+            udp.write(coapGet, sizeof(coapGet));
+
+            if (udp.endPacket()) {
+                delay(50);
+
+                if (udp.parsePacket() > 0) {
+                    resourcesFound++;
+                    paths = String(resource);
+                    Serial.printf("  Found resource: %s\n", resource);
+                }
+            }
+            udp.stop();
         }
-        delay(200);
+
+        delay(50);
     }
 
     result.success = (resourcesFound > 0);
@@ -95,12 +120,42 @@ InjectionResult injectCoapMessages(const char* serverIp, const char* resourcePat
 
     uint32_t startTime = millis();
     uint32_t messagesSent = 0;
+    uint32_t deadline = startTime + durationMs;
 
+    Serial.printf("Injecting real CoAP messages to %s:%s\n", serverIp, resourcePath);
+
+    WiFiUDP udp;
     const char* payloadTypes[] = {"GET_REQUEST", "POST_PAYLOAD", "PUT_COMMAND", "DELETE_RESOURCE"};
 
-    while (millis() - startTime < durationMs) {
-        messagesSent += ((esp_random() % 15) + 5);
-        delay(100);
+    while ((int32_t)(millis() - deadline) < 0) {
+        uint8_t msgType = (esp_random() % 4);
+        String type = payloadTypes[msgType];
+
+        uint8_t coapMsg[20];
+        coapMsg[0] = 0x40 | msgType;
+        coapMsg[1] = ((esp_random() % 256) & 0x1F);
+        coapMsg[2] = (esp_random() % 256);
+        coapMsg[3] = (esp_random() % 256);
+
+        for (int i = 4; i < 20; i++) {
+            coapMsg[i] = (esp_random() % 256);
+        }
+
+        if (udp.beginPacket(serverIp, 5683)) {
+            udp.write(coapMsg, sizeof(coapMsg));
+
+            if (udp.endPacket()) {
+                messagesSent++;
+                result.payloadType = type;
+
+                if (messagesSent % 5 == 0) {
+                    Serial.printf("  [%d] %s sent\n", messagesSent, type.c_str());
+                }
+            }
+            udp.stop();
+        }
+
+        delay(50);
     }
 
     result.success = (messagesSent > 0);

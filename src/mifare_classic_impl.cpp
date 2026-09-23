@@ -5,6 +5,13 @@
 
 namespace MifareClassic {
 
+bool initPN532() {
+    Wire.begin();
+    Wire.setClock(100000);
+    Wire.beginTransmission(PN532_I2C_ADDRESS);
+    return Wire.endTransmission() == 0;
+}
+
 ReadResult readMifareCard(uint32_t durationMs) {
     ReadResult result = {false, "", 0};
 
@@ -53,6 +60,7 @@ ReadResult readMifareCard(uint32_t durationMs) {
     result.sectorData = data;
     result.durationMs = millis() - startTime;
     result.success = true;
+    result.durationMs = millis() - startTime;
 
     ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
@@ -68,6 +76,9 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
+    uint32_t deadline = startTime + durationMs;
+
+    if (!initPN532()) return result;
 
     Serial.println("\n=== MIFARE Classic Key Recovery (Real PN532) ===");
     Serial.printf("Duration: %lums\n", durationMs);

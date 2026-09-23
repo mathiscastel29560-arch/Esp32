@@ -68,6 +68,7 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
     result.success = true;
     result.durationMs = millis() - startTime;
     result.powerLevel = powerLevel;
+    result.error = "";
 
     Serial.printf("✓ BLE jamming complete: %u advertisement packets (%.1f pkt/sec)\n",
                  jamPacketsSent, (jamPacketsSent * 1000.0f) / result.durationMs);

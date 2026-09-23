@@ -20,13 +20,13 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
     }
 
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
     float rssiSum = 0;
     uint32_t rssiCount = 0;
     result.rssiMin = 0;
     result.rssiMax = -150;
 
     if (radio == "cc1101") {
-        // CC1101 @ 433MHz (Sub-GHz)
         Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);
         CC1101 cc1101(&cc1101Module);
 
@@ -38,7 +38,7 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
         cc1101.setRxBandwidth(812.5);
         cc1101.startReceive();
 
-        while (millis() - startTime < durationMs && recordedSamples.size() < 65536) {
+        while ((int32_t)(millis() - deadline) < 0 && recordedSamples.size() < 65536) {
             int state = cc1101.available();
             if (state == RADIOLIB_ERR_NONE) {
                 uint8_t data[256] = {0};
@@ -76,7 +76,7 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
         nrf24.openReadingPipe(0, 0xAAAAAAAAAAAALL);
         nrf24.startListening();
 
-        while (millis() - startTime < durationMs && recordedSamples.size() < 65536) {
+        while ((int32_t)(millis() - deadline) < 0 && recordedSamples.size() < 65536) {
             if (nrf24.available()) {
                 uint8_t data[32] = {0};
                 uint8_t len = nrf24.getDynamicPayloadSize();

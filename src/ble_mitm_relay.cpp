@@ -1,6 +1,7 @@
 #include "ble_mitm_relay.h"
 #include "tx_arm.h"
 #include <LittleFS.h>
+#include "tx_arm.h"
 
 namespace BleMitmRelay {
 
@@ -95,6 +96,7 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
   // Create generic service for relaying (0x180A is Device Information Service as template)
   NimBLEService* pService = g_relayServer->createService("180A");
 
+  std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
   uint32_t relayCount = 0;
 
   // Connect to target device
@@ -127,6 +129,9 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
   result.success = (g_bytesRelayed > 0);
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/ble_mitm.csv";
+
+  Serial.printf("MITM relay complete: %d packets relayed, %d bytes intercepted\n",
+    relayCount, result.bytesIntercepted);
 
   isRunning_ = false;
   return result;

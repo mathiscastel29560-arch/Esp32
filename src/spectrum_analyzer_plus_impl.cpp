@@ -9,7 +9,15 @@ static std::vector<FrequencyPeak> frequencyPeaks;
 ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) {
     ScanResult result = {true, 0, 0, -100, 0, ""};
 
+    // Validate frequency range to prevent infinite loops
+    if (endFreq <= startFreq || durationMs == 0) {
+        result.success = false;
+        result.analysis = "ERROR: Invalid frequency range or duration";
+        return result;
+    }
+
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
     frequencyPeaks.clear();
 
     Serial.println("\n=== RF Spectrum Analysis (REAL AD8318 Detector) ===");
@@ -23,7 +31,7 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
     float step = (endFreq - startFreq) / 20.0f;
     uint32_t peakIndex = 0;
 
-    for (float freq = startFreq; freq <= endFreq && millis() - startTime < durationMs; freq += step) {
+    for (float freq = startFreq; freq <= endFreq && (int32_t)(millis() - deadline) < 0; freq += step) {
         if ((esp_random() % 100) < 25) {
             FrequencyPeak peak;
             peak.frequency = freq;

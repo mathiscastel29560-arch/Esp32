@@ -9,13 +9,17 @@ RF24 radio(PIN_NRF24_CE, PIN_NRF24_CS);
 namespace Nrf24Tools {
 
 void begin() {
-    radio.begin();
+    if (!radio.begin()) {
+        Serial.println("✗ NRF24 initialization failed");
+        return;
+    }
     radio.setAutoAck(false);
     radio.setRetries(0, 0);
     radio.disableCRC();
     radio.setAddressWidth(3);
     radio.setPALevel(RF24_PA_MIN);
     radio.startListening();
+    Serial.println("✓ NRF24 initialized");
 }
 
 std::vector<uint8_t> scanChannels(uint16_t samplesPerChannel) {

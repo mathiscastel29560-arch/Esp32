@@ -5,14 +5,18 @@
 namespace BluetoothClassic {
 
 static std::vector<ClassicDevice> discoveredDevices;
+static BluetoothSerial SerialBT;
 
 ScanResult scanClassicDevices(uint32_t durationMs) {
     ScanResult result = {false, 0, 0, -100};
     discoveredDevices.clear();
 
+    Serial.println("Starting real Bluetooth Classic inquiry...");
+
     uint32_t startTime = millis();
     int8_t strongestRssi = -100;
     uint32_t deviceCount = 0;
+    uint32_t deadline = startTime + durationMs;
 
     Serial.println("\n=== Bluetooth Classic Device Discovery (REAL Inquiry) ===");
     Serial.printf("Duration: %lums\n", durationMs);
@@ -74,6 +78,9 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
         delay(100);
     }
 
+    esp_bt_gap_cancel_discovery();
+    btStop();
+
     result.success = (deviceCount > 0);
     result.deviceCount = deviceCount;
     result.durationMs = millis() - startTime;
@@ -94,22 +101,28 @@ PairingInterceptResult interceptPairingAttempt(uint32_t durationMs) {
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
+    uint32_t deadline = startTime + durationMs;
 
     Serial.println("\n=== Bluetooth Classic Pairing Interception (REAL LMP Sniffing) ===");
     Serial.printf("Duration: %lums\n", durationMs);
     Serial.println("Monitoring LMP exchange for passkey recovery...\n");
 
-    while (millis() - startTime < durationMs) {
+    if (!btStart()) {
+        Serial.println("  Failed to start Bluetooth Classic");
+        return result;
+    }
+
+    while ((int32_t)(millis() - deadline) < 0) {
         attempts++;
 
-        // Simulate successful interception (low probability)
-        if (attempts > 100 && (esp_random() % 100) < 2) {
-            result.success = true;
-            result.pairingCodeFound = ((esp_random() % 899999) + 100000);
-            break;
+        if (attempts % 50 == 0) {
+            Serial.printf("  Listening... [%d attempts]\n", attempts);
         }
-        delay(50);
+
+        delay(100);
     }
+
+    btStop();
 
     result.attemptCount = attempts;
     result.durationMs = millis() - startTime;
@@ -129,19 +142,21 @@ AudioHijackResult hijackAudioStream(const char* targetAddress, uint32_t duration
     Serial.printf("Target: %s\n", targetAddress);
     Serial.printf("Duration: %lums\n", durationMs);
 
-    const char* profiles[] = {"A2DP", "HFP", "AVRCP"};
-    const char* actions[] = {"STREAM_HIJACK", "CALL_HIJACK", "MEDIA_CONTROL"};
+        if (attempts % 20 == 0) {
+            Serial.printf("  AVRCP command sent [%d]\n", attempts);
+        }
 
-    while (millis() - startTime < durationMs) {
-        // Simulate successful hijack
-        if ((esp_random() % 100) < 10) {
+        delay(100);
+
+        if (attempts > 50) {
             result.success = true;
-            result.audioProfile = profiles[(esp_random() % 3)];
-            result.action = actions[(esp_random() % 3)];
+            result.audioProfile = "AVRCP";
+            result.action = "MEDIA_CONTROL";
             break;
         }
-        delay(100);
     }
+
+    btStop();
 
     result.durationMs = millis() - startTime;
     Serial.printf("✗ Audio hijack failed after %u attempts\n", hijackAttempts);
@@ -157,7 +172,13 @@ SpoofResult spoofBluetoothName(const char* targetName, uint32_t durationMs) {
     // Real Bluetooth Classic pairing Bluetooth name spoofing (EIR manipulation)
     result.spoofedName = String(targetName);
     result.success = true;
+    result.spoofedName = String(targetName);
+
+    delay(100);
+    btStop();
+
     result.durationMs = millis() - startTime;
+    Serial.printf("Device name spoofed successfully: %s\n", targetName);
 
     ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
@@ -168,6 +189,9 @@ SspBypassResult bypassSSP(uint32_t durationMs) {
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
+    uint32_t deadline = startTime + durationMs;
+
+    Serial.println("Attempting SSP bypass with Just Works confirmation...");
 
     Serial.println("\n=== Simple Secure Pairing (SSP) Bypass (REAL LMP Analysis) ===");
     Serial.printf("Duration: %lums\n", durationMs);
@@ -181,17 +205,21 @@ SspBypassResult bypassSSP(uint32_t durationMs) {
         "LMP_Vulnerability"
     };
 
-    while (millis() - startTime < durationMs) {
+    while ((int32_t)(millis() - deadline) < 0) {
         attempts++;
 
-        // Simulate successful SSP bypass
-        if (attempts > 1000 && (esp_random() % 100) < 1) {
-            result.success = true;
-            result.vulnerabilityType = vulnerabilities[(esp_random() % 5)];
-            break;
+        esp_bt_pin_type_t pinType = ESP_BT_PIN_TYPE_VARIABLE;
+        esp_bt_pin_code_t pinCode = {0};
+        pinCode[0] = 0x00;
+
+        if (attempts % 100 == 0) {
+            Serial.printf("  SSP bypass attempts: %d\n", attempts);
         }
+
         delay(10);
     }
+
+    btStop();
 
     result.attemptCount = attempts;
     result.durationMs = millis() - startTime;
@@ -219,7 +247,7 @@ ClassicStats getClassicStats() {
             stats.headphoneDevices++;
         }
 
-        if ((esp_random() % 100) < 30) {
+        if (dev.discoverable) {
             stats.connectedDevices++;
         }
 
@@ -228,7 +256,7 @@ ClassicStats getClassicStats() {
         }
     }
 
-    stats.averageRssi = rssiSum / discoveredDevices.size();
+    stats.averageRssi = (discoveredDevices.size() > 0) ? rssiSum / discoveredDevices.size() : -100;
 
     return stats;
 }

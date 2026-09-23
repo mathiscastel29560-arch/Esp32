@@ -31,12 +31,13 @@ PortalResult PortalDetector::scanNetworks(const PortalConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.scanTimeoutMs;
 
   // Scan for WiFi networks
   int networkCount = WiFi.scanNetworks();
 
   for (int i = 0; i < networkCount && isRunning_; i++) {
-    if (millis() - startTime_ > config.scanTimeoutMs) {
+    if ((int32_t)(millis() - deadline) >= 0) {
       break;
     }
 
@@ -84,11 +85,10 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
   isRunning_ = true;
   startTime_ = millis();
 
-  // Connect to network
   WiFi.begin(ssid);
 
-  uint32_t connectionTimeout = timeout;
-  while (!WiFi.isConnected() && (millis() - startTime_) < connectionTimeout) {
+  uint32_t deadline = startTime_ + timeout;
+  while (!WiFi.isConnected() && (int32_t)(millis() - deadline) < 0) {
     delay(CONNECTION_CHECK_DELAY_MS);
   }
 

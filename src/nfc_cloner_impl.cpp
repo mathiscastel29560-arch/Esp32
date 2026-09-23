@@ -5,6 +5,29 @@
 
 namespace NfcCloner {
 
+class PN532Reader {
+public:
+    bool begin() {
+        Wire.begin();
+        Wire.setClock(100000);
+
+        if (!isPN532Present()) {
+            Serial.println("PN532 not found on I2C bus");
+            return false;
+        }
+
+        return true;
+    }
+
+private:
+    bool isPN532Present() {
+        Wire.beginTransmission(PN532_I2C_ADDRESS);
+        return Wire.endTransmission() == 0;
+    }
+};
+
+static PN532Reader nfc;
+
 ReadResult readNfcTag(uint32_t durationMs) {
     ReadResult result = {false, "", "", 0};
 
@@ -112,6 +135,29 @@ WriteResult writeNdefPayload(const char* tagUid, const char* maliciousPayload, u
         Serial.printf("[NFC] Successfully wrote NDEF: %s\n", maliciousPayload);
     }
 
+    uint32_t deadline = startTime + durationMs;
+    uint8_t offset = 0x04;
+
+    while ((int32_t)(millis() - deadline) < 0 && offset < 0xFF) {
+        uint8_t writeCmd[32] = {0x00, 0x00, 0xFF, 0x1A, 0xE6, 0xD4, 0x40, 0x02};
+        writeCmd[8] = offset;
+
+        uint8_t payloadLen = strlen(maliciousPayload);
+        memcpy(&writeCmd[9], maliciousPayload, (payloadLen > 23) ? 23 : payloadLen);
+
+        Wire.beginTransmission(PN532_I2C_ADDRESS);
+        Wire.write(writeCmd, 32);
+        if (Wire.endTransmission() == 0) {
+            delay(100);
+            result.success = true;
+            break;
+        }
+
+        offset++;
+        delay(50);
+    }
+
+    result.payload = String(maliciousPayload);
     result.durationMs = millis() - startTime;
 
     ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});

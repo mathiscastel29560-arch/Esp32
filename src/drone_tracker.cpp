@@ -111,13 +111,18 @@ ScanResult scanForDrones(uint32_t durationMs) {
     return result;
 }
 
+namespace {
+bool g_monitoringActive = false;
+}
+
 void monitorDrones(uint32_t checkIntervalMs) {
     Serial.println("\n=== Continuous Drone Monitoring ===");
     Serial.println("Monitoring for 2.4GHz signals (Press BACK to stop)");
 
     uint32_t consecutiveNoSignal = 0;
+    g_monitoringActive = true;
 
-    while (true) {
+    while (g_monitoringActive) {
         ScanResult result = scanForDrones(checkIntervalMs);
 
         if (result.activeDroneCount > 0) {
@@ -133,6 +138,10 @@ void monitorDrones(uint32_t checkIntervalMs) {
 
         delay(100);
     }
+}
+
+void stopMonitoring() {
+    g_monitoringActive = false;
 }
 
 void logDetectionsToFile(const String &filename, const ScanResult &result) {

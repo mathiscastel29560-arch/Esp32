@@ -45,7 +45,8 @@ DecodedSignal decodeSignal() {
 
     // Decode to hex with bounds checking
     char hexBuf[513] = {0};
-    for (uint32_t i = 0; i < min((uint32_t)256, dataLen); i++) {
+    uint32_t maxBytes = (dataLen < 256) ? dataLen : 256;
+    for (uint32_t i = 0; i < maxBytes; i++) {
         size_t remaining = sizeof(hexBuf) - (i * 2);
         if (remaining < 3) break;  // Need 2 chars + null terminator
         snprintf(hexBuf + (i * 2), remaining, "%02X", data[i]);
@@ -67,12 +68,14 @@ bool detectManchester() {
 
     // Manchester encoding: each bit becomes two transitions
     uint32_t transitions = 0;
-    for (uint32_t i = 1; i < min((uint32_t)128, dataLen); i++) {
+    uint32_t checkLen = (dataLen < 128) ? dataLen : 128;
+
+    for (uint32_t i = 1; i < checkLen; i++) {
         if (data[i] != data[i-1]) transitions++;
     }
 
     // Manchester should have ~2x transitions per byte
-    return (transitions > min((uint32_t)128, dataLen));
+    return (transitions > checkLen);
 }
 
 bool detectNRZ() {

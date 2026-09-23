@@ -93,7 +93,10 @@ void loop() {
     uint8_t mac[6] = {0x02, 0x00, 0x00, 0x00, 0x00, (uint8_t)g_idx};
     uint8_t frame[BEACON_FRAME_BUF_SIZE];
     size_t len = buildBeaconFrame(frame, g_ssids[g_idx], mac, g_channel);
-    esp_wifi_80211_tx(WIFI_IF_AP, frame, len, false);
+    esp_err_t txResult = esp_wifi_80211_tx(WIFI_IF_AP, frame, len, false);
+    if (txResult != ESP_OK) {
+        Serial.print("⚠ Beacon TX error (0x" + String(txResult, 16) + ") ");
+    }
 
     g_idx = (g_idx + 1) % g_ssids.size();
 }
