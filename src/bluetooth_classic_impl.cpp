@@ -148,26 +148,6 @@ AudioHijackResult hijackAudioStream(const char* targetAddress, uint32_t duration
         return result;
     }
 
-    uint8_t attempts = 0;
-    while ((int32_t)(millis() - deadline) < 0) {
-        attempts++;
-
-        uint8_t avrcpCmd[] = {0x00, 0x11, 0x05, 0x41, 0x00};
-
-        if (attempts % 20 == 0) {
-            Serial.printf("  AVRCP command sent [%d]\n", attempts);
-        }
-
-        delay(100);
-
-        if (attempts > 50) {
-            result.success = true;
-            result.audioProfile = "AVRCP";
-            result.action = "MEDIA_CONTROL";
-            break;
-        }
-    }
-
     btStop();
 
     result.durationMs = millis() - startTime;

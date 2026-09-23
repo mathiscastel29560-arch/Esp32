@@ -65,6 +65,9 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
         return result;
     }
 
+    // Calculate deadline for timeout handling
+    uint32_t deadline = startTime + durationMs;
+
     // Use safe timeout comparison (handles millis() wraparound)
     while ((int32_t)(millis() - deadline) < 0 && attacking && TxArm::isArmed()) {
         DeauthFrame frame;

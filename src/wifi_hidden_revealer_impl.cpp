@@ -24,6 +24,7 @@ static std::vector<uint8_t> discoveredHiddenBSSIDs;
 RevealResult revealHiddenNetworks(uint32_t durationMs) {
     RevealResult result{0, {}};
     discoveredHiddenBSSIDs.clear();
+    uint32_t hiddenCount = 0;
 
     Serial.println("\n=== Real WiFi Hidden Network Revealer (802.11 Analysis) ===");
     Serial.printf("Duration: %lu ms\n\n", durationMs);
