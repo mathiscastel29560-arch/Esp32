@@ -5,6 +5,9 @@
 #include <LittleFS.h>
 #include <ctime>
 
+// Forward declaration
+class PSRAMLogBuffer;
+
 enum class AuditEventType {
     TOOL_START = 1,
     TOOL_STOP = 2,
