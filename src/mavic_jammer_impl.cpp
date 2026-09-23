@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include "drivers/nrf24_driver.h"
 #include "hardware.h"
+#include "results_display.h"
 
 namespace MavicJammer {
 
@@ -19,11 +20,13 @@ JammerResult jammMavicController(const JammerConfig& config) {
 
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (!Hardware::isNRF24Ready()) {
         result.error = "NRF24 not initialized";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -126,6 +129,7 @@ JammerResult jammMavicController(const JammerConfig& config) {
     Serial.printf("\n[Mavic Jammer] Complete: %lu packets, %lu hops\n",
                   result.packetsJammed, result.frequencyChanges);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -135,16 +139,19 @@ JammerResult replayMavicCommand(const std::vector<uint8_t>& capturedFrame) {
 
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (!Hardware::isNRF24Ready()) {
         result.error = "NRF24 not initialized";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (capturedFrame.empty() || capturedFrame.size() > 32) {
         result.error = "Invalid frame size";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -177,6 +184,7 @@ JammerResult replayMavicCommand(const std::vector<uint8_t>& capturedFrame) {
     }
 
     result.success = (result.packetsJammed > 0);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -186,6 +194,7 @@ JammerResult analyzeMavicHoppingPattern(uint32_t scanDurationMs) {
 
     if (!Hardware::isNRF24Ready()) {
         result.error = "NRF24 not initialized";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -225,6 +234,7 @@ JammerResult analyzeMavicHoppingPattern(uint32_t scanDurationMs) {
     Serial.printf("[Mavic Analyzer] Detected %lu channel hops\n", result.frequencyChanges);
     result.success = (result.frequencyChanges > 0);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

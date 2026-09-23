@@ -1,6 +1,7 @@
 #include "nfc_cloner.h"
 #include "drivers/pn532_driver.h"
 #include "hardware.h"
+#include "results_display.h"
 
 namespace NfcCloner {
 
@@ -9,6 +10,7 @@ ReadResult readNfcTag(uint32_t durationMs) {
 
     if (!Hardware::isPN532Ready()) {
         result.tagContent = "Error: PN532 not initialized";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -39,6 +41,7 @@ ReadResult readNfcTag(uint32_t durationMs) {
         result.tagContent = "No NFC tags detected";
     }
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -46,6 +49,7 @@ CloneResult cloneNfcTag(const char* sourceUid, uint32_t durationMs) {
     CloneResult result = {false, "", "", 0};
 
     if (!Hardware::isPN532Ready()) {
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -57,6 +61,7 @@ CloneResult cloneNfcTag(const char* sourceUid, uint32_t durationMs) {
     PN532Driver::Card targetCard;
     if (!PN532Driver::scanCard(targetCard)) {
         result.durationMs = millis() - startTime;
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -67,6 +72,7 @@ CloneResult cloneNfcTag(const char* sourceUid, uint32_t durationMs) {
 
     Serial.printf("[NFC] Cloned from %s to %s\n", sourceUid, result.clonedUid.c_str());
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -74,6 +80,7 @@ WriteResult writeNdefPayload(const char* tagUid, const char* maliciousPayload, u
     WriteResult result = {false, "", 0};
 
     if (!Hardware::isPN532Ready()) {
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -85,6 +92,7 @@ WriteResult writeNdefPayload(const char* tagUid, const char* maliciousPayload, u
     PN532Driver::Card card;
     if (!PN532Driver::scanCard(card)) {
         result.durationMs = millis() - startTime;
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -106,6 +114,7 @@ WriteResult writeNdefPayload(const char* tagUid, const char* maliciousPayload, u
 
     result.durationMs = millis() - startTime;
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

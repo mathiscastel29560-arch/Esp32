@@ -1,4 +1,5 @@
 #include "generic_packet_tools.h"
+#include "results_display.h"
 
 namespace GenericPacketTools {
 
@@ -28,6 +29,7 @@ InjectionResult injectCustomPacket(const char* payload, const char* radioType, u
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Injection complete: %u packets via %s in %lums\n", packetsSent, radio.c_str(), result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -56,6 +58,7 @@ ReplayResult replayPackets(const uint8_t* capturedData, uint32_t dataLength, uin
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Replay complete: %u packets via %s in %lums\n", packetsReplayed, radioUsed.c_str(), result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -88,6 +91,7 @@ FuzzResult fuzzPackets(const char* radioType, uint32_t durationMs) {
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Fuzzing complete: %u packets, %u crashes in %lums\n", fuzzedPackets, crashesFound, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

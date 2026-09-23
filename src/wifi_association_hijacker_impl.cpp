@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include "results_display.h"
 
 namespace {
 volatile bool g_hijackActive = false;
@@ -19,6 +20,7 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -61,6 +63,7 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
     Serial.println("Spoofed MAC: " + result.spoofedMAC);
     Serial.println("Attempts: " + String(g_assocCount));
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

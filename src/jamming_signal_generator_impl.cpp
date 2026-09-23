@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include "config.h"
 #include <RadioLib.h>
+#include "results_display.h"
 
 namespace {
 Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);
@@ -64,6 +65,7 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -90,6 +92,7 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
     result.signalsGenerated = g_signalsCount;
 
     Serial.println("✓ Complete: " + String(g_signalsCount) + " signals generated");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

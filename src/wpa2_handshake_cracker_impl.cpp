@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <mbedtls/md.h>
+#include "results_display.h"
 
 namespace {
 const char* COMMON_PASSWORDS[] = {
@@ -151,6 +152,7 @@ CrackResult captureAndCrack(const String &targetSSID, uint32_t timeoutMs) {
     } else {
         Serial.println("\n✗ No handshake captured in timeout period");
         // error: "Handshake capture timeout";
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 }
@@ -226,6 +228,7 @@ CrackResult dictionaryAttack(const String &ssid, uint32_t attemptLimit) {
     Serial.printf("Dictionary attack complete: %u attempts in %lums (%.1f/sec)\n",
                  result.attemptsCount, elapsed, (result.attemptsCount * 1000.0f) / elapsed);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

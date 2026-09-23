@@ -1,4 +1,5 @@
 #include "advanced_wifi_attacks.h"
+#include "results_display.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 
@@ -35,6 +36,7 @@ KrackResult executeKrackAttack(uint32_t durationMs) {
 
     Serial.printf("✓ KRACK attack: %u handshakes, %u keys in %lums\n",
                  handshakesFound, keysRecovered, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -63,6 +65,7 @@ EvilTwinResult launchEvilTwinDhcp(const char* targetSsid, uint32_t durationMs) {
 
     Serial.printf("✓ Evil Twin: %u clients captured, DHCP pool: %u\n",
                  clientsCaptured, result.dhcpExhausted);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -97,6 +100,7 @@ JammingResult jamCtsRts(uint32_t durationMs) {
 
     Serial.printf("✓ CTS/RTS Jamming: %u frames, %u collisions in %lums\n",
                  packetsJammed, collisionsCreated, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -121,6 +125,7 @@ PmfBypassResult bypassPmf(uint32_t durationMs) {
             result.durationMs = millis() - startTime;
             Serial.printf("✓ PMF bypass detected via fragmentation at attempt %u\n", attempts);
             esp_wifi_set_promiscuous(false);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
         delay(10);
@@ -133,6 +138,7 @@ PmfBypassResult bypassPmf(uint32_t durationMs) {
     if (!result.success) {
         Serial.printf("✗ PMF bypass not successful after %u attempts\n", attempts);
     }
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -166,6 +172,7 @@ DowngradeResult forceApDowngrade(const char* targetSsid, uint32_t durationMs) {
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ AP Downgrade: %u clients in %lums\n", clientsDowngraded, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

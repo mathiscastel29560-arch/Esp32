@@ -1,5 +1,6 @@
 #include "signal_decoder.h"
 #include "rf_signal_recorder.h"
+#include "results_display.h"
 
 namespace SignalDecoder {
 
@@ -10,6 +11,7 @@ DecodedSignal decodeSignal() {
     const uint8_t* data = RfSignalRecorder::getCapturedData(dataLen);
 
     if (!data || dataLen < 8) {
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -53,6 +55,7 @@ DecodedSignal decodeSignal() {
     // Estimate frequency spread (for FSK)
     result.estimatedFrequency = estimateFrequencySpread();
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

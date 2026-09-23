@@ -1,5 +1,6 @@
 #include "coap_scanner.h"
 #include <vector>
+#include "results_display.h"
 
 namespace CoapScanner {
 
@@ -45,6 +46,7 @@ ScanResult scanCoapServers(uint32_t durationMs) {
 
     Serial.printf("✓ Scan complete: Found %u servers, %u resources in %lums\n",
                  serverCount, resourceCount, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -84,6 +86,7 @@ EnumerationResult enumerateCoapResources(const char* serverIp, uint32_t duration
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Enumeration complete: Found %u resources in %lums\n", resourcesFound, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -105,6 +108,7 @@ InjectionResult injectCoapMessages(const char* serverIp, const char* resourcePat
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Injection complete: %u messages in %lums\n", messagesSent, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -140,6 +144,7 @@ DtlsBypassResult bypassDtlsSecurity(const char* serverIp, uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     Serial.printf("✗ DTLS bypass not successful after %u attempts\n", attempts);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

@@ -1,4 +1,5 @@
 #include "smarthome_hijacker.h"
+#include "results_display.h"
 
 namespace SmarthomeHijacker {
 
@@ -15,6 +16,7 @@ HueResult hijackPhilipsHue(const char* bridgeIp, uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.success = true;
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -33,6 +35,7 @@ NestResult enumerateNestDevices(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.success = true;
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -51,6 +54,7 @@ TradfriResult tradfriPairingAttack(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.success = true;
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -67,6 +71,7 @@ AlexaResult discoverAlexaDevices(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.success = true;
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

@@ -1,5 +1,6 @@
 #include "mqtt_hijacker.h"
 #include <vector>
+#include "results_display.h"
 
 namespace MqttHijacker {
 
@@ -60,6 +61,7 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     result.strongestBroker = strongestBroker;
 
     Serial.printf("✓ Scan complete: Found %u brokers in %lums\n", brokerCount, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -160,6 +162,7 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     totalMessagesIntercepted += messageCount;
 
     Serial.printf("✓ Interception complete: %u MQTT packets captured in %lums\n", messageCount, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -191,6 +194,7 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Injection complete: %u messages in %lums\n", injected, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -232,6 +236,7 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     result.commandsSent = commands;
 
     Serial.printf("✓ Hijack complete: %u devices in %lums\n", devicesHijacked, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -261,6 +266,7 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
                     result.attemptsCount = attempts;
                     result.durationMs = millis() - startTime;
                     Serial.printf("✓ Credentials found: %s\n", result.credentialFound.c_str());
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
                     return result;
                 }
             }
@@ -272,6 +278,7 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
     result.durationMs = millis() - startTime;
     Serial.printf("✗ Brute-force failed after %u attempts\n", attempts);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

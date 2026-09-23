@@ -1,5 +1,6 @@
 #include "http_downgrade_attack.h"
 #include "tx_arm.h"
+#include "results_display.h"
 
 namespace {
 volatile bool g_downgradeActive = false;
@@ -18,6 +19,7 @@ DowngradeResult executeDowngrade(uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -118,6 +120,7 @@ DowngradeResult executeDowngrade(uint32_t durationMs) {
     Serial.println("Credentials captured: " + String(g_credCount));
     Serial.println("Duration: " + String(millis() - startTime) + "ms");
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

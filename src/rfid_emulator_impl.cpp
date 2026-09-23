@@ -1,4 +1,5 @@
 #include "rfid_emulator.h"
+#include "results_display.h"
 
 namespace RfidEmulator {
 
@@ -24,6 +25,7 @@ EmulationResult emulateRfidCard(const char* cardType, uint32_t durationMs) {
     result.success = true;
 
     Serial.printf("✓ Emulation complete in %lums\n", result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -52,6 +54,7 @@ BruteforceResult bruteforceRfidCards(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     Serial.printf("✗ No valid cards found after %u attempts\n", attempts);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -76,6 +79,7 @@ CloneResult cloneRfidCard(const char* sourceCardId, uint32_t durationMs) {
     result.success = true;
 
     Serial.printf("✓ Card clone complete in %lums\n", result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

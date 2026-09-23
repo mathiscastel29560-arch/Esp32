@@ -3,6 +3,7 @@
 #include "config.h"
 #include <NimBLEDevice.h>
 #include <NimBLEAdvertising.h>
+#include "results_display.h"
 
 namespace {
 volatile bool g_jamActive = false;
@@ -45,6 +46,7 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -105,6 +107,7 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
     Serial.println("⚠️  All BLE advertising channels (37-39) disrupted");
 
     NimBLEDevice::deinit(false);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

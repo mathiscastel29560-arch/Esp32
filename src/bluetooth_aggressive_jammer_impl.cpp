@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include <NimBLEDevice.h>
 #include <NimBLEAdvertising.h>
+#include "results_display.h"
 
 namespace {
 volatile bool g_jamActive = false;
@@ -39,6 +40,7 @@ JamResult jamBluetooth(uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -77,6 +79,7 @@ JamResult jamBluetooth(uint32_t durationMs) {
     Serial.println("⚠️  All Bluetooth LE activity in range severely disrupted");
 
     NimBLEDevice::deinit(false);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

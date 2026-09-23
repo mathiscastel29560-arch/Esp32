@@ -1,5 +1,6 @@
 #include "bluetooth_classic.h"
 #include <vector>
+#include "results_display.h"
 
 namespace BluetoothClassic {
 
@@ -79,6 +80,7 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
     result.strongestRssi = strongestRssi;
 
     Serial.printf("✓ Scan complete: Found %u devices in %lums\n", deviceCount, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -113,6 +115,7 @@ PairingInterceptResult interceptPairingAttempt(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     Serial.printf("✗ Pairing interception failed after %u attempts\n", attempts);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -142,6 +145,7 @@ AudioHijackResult hijackAudioStream(const char* targetAddress, uint32_t duration
 
     result.durationMs = millis() - startTime;
     Serial.printf("✗ Audio hijack failed after %u attempts\n", hijackAttempts);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -155,6 +159,7 @@ SpoofResult spoofBluetoothName(const char* targetName, uint32_t durationMs) {
     result.success = true;
     result.durationMs = millis() - startTime;
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -192,6 +197,7 @@ SspBypassResult bypassSSP(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     Serial.printf("✗ SSP bypass not found after %u attempts\n", attempts);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

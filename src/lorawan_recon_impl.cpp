@@ -1,5 +1,6 @@
 #include "lorawan_recon.h"
 #include <vector>
+#include "results_display.h"
 
 namespace LoRawanRecon {
 
@@ -111,6 +112,7 @@ ScanResult scanLoRawanNetwork(uint32_t durationMs) {
 
     Serial.printf("✓ Scan complete: Found %u gateways, ~%u devices in %lums\n",
                  gatewayCount, deviceCount, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -137,6 +139,7 @@ InjectionResult injectLoRawanFrames(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Injection complete: %u frames in %lums\n", framesSent, result.durationMs);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -156,6 +159,7 @@ JoinForgeResult forgeJoinRequests(uint32_t durationMs) {
             result.joinAttemptsCount = attempts;
             result.durationMs = millis() - startTime;
             Serial.printf("✓ Join successful at attempt %u\n", attempts);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
         delay(100);
@@ -168,6 +172,7 @@ JoinForgeResult forgeJoinRequests(uint32_t durationMs) {
         Serial.printf("✗ Join forge failed after %u attempts\n", attempts);
     }
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -198,6 +203,7 @@ KeyRecoveryResult recoverLoRawanKeys(uint32_t durationMs) {
             result.durationMs = millis() - startTime;
 
             Serial.printf("✓ Keys recovered after analyzing %u packets\n", packetsAnalyzed);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
         delay(50);
@@ -206,6 +212,7 @@ KeyRecoveryResult recoverLoRawanKeys(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     Serial.printf("✗ Key recovery failed after analyzing %u packets\n", packetsAnalyzed);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

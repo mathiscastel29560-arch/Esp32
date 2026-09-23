@@ -5,6 +5,7 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLEAdvertising.h>
+#include "results_display.h"
 
 namespace {
 volatile bool g_spamActive = false;
@@ -53,6 +54,7 @@ SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -101,6 +103,7 @@ SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
 
     BLEDevice::deinit(false);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

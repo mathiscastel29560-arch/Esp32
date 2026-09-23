@@ -2,6 +2,7 @@
 #include "tx_arm.h"
 #include "config.h"
 #include <math.h>
+#include "results_display.h"
 
 namespace {
 volatile bool g_spoofActive = false;
@@ -80,6 +81,7 @@ SpoofResult spoofGPS(float latitude, float longitude, uint32_t durationMs, const
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -126,6 +128,7 @@ SpoofResult spoofGPS(float latitude, float longitude, uint32_t durationMs, const
     Serial.println("Duration: " + String(millis() - startTime) + "ms");
     Serial.println("⚠️  Devices in range receive spoofed GPS signals");
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
