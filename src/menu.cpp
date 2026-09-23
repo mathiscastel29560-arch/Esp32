@@ -73,6 +73,19 @@
 #include "ui/advanced_scanning.h"
 #include "mavic_jammer.h"
 #include "tpms_spoofer.h"
+#include "dns_spoof.h"
+#include "arp_spoof.h"
+#include "ssl_strip.h"
+#include "captive_portal_detector.h"
+#include "wifi_bruteforce.h"
+#include "wps_bruteforce.h"
+#include "ir_learning.h"
+#include "ir_sniffer.h"
+#include "ir_fuzzing.h"
+#include "nrf24_injection.h"
+#include "subghz_frequency_scanner.h"
+#include "subghz_fuzzing_engine.h"
+#include "default_creds_scanner.h"
 #include <vector>
 #include <set>
 
@@ -147,11 +160,17 @@ std::vector<String> wifiMenuItems() {
         "📡 Beacon Spam " + String(BeaconSpam::active() ? "STOP" : "start"),
         "📡 Evil Portal " + String(EvilPortal::active() ? "STOP" : "start"),
         "📡 WiFi Deauth " + String(WiFiDeauth::isActive() ? "STOP" : "start"),
-        "📡 WiFi Jammer Suite " + String(WiFiJammerSuite::isActive() ? "STOP" : "start"),
+        "📡 WiFi Jammer Suite ⚠️ " + String(WiFiJammerSuite::isActive() ? "STOP" : "start"),
         "📡 Association Hijacker",
         "📡 HTTP Downgrade Attack",
         "📡 WPA2 Handshake Cracker",
         "📡 Capture Handshake (WPA2)",
+        "📡 DNS Spoof",
+        "📡 ARP Spoof",
+        "📡 SSL Strip",
+        "📡 WiFi Bruteforce",
+        "📡 WPS Bruteforce",
+        "📡 Captive Portal Detector",
         "🔙 Back",
     };
 }
@@ -160,12 +179,12 @@ std::vector<String> bleMenuItems() {
     return {
         "🔵 Scan Devices (5s)",
         "🔵 BLE Address Spoof",
-        "🔵 BLE Pairing Attack",
-        "🔵 BLE DoS Attack",
-        "🔵 BLE Beacon Spam " + String(BLEBeaconSpam::isActive() ? "STOP" : "start"),
-        "🔵 BLE Advertising Jam " + String(BLEAdvertisingJammer::isActive() ? "STOP" : "start"),
-        "🔵 Bluetooth Aggressive Jam " + String(BluetoothAggressiveJammer::isActive() ? "STOP" : "start"),
-        "🔵 BLE Advanced Attacks " + String(BLEAdvancedAttackSuite::isActive() ? "STOP" : "start"),
+        "🔵 BLE Pairing Attack ⚠️",
+        "🔵 BLE DoS Attack ⚠️",
+        "🔵 BLE Beacon Spam ⚠️ " + String(BLEBeaconSpam::isActive() ? "STOP" : "start"),
+        "🔵 BLE Advertising Jam ⚠️ " + String(BLEAdvertisingJammer::isActive() ? "STOP" : "start"),
+        "🔵 Bluetooth Aggressive Jam ⚠️ " + String(BluetoothAggressiveJammer::isActive() ? "STOP" : "start"),
+        "🔵 BLE Advanced Attacks ⚠️ " + String(BLEAdvancedAttackSuite::isActive() ? "STOP" : "start"),
         "🔵 BLE Spam Watch " + String(BleSpamDetector::active() ? "STOP" : "start"),
         "🔵 Check Spam Alert",
         "🔙 Back",
@@ -185,15 +204,21 @@ std::vector<String> rfMenuItems() {
         "🔴 IR: Bruteforce TV",
         "🔴 IR: Bruteforce AC",
         "🔴 IR: Bruteforce Light",
+        "🔴 IR: Learning (custom codes)",
+        "🔴 IR: Sniffer (monitoring)",
+        "🔴 IR: Fuzzing (mutation test)",
         "🛰️  GPS Spoofing (2.4GHz)",
-        "📶 Advanced RF Jammer " + String(AdvancedRFJammer::isActive() ? "STOP" : "start"),
-        "📶 Sub-GHz Jammer Suite " + String(SubghzJammerSuite::isActive() ? "STOP" : "start"),
-        "📶 Jamming Signal Gen " + String(JammingSignalGenerator::isActive() ? "STOP" : "start"),
+        "📶 NRF24 Injection",
+        "📶 Sub-GHz Frequency Scanner",
+        "📶 Sub-GHz Fuzzing Engine",
+        "📶 Advanced RF Jammer ⚠️ " + String(AdvancedRFJammer::isActive() ? "STOP" : "start"),
+        "📶 Sub-GHz Jammer Suite ⚠️ " + String(SubghzJammerSuite::isActive() ? "STOP" : "start"),
+        "📶 Jamming Signal Gen ⚠️ " + String(JammingSignalGenerator::isActive() ? "STOP" : "start"),
         "📶 RF Signal Recorder",
         "📶 Signal Decoder",
         "📶 Advanced Signal Cloner",
-        "🚁 Mavic Jammer (2.4GHz)",
-        "🔴 TPMS Spoofer (433MHz)",
+        "🚁 Mavic Jammer ⚠️ (2.4GHz)",
+        "🔴 TPMS Spoofer ⚠️ (433MHz)",
         "🔙 Back",
     };
 }
@@ -277,6 +302,7 @@ std::vector<String> systemMenuItems() {
         "⚙️  TX Arm Status",
         "🔋 Battery Status",
         "🗺️  GPS Map",
+        "🗺️  Wardriving GPS (Wigle CSV)",
         "🔄 Dualboot OTA1",
         "🔙 Back",
     };
@@ -284,21 +310,22 @@ std::vector<String> systemMenuItems() {
 
 std::vector<String> iotMenuItems() {
     return {
-        "🌐 Zigbee Scanner",
-        "🌐 MQTT Hijacker",
-        "🌐 Z-Wave Scanner",
-        "🌐 Bluetooth Classic",
-        "🌐 CoAP Scanner",
-        "🌐 LoRaWAN Recon",
-        "🌐 RFID Emulator",
-        "🌐 Mifare Classic",
+        "🌐 Zigbee Scanner ⚠️",
+        "🌐 MQTT Hijacker ⚠️",
+        "🌐 Z-Wave Scanner ⚠️",
+        "🌐 Bluetooth Classic ⚠️",
+        "🌐 CoAP Scanner ⚠️",
+        "🌐 LoRaWAN Recon ⚠️",
+        "🌐 RFID Emulator ⚠️",
+        "🌐 Mifare Classic ⚠️",
         "🌐 NFC Cloner",
-        "🌐 Smart Home Hijacker",
-        "🌐 Spectrum Analyzer+",
-        "🌐 Modulation Classifier",
-        "🌐 Auto Handshake Capture",
+        "🌐 Smart Home Hijacker ⚠️",
+        "🌐 Spectrum Analyzer+ ⚠️",
+        "🌐 Modulation Classifier ⚠️",
+        "🌐 Auto Handshake Capture ⚠️",
         "🌐 Generic Packet Tools",
-        "🌐 Advanced WiFi Attacks",
+        "🌐 Advanced WiFi Attacks ⚠️",
+        "🌐 Default Creds Scanner ⚠️",
         "🔙 Back",
     };
 }
