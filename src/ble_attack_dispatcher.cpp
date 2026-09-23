@@ -8,7 +8,7 @@ namespace BLEAttackDispatcher {
 
 namespace {
     volatile bool g_attacking = false;
-    AttackType g_currentType;
+    volatile AttackType g_currentType = ATTACK_PAIRING;
 }
 
 AttackResult executeAttack(const AttackConfig &config) {
@@ -16,6 +16,16 @@ AttackResult executeAttack(const AttackConfig &config) {
 
     if (g_attacking) {
         result.error = "Attack already active";
+        return result;
+    }
+
+    if (config.targetDevice.length() == 0) {
+        result.error = "Invalid target device (empty)";
+        return result;
+    }
+
+    if (config.timeoutMs == 0 || config.timeoutMs > 600000) {
+        result.error = "Invalid timeout (1ms-600s)";
         return result;
     }
 
@@ -78,6 +88,9 @@ AttackResult executeAttack(const AttackConfig &config) {
 
     if (result.success) {
         Serial.println("[BLEAttackDispatcher] Attack started (type " + String(config.type) + ")");
+    } else if (result.error.length() > 0) {
+        Serial.println("[BLEAttackDispatcher] Error: " + result.error);
+        g_attacking = false;
     }
 
     return result;

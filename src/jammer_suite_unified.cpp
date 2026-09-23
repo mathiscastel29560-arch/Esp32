@@ -10,7 +10,7 @@ namespace JammerSuite {
 
 namespace {
     volatile bool g_jamming = false;
-    JammerType g_currentType;
+    volatile JammerType g_currentType = JAMMER_WIFI_CHANNEL;
 }
 
 JamResult startJamming(const JammerConfig &config) {
@@ -18,6 +18,11 @@ JamResult startJamming(const JammerConfig &config) {
 
     if (g_jamming) {
         result.error = "Jamming already active";
+        return result;
+    }
+
+    if (config.durationMs == 0) {
+        result.error = "Invalid duration (must be > 0)";
         return result;
     }
 
@@ -99,6 +104,9 @@ JamResult startJamming(const JammerConfig &config) {
 
     if (result.success) {
         Serial.println("[JammerSuite] Jamming started (type " + String(config.type) + ")");
+    } else if (result.error.length() > 0) {
+        Serial.println("[JammerSuite] Error: " + result.error);
+        g_jamming = false;
     }
 
     return result;
