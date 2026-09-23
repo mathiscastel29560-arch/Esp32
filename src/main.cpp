@@ -34,6 +34,7 @@
 #include "ota_updater.h"
 #include "dual_core_manager.h"
 #include "log_database.h"
+#include "stats_dashboard.h"
 
 namespace {
 String apSsid;
