@@ -1,0 +1,144 @@
+name: Build & Security Check
+
+on:
+  push:
+    branches: [ main, claude/github-review-* ]
+  pull_request:
+    branches: [ main, claude/github-review-* ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up PlatformIO
+      uses: platformio/setup-platformio-action@v1
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install platformio
+        platformio platform install espressif32@6.9.0
+
+    - name: Build firmware
+      run: |
+        cd /home/runner/work/Esp32/Esp32
+        pio run -e esp32-s3-audit
+      continue-on-error: false
+
+    - name: Check firmware size
+      run: |
+        echo "=== Firmware Size Check ==="
+        cd /home/runner/work/Esp32/Esp32
+        ls -lh .pio/build/esp32-s3-audit/firmware.bin
+
+        # Extract size info
+        SIZE=$(($(stat -f%z .pio/build/esp32-s3-audit/firmware.bin 2>/dev/null || stat -c%s .pio/build/esp32-s3-audit/firmware.bin)))
+        MAX_SIZE=$((3145728))  # 3MB for ESP32-S3
+        PERCENT=$((SIZE * 100 / MAX_SIZE))
+
+        echo "Flash usage: $PERCENT%"
+        if [ $PERCENT -gt 90 ]; then
+          echo "⚠️  WARNING: Flash usage above 90%"
+        fi
+
+    - name: Upload firmware
+      uses: actions/upload-artifact@v3
+      with:
+        name: esp32-s3-firmware
+        path: .pio/build/esp32-s3-audit/firmware.bin
+        retention-days: 30
+
+  security-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Check for hardcoded credentials
+      run: |
+        echo "=== Scanning for credentials ==="
+        if grep -r "password.*=" src/ --include="*.cpp" --include="*.h" | grep -v "// " | grep -v "password_" ; then
+          echo "⚠️  WARNING: Potential hardcoded credentials found"
+        else
+          echo "✓ No obvious hardcoded credentials"
+        fi
+
+    - name: Check for insecure functions
+      run: |
+        echo "=== Checking for unsafe functions ==="
+        UNSAFE=0
+        for func in strcpy sprintf gets strcpy strcat; do
+          if grep -r "$func(" src/ --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "safer\|comment" ; then
+            echo "⚠️  Found potentially unsafe: $func"
+            UNSAFE=1
+          fi
+        done
+        if [ $UNSAFE -eq 0 ]; then
+          echo "✓ No obvious unsafe function calls"
+        fi
+
+    - name: Analyze cryptographic usage
+      run: |
+        echo "=== Cryptographic API Review ==="
+        echo "PBKDF2 implementations:"
+        grep -r "pbkdf2\|PBKDF2" src/ --include="*.cpp" -c || true
+        echo ""
+        echo "HMAC implementations:"
+        grep -r "hmac\|HMAC" src/ --include="*.cpp" -c || true
+        echo ""
+        echo "mbedtls usage:"
+        grep -r "mbedtls_" src/ --include="*.cpp" | wc -l
+
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Check compilation warnings
+      run: |
+        echo "=== Compilation Quality Check ==="
+        pip install platformio
+        platformio platform install espressif32@6.9.0
+
+        # Build and capture warnings
+        pio run -e esp32-s3-audit 2>&1 | tee build.log
+
+        # Count warnings
+        WARNINGS=$(grep -c "warning:" build.log || echo "0")
+        echo ""
+        echo "Total compilation warnings: $WARNINGS"
+
+        if [ $WARNINGS -gt 5 ]; then
+          echo "⚠️  WARNING: Too many compilation warnings"
+          grep "warning:" build.log
+        fi
+
+  documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Verify documentation
+      run: |
+        echo "=== Documentation Check ==="
+
+        # Check critical files exist
+        for file in CLAUDE.md DEVELOPMENT.md include/HARDWARE_GUARDS.md; do
+          if [ -f "$file" ]; then
+            echo "✓ $file exists"
+          else
+            echo "⚠️  Missing: $file"
+          fi
+        done
+
+        # Check file sizes
+        if [ -f "CLAUDE.md" ]; then
+          LINES=$(wc -l < CLAUDE.md)
+          echo "CLAUDE.md: $LINES lines"
+        fi
