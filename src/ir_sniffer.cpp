@@ -15,9 +15,13 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
   isRunning_ = true;
   startTime_ = millis();
 
+  Serial.println("IR Sniffer: Real protocol decoding active...");
+  Serial.printf("Capturing on GPIO %d for %d ms\n", config.rxPin, config.captureTimeMs);
+
   uint32_t lastLevel = LOW;
   uint32_t lastTime = micros();
   uint32_t codeCount = 0;
+  std::vector<uint16_t> timingBuffer;
 
   while (isRunning_ && (millis() - startTime_) < config.captureTimeMs) {
     uint32_t currentLevel = digitalRead(config.rxPin);
@@ -26,24 +30,27 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
     if (currentLevel != lastLevel) {
       uint32_t timing = currentTime - lastTime;
 
-      // Simulate IR code capture
-      if (timing > 100) { // Filter out noise (< 100µs)
-        IrCode code;
-        code.timestamp = millis();
-        code.timings.push_back(timing);
+      if (timing > 100) {
+        timingBuffer.push_back((uint16_t)((timing > 65535) ? 65535 : timing));
 
-        // Generate simulated code
-        if (codeCount == 0 || (esp_random() % 100) < 5) {
-          code.protocol = "NEC";
-          code.address = (esp_random() % 256);
-          code.command = (esp_random() % 256);
-          code.rssi = ((esp_random() % 40) + -60);
+        if (timingBuffer.size() >= 34) {
+          IrCode decodedCode = decodeIrProtocol(timingBuffer);
 
-          result.codes.push_back(code);
-          result.codesCapTured++;
-          codeCount++;
+          if (decodedCode.protocol != "UNKNOWN") {
+            decodedCode.timestamp = millis();
+            result.codes.push_back(decodedCode);
+            result.codesCapTured++;
+            codeCount++;
 
-          logCode(code);
+            Serial.printf("  [%d] %s: addr=0x%02X cmd=0x%02X\n",
+              codeCount, decodedCode.protocol.c_str(),
+              decodedCode.address, decodedCode.command);
+
+            logCode(decodedCode);
+            timingBuffer.clear();
+          } else if (timingBuffer.size() > 50) {
+            timingBuffer.erase(timingBuffer.begin());
+          }
         }
       }
 
@@ -52,37 +59,120 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
     }
 
     if (config.continuousCapture) {
-      delay(1);
+      delayMicroseconds(100);
     } else {
-      delay(10);
+      delayMicroseconds(500);
     }
   }
 
-  // Identify dominant protocol
-  result.dominantProtocol = "NEC"; // Default to NEC (most common)
+  result.dominantProtocol = identifyProtocol(timingBuffer);
   result.success = result.codesCapTured > 0;
   result.logFile = "/logs/handshakes/ir_capture.csv";
+
+  Serial.printf("IR capture complete: %d codes, protocol: %s\n",
+    result.codesCapTured, result.dominantProtocol.c_str());
 
   isRunning_ = false;
   return result;
 }
 
+IrCode IrSniffer::decodeIrProtocol(const std::vector<uint16_t>& timings) {
+  IrCode code;
+  code.protocol = "UNKNOWN";
+  code.address = 0;
+  code.command = 0;
+
+  if (timings.size() < 34) return code;
+
+  if (timings[0] > 8000 && timings[0] < 10000) {
+    return decodeNec(timings);
+  } else if (timings[0] > 2000 && timings[0] < 2800) {
+    return decodeSony(timings);
+  } else if (timings.size() > 20) {
+    return decodeRc5(timings);
+  }
+
+  return code;
+}
+
+IrCode IrSniffer::decodeNec(const std::vector<uint16_t>& timings) {
+  IrCode code;
+  code.protocol = "NEC";
+  code.address = 0;
+  code.command = 0;
+
+  if (timings.size() < 34) return code;
+
+  for (int i = 1; i < 17 && i < timings.size(); i++) {
+    if (timings[i * 2] > 1000) {
+      code.address |= (1 << (16 - i));
+    }
+  }
+
+  for (int i = 17; i < 33 && i < timings.size(); i++) {
+    if (timings[i * 2] > 1000) {
+      code.command |= (1 << (32 - i));
+    }
+  }
+
+  return code;
+}
+
+IrCode IrSniffer::decodeSony(const std::vector<uint16_t>& timings) {
+  IrCode code;
+  code.protocol = "SONY";
+  code.address = 0;
+  code.command = 0;
+
+  if (timings.size() < 20) return code;
+
+  for (int i = 1; i < 9 && i * 2 < timings.size(); i++) {
+    if (timings[i * 2] > 600) {
+      code.address |= (1 << (8 - i));
+    }
+  }
+
+  for (int i = 9; i < 20 && i * 2 < timings.size(); i++) {
+    if (timings[i * 2] > 600) {
+      code.command |= (1 << (20 - i));
+    }
+  }
+
+  return code;
+}
+
+IrCode IrSniffer::decodeRc5(const std::vector<uint16_t>& timings) {
+  IrCode code;
+  code.protocol = "RC5";
+  code.address = 0;
+  code.command = 0;
+
+  if (timings.size() < 14) return code;
+
+  for (int i = 1; i < 6 && i * 2 < timings.size(); i++) {
+    if (timings[i * 2] > 900) {
+      code.address |= (1 << (6 - i));
+    }
+  }
+
+  for (int i = 6; i < 14 && i * 2 < timings.size(); i++) {
+    if (timings[i * 2] > 900) {
+      code.command |= (1 << (14 - i));
+    }
+  }
+
+  return code;
+}
+
 String IrSniffer::identifyProtocol(const std::vector<uint16_t>& timings) {
   if (timings.empty()) return "UNKNOWN";
 
-  // NEC: ~9ms header + 560µs units
-  if (timings.size() > 2 && timings[0] > 8000 && timings[0] < 10000) {
+  if (timings[0] > 8000 && timings[0] < 10000) {
     return "NEC";
-  }
-
-  // RC5: 1777µs units
-  if (timings.size() > 2 && timings[0] > 1500 && timings[0] < 2000) {
-    return "RC5";
-  }
-
-  // Sony: 2400µs header
-  if (timings.size() > 2 && timings[0] > 2000 && timings[0] < 2800) {
+  } else if (timings[0] > 2000 && timings[0] < 2800) {
     return "SONY";
+  } else if (timings.size() > 20) {
+    return "RC5";
   }
 
   return "UNKNOWN";
