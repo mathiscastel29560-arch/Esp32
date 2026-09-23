@@ -3,6 +3,7 @@
 #include "mac_utils.h"
 #include "timeout_utils.h"
 #include "deauth.h"
+#include "audit_log.h"
 
 #include <LittleFS.h>
 #include <esp_wifi.h>
@@ -94,7 +95,15 @@ namespace HandshakeCapture {
 
 Result capture(const String &bssidStr, uint8_t channel, uint32_t durationMs) {
     Result result{"", 0};
-    if (!MacUtils::parse(bssidStr, g_targetBssid)) return result;
+    if (!MacUtils::parse(bssidStr, g_targetBssid)) {
+        AUDIT_LOG(AuditEventType::ERROR_OCCURRED, "HandshakeCapture", "Invalid BSSID format");
+        return result;
+    }
+
+    char details[96];
+    snprintf(details, sizeof(details), "BSSID=%s,channel=%d,duration=%ldms",
+             bssidStr.c_str(), channel, durationMs);
+    AuditLog::instance().log(AuditEventType::TOOL_START, "HandshakeCapture", details);
 
     g_frameCount = 0;
     esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
@@ -118,14 +127,20 @@ Result capture(const String &bssidStr, uint8_t channel, uint32_t durationMs) {
     esp_wifi_set_promiscuous(false);
     g_capturing = false;
 
-    if (g_frameCount == 0) return result;
+    if (g_frameCount == 0) {
+        AUDIT_LOG(AuditEventType::TOOL_FAILURE, "HandshakeCapture", "No EAPOL frames captured");
+        return result;
+    }
 
     if (!LittleFS.exists(HANDSHAKE_CAPTURE_DIR)) LittleFS.mkdir(HANDSHAKE_CAPTURE_DIR);
     String safeBssid = bssidStr;
     safeBssid.replace(":", "");
     String path = String(HANDSHAKE_CAPTURE_DIR) + "/" + safeBssid + "_" + String(millis()) + ".pcap";
     File f = LittleFS.open(path, FILE_WRITE);
-    if (!f) return result;
+    if (!f) {
+        AUDIT_LOG(AuditEventType::ERROR_OCCURRED, "HandshakeCapture", "Failed to create log file");
+        return result;
+    }
 
     writePcapHeader(f);
     uint32_t nowSec = millis() / 1000;
@@ -136,6 +151,12 @@ Result capture(const String &bssidStr, uint8_t channel, uint32_t durationMs) {
 
     result.filePath = path;
     result.eapolFrames = g_frameCount;
+
+    char resultDetails[128];
+    snprintf(resultDetails, sizeof(resultDetails), "frames=%d,file=%s",
+             g_frameCount, path.c_str());
+    AuditLog::instance().log(AuditEventType::TOOL_SUCCESS, "HandshakeCapture", resultDetails);
+
     return result;
 }
 

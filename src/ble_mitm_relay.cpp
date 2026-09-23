@@ -1,7 +1,7 @@
 #include "ble_mitm_relay.h"
 #include "tx_arm.h"
+#include "audit_log.h"
 #include <LittleFS.h>
-#include "tx_arm.h"
 
 namespace BleMitmRelay {
 
@@ -78,8 +78,13 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
 
   if (!TxArm::isArmed()) {
     result.error = "TX not armed";
+    AUDIT_LOG(AuditEventType::ATTACK_INITIATED, "BleMitmRelay", "TX not armed");
     return result;
   }
+
+  char details[96];
+  snprintf(details, sizeof(details), "duration=%ldms", config.durationMs);
+  AuditLog::instance().log(AuditEventType::ATTACK_INITIATED, "BleMitmRelay", details);
 
   isRunning_ = true;
   startTime_ = millis();
@@ -133,6 +138,12 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
   result.success = (g_bytesRelayed > 0);
   result.elapsedMs = millis() - startTime_;
   result.logFile = "/logs/handshakes/ble_mitm.csv";
+
+  char resultDetails[128];
+  snprintf(resultDetails, sizeof(resultDetails), "packets=%d,bytes=%d,keys=%d,elapsed=%ldms",
+           result.packetsRelayed, result.bytesIntercepted, result.keysLogged, result.elapsedMs);
+  AuditLog::instance().log(result.success ? AuditEventType::ATTACK_COMPLETED : AuditEventType::TOOL_FAILURE,
+                           "BleMitmRelay", resultDetails);
 
   Serial.printf("MITM relay complete: %d packets relayed, %d bytes intercepted\n",
     relayCount, result.bytesIntercepted);

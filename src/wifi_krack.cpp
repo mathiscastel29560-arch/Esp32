@@ -1,5 +1,6 @@
 #include "wifi_krack.h"
 #include "tx_arm.h"
+#include "audit_log.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 
@@ -23,11 +24,17 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
 
     if (!TxArm::isArmed()) {
         result.error = "TX arming required (hold BACK button)";
+        AUDIT_LOG(AuditEventType::ATTACK_INITIATED, "WiFiKRACK", "TX not armed");
         return result;
     }
 
     attacking = true;
     deauthsSent = 0;
+
+    char details[96];
+    snprintf(details, sizeof(details), "BSSID=%s,channel=%d,duration=%dms",
+             bssid.c_str(), channel, durationMs);
+    AuditLog::instance().log(AuditEventType::ATTACK_INITIATED, "WiFiKRACK", details);
 
     Serial.println("\n=== KRACK Attack (REAL IEEE 802.11 Frame Injection) ===");
     Serial.println("Target BSSID: " + bssid);
@@ -93,6 +100,12 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
 
     result.success = true;
     result.status = "KRACK real attack - " + String(deauthsSent) + " deauth frames transmitted";
+
+    char resultDetails[128];
+    snprintf(resultDetails, sizeof(resultDetails), "frames=%u,duration=%lums,rate=%.1f/sec",
+             deauthsSent, millis() - startTime,
+             (deauthsSent * 1000.0f) / (millis() - startTime));
+    AuditLog::instance().log(AuditEventType::ATTACK_COMPLETED, "WiFiKRACK", resultDetails);
 
     Serial.printf("✓ KRACK attack complete: %u frames in %lums (%.1f tx/sec)\n",
                  deauthsSent, millis() - startTime,
