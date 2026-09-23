@@ -1,12 +1,12 @@
 #include "ble_advertising_jammer.h"
 #include "tx_arm.h"
 #include "config.h"
-#include <BLEDevice.h>
-#include <BLEAdvertising.h>
+#include <NimBLEDevice.h>
 
 namespace {
 volatile bool g_jamActive = false;
 uint32_t g_jamPacketsCount = 0;
+NimBLEAdvertising *g_pAdvertising = nullptr;
 
 // BLE advertising channels: 37 (2402 MHz), 38 (2426 MHz), 39 (2480 MHz)
 const uint8_t BLE_ADV_CHANNELS[] = {37, 38, 39};
@@ -19,9 +19,17 @@ void sendJamPacket() {
         jamPayload[i] = (esp_random() % 256);
     }
 
-    BLEAddress addr(jamPayload);
-    BLEAdvertisementData jamData;
+    // Create and send jamming advertisement
+    NimBLEAdvertisementData jamData;
+    jamData.setFlags(0x06);
     jamData.addData(std::string((const char*)jamPayload, 31));
+
+    if (g_pAdvertising) {
+        g_pAdvertising->setAdvertisementData(jamData);
+        g_pAdvertising->start(0, nullptr, nullptr);
+        delayMicroseconds(200);
+        g_pAdvertising->stop();
+    }
 
     g_jamPacketsCount++;
 }
@@ -50,8 +58,8 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
         return result;
     }
 
-    BLEDevice::init("");
-    BLEServer *pServer = BLEDevice::createServer();
+    NimBLEDevice::init("");
+    g_pAdvertising = NimBLEDevice::getAdvertising();
 
     g_jamActive = true;
     g_jamPacketsCount = 0;
@@ -85,16 +93,19 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
     }
 
     g_jamActive = false;
+    g_pAdvertising = nullptr;
     result.success = true;
     result.jamPacketsCount = g_jamPacketsCount;
 
     Serial.println("✓ Jamming complete");
     Serial.println("Total jam packets: " + String(result.jamPacketsCount));
     Serial.println("Duration: " + String(millis() - startTime) + "ms");
-    Serial.println("Rate: ~" + String((result.jamPacketsCount * 1000) / (millis() - startTime)) + " pkt/sec");
+    if (millis() - startTime > 0) {
+        Serial.println("Rate: ~" + String((result.jamPacketsCount * 1000) / (millis() - startTime)) + " pkt/sec");
+    }
     Serial.println("⚠️  BLE scanning/advertising in range disrupted");
 
-    BLEDevice::deinit(false);
+    NimBLEDevice::deinit();
 
     return result;
 }
