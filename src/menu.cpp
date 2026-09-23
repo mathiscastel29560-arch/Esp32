@@ -446,8 +446,8 @@ void runWifiAction(int idx) {
             } else {
                 auto result = WiFiDeauth::sendDeauthFrames("FF:FF:FF:FF:FF:FF", 15000, true);
                 showResult("WiFi Deauth",
-                          "Sent: " + String(result.deauthCount) + " frames\n" +
-                          "Rate: " + String((result.deauthCount * 1000) / 15000) + "/sec");
+                          "Sent: " + String(result.packetsSent) + " frames\n" +
+                          "Rate: " + String((result.packetsSent * 1000) / 15000) + "/sec");
             }
             break;
         }
