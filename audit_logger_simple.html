@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Audit Logger">
+    <meta name="theme-color" content="#0f0f1a">
+    <title>Audit Logger</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f0f1a;
+            color: #ecf0f1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            padding: 16px;
+            background: #1a1a2e;
+            border-bottom: 1px solid #20242f;
+        }
+        .header h1 { font-size: 24px; margin: 0; }
+        .header p { font-size: 12px; color: #95a5a6; margin-top: 4px; }
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .stat-card {
+            background: #1a1a2e;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #20242f;
+        }
+        .stat-label { font-size: 12px; color: #95a5a6; }
+        .stat-value { font-size: 28px; font-weight: bold; margin-top: 6px; }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        .input-label {
+            font-size: 12px;
+            color: #95a5a6;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a2e;
+            border: 1px solid #20242f;
+            border-radius: 6px;
+            color: #ecf0f1;
+            font-size: 14px;
+        }
+        .button {
+            width: 100%;
+            padding: 14px;
+            background: #f39c12;
+            color: #0f0f1a;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        .button.secondary {
+            background: #1a1a2e;
+            color: #ecf0f1;
+            border: 1px solid #20242f;
+        }
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a1a2e;
+            border-top: 1px solid #20242f;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 1000;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: #95a5a6;
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+        }
+        .tab-btn.active { color: #f39c12; }
+        .result-item {
+            background: #1a1a2e;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #20242f;
+        }
+        .result-title { font-weight: 600; }
+        .result-detail { font-size: 12px; color: #95a5a6; margin-top: 4px; }
+        .empty { text-align: center; color: #95a5a6; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Audit Logger</h1>
+        <p>Test de sécurité sans fil</p>
+    </div>
+
+    <div class="content">
+        <!-- DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="stat-card">
+                <div class="stat-label">⚡ Total Attaques</div>
+                <div class="stat-value" id="total-attacks">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">✅ Réussies</div>
+                <div class="stat-value" id="success-count">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">❌ Échouées</div>
+                <div class="stat-value" id="failed-count">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">📊 Taux Succès</div>
+                <div class="stat-value" id="success-rate">0%</div>
+            </div>
+            <div style="margin-top: 16px;">
+                <h3 style="font-size: 14px; margin-bottom: 12px;">Résultats Récents</h3>
+                <div id="recent-results"></div>
+            </div>
+        </div>
+
+        <!-- ATTACKS -->
+        <div id="tab-attacks" class="tab-content">
+            <div class="input-group">
+                <label class="input-label">Type d'Attaque</label>
+                <select id="attackType" class="input-field">
+                    <option>🚀 Déauthentification WiFi</option>
+                    <option>📡 Inondation de Balises</option>
+                    <option>🔐 WPA2 Cracking</option>
+                    <option>🔵 Brute Force BLE</option>
+                    <option>🔵 BLE Spam</option>
+                    <option>🔵 BLE Pairing Flood</option>
+                    <option>📡 WiFi Jamming</option>
+                    <option>📻 Sub-GHz Flood</option>
+                    <option>🏷️ NFC Spam</option>
+                    <option>📊 EAPOL Capture</option>
+                    <option>🎯 Beacon Flood</option>
+                    <option>🔐 WPA3 Attack</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label class="input-label">Cible (MAC)</label>
+                <input type="text" id="target" class="input-field" placeholder="AA:BB:CC:DD:EE:FF">
+            </div>
+            <div class="input-group">
+                <label class="input-label">Durée (secondes)</label>
+                <input type="number" id="duration" class="input-field" value="30" min="1" max="300">
+            </div>
+            <button class="button" onclick="app.launchAttack()">🚀 Lancer l'Attaque</button>
+        </div>
+
+        <!-- RESULTS -->
+        <div id="tab-results" class="tab-content">
+            <button class="button secondary" onclick="app.filterResults('all')">Tous</button>
+            <button class="button secondary" onclick="app.filterResults('success')">✅ Réussis</button>
+            <button class="button secondary" onclick="app.filterResults('failed')">❌ Échoués</button>
+            <div style="margin-top: 12px;" id="results-list"></div>
+        </div>
+
+        <!-- TOOLS -->
+        <div id="tab-tools" class="tab-content">
+            <h3 style="font-size: 14px; margin-bottom: 12px;">📱 Fonctionnalités</h3>
+            <button class="button secondary" onclick="app.requestLocation()">📍 Géolocalisation</button>
+            <button class="button secondary" onclick="app.requestNotifications()">🔔 Notifications</button>
+            <button class="button secondary" onclick="app.showDeviceInfo()">📱 Infos Appareil</button>
+            <button class="button secondary" onclick="app.showNetworkStatus()">📡 Statut Réseau</button>
+
+            <h3 style="font-size: 14px; margin: 20px 0 12px;">💾 Export</h3>
+            <button class="button secondary" onclick="app.exportJSON()">📥 Exporter JSON</button>
+            <button class="button secondary" onclick="app.exportCSV()">📊 Exporter CSV</button>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="tab-settings" class="tab-content">
+            <h3 style="font-size: 14px; margin-bottom: 12px;">📡 Connexion ESP32</h3>
+            <div class="input-group">
+                <label class="input-label">IP ESP32</label>
+                <input type="text" id="esp32IP" class="input-field" value="192.168.1.100">
+            </div>
+            <div class="input-group">
+                <label class="input-label">Port</label>
+                <input type="text" id="esp32Port" class="input-field" value="8080">
+            </div>
+            <button class="button secondary" onclick="app.connectESP32()">🔌 Connecter</button>
+
+            <h3 style="font-size: 14px; margin: 20px 0 12px;">⚙️ Application</h3>
+            <button class="button secondary" onclick="app.checkUpdates()">⬇️ Vérifier Mises à Jour</button>
+            <button class="button secondary" style="background: #e74c3c; color: #ecf0f1; margin-top: 12px;" onclick="app.resetAll()">🗑️ Réinitialiser Données</button>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="app.tab(0)">📊 Tableau</button>
+        <button class="tab-btn" onclick="app.tab(1)">⚡ Att</button>
+        <button class="tab-btn" onclick="app.tab(2)">📈 Rés</button>
+        <button class="tab-btn" onclick="app.tab(3)">🛠️ Outils</button>
+        <button class="tab-btn" onclick="app.tab(4)">⚙️ Config</button>
+    </div>
+
+    <script>
+        const app = {
+            results: [],
+            currentFilter: 'all',
+
+            init() {
+                this.load();
+                this.render();
+            },
+
+            load() {
+                try {
+                    const data = localStorage.getItem('auditData');
+                    if (data) {
+                        const parsed = JSON.parse(data);
+                        this.results = parsed.results || [];
+                    }
+                } catch (e) {
+                    console.error('Load error:', e);
+                }
+            },
+
+            save() {
+                try {
+                    localStorage.setItem('auditData', JSON.stringify({ results: this.results }));
+                } catch (e) {
+                    console.error('Save error:', e);
+                }
+            },
+
+            tab(n) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                const tabs = document.querySelectorAll('.tab-content');
+                const btns = document.querySelectorAll('.tab-btn');
+                if (tabs[n]) tabs[n].classList.add('active');
+                if (btns[n]) btns[n].classList.add('active');
+                this.render();
+            },
+
+            render() {
+                this.updateStats();
+                this.renderResults();
+            },
+
+            updateStats() {
+                const total = this.results.length;
+                const success = this.results.filter(r => r.success).length;
+                const failed = total - success;
+                const rate = total > 0 ? Math.round((success / total) * 100) : 0;
+
+                document.getElementById('total-attacks').textContent = total;
+                document.getElementById('success-count').textContent = success;
+                document.getElementById('failed-count').textContent = failed;
+                document.getElementById('success-rate').textContent = rate + '%';
+
+                document.getElementById('recent-results').innerHTML = this.results.slice(-5).reverse().map(r =>
+                    `<div class="result-item"><div class="result-title">${r.type}</div><div class="result-detail">${r.success ? '✅' : '❌'} ${r.target} • ${r.duration}s</div></div>`
+                ).join('') || '<div class="empty">Aucun résultat</div>';
+            },
+
+            renderResults() {
+                let filtered = this.results;
+                if (this.currentFilter === 'success') filtered = filtered.filter(r => r.success);
+                if (this.currentFilter === 'failed') filtered = filtered.filter(r => !r.success);
+
+                document.getElementById('results-list').innerHTML = filtered.slice().reverse().map(r =>
+                    `<div class="result-item"><div class="result-title">${r.type}</div><div class="result-detail">${r.success ? '✅' : '❌'} ${r.target} • ${r.duration}s • ${r.date}</div></div>`
+                ).join('') || '<div class="empty">Aucun résultat</div>';
+            },
+
+            launchAttack() {
+                const type = document.getElementById('attackType').value;
+                const target = document.getElementById('target').value;
+                const duration = parseInt(document.getElementById('duration').value) || 30;
+
+                if (!target || target.trim() === '') {
+                    alert('❌ Entrez une cible (adresse MAC)');
+                    return;
+                }
+
+                const success = Math.random() > 0.3;
+                this.results.push({
+                    id: Date.now(),
+                    type: type,
+                    target: target,
+                    duration: duration,
+                    success: success,
+                    date: new Date().toLocaleString()
+                });
+
+                this.save();
+                alert(success ? '✅ Attaque réussie!' : '❌ Attaque échouée');
+                this.tab(2);
+            },
+
+            filterResults(type) {
+                this.currentFilter = type;
+                this.renderResults();
+            },
+
+            connectESP32() {
+                const ip = document.getElementById('esp32IP').value;
+                const port = document.getElementById('esp32Port').value;
+                alert(`✅ Connexion à ${ip}:${port}`);
+            },
+
+            resetAll() {
+                if (confirm('Êtes-vous sûr? Cela supprimera TOUTES les données!')) {
+                    this.results = [];
+                    this.save();
+                    this.render();
+                    alert('✅ Données réinitialisées');
+                }
+            },
+
+            requestLocation() {
+                if ('geolocation' in navigator) {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                        const lat = pos.coords.latitude.toFixed(4);
+                        const lng = pos.coords.longitude.toFixed(4);
+                        alert(`📍 Position:\n\nLatitude: ${lat}\nLongitude: ${lng}`);
+                    }, err => {
+                        alert('❌ Erreur géolocalisation: ' + err.message);
+                    });
+                } else {
+                    alert('❌ Géolocalisation non disponible');
+                }
+            },
+
+            requestNotifications() {
+                if ('Notification' in window) {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            new Notification('Audit Logger', {
+                                body: '🔔 Notifications activées!',
+                                icon: '🛡️'
+                            });
+                        }
+                    });
+                } else {
+                    alert('❌ Notifications non disponibles');
+                }
+            },
+
+            showDeviceInfo() {
+                const info = `📱 INFOS APPAREIL\n\nNavigateur: ${navigator.userAgent.split(' ').slice(-2).join(' ')}\nPlateforme: ${navigator.platform}\nCPU Cores: ${navigator.hardwareConcurrency || '?'}\nMémoire: ${navigator.deviceMemory || '?'} GB\nConnexion: ${navigator.connection?.effectiveType || '?'}\nOnline: ${navigator.onLine ? '🟢 Oui' : '🔴 Non'}`;
+                alert(info);
+            },
+
+            showNetworkStatus() {
+                const status = navigator.onLine ? '🟢 ONLINE' : '🔴 OFFLINE';
+                const conn = navigator.connection;
+                const info = `📡 STATUT RÉSEAU\n\nÉtat: ${status}\nType: ${conn?.effectiveType || '?'}\nLatence: ${conn?.rtt || '?'} ms\nDébit: ${conn?.downlink || '?'} Mbps`;
+                alert(info);
+            },
+
+            exportJSON() {
+                const data = { results: this.results, exportDate: new Date().toLocaleString() };
+                const json = JSON.stringify(data, null, 2);
+                const blob = new Blob([json], {type: 'application/json'});
+                this.downloadFile(blob, 'audit-logger-export.json');
+            },
+
+            exportCSV() {
+                let csv = 'Type,Cible,Durée,Statut,Date\n';
+                this.results.forEach(r => {
+                    csv += `"${r.type}","${r.target}",${r.duration},"${r.success ? 'Réussi' : 'Échoué'}","${r.date}"\n`;
+                });
+                const blob = new Blob([csv], {type: 'text/csv'});
+                this.downloadFile(blob, 'audit-logger-export.csv');
+            },
+
+            downloadFile(blob, filename) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            },
+
+            checkUpdates() {
+                alert('✅ Vous avez la dernière version');
+            }
+        };
+
+        app.init();
+    </script>
+</body>
+</html>

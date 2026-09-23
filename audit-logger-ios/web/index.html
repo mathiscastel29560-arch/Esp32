@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Audit Logger">
+    <meta name="theme-color" content="#0f0f1a">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%230f0f1a' width='180' height='180'/><text x='90' y='100' font-size='80' text-anchor='middle' fill='%23f39c12' font-weight='bold'>AL</text></svg>">
+    <link rel="manifest" href="manifest.json">
+    <title>Audit Logger</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-main: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --bg-dark: #0a0a0f;
+            --primary: #f39c12;
+            --primary-dark: #e67e22;
+            --text-primary: #ecf0f1;
+            --text-secondary: #95a5a6;
+            --success: #2ecc71;
+            --error: #e74c3c;
+            --warning: #f39c12;
+            --info: #3498db;
+            --border: #20242f;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        html, body {
+            height: 100%;
+            height: 100dvh;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 60px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 16px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 4px 0 0 0;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--error);
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .stat-icon {
+            font-size: 24px;
+            min-width: 30px;
+        }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+            z-index: 1000;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 8px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            transition: color 0.3s;
+        }
+
+        .tab-button.active {
+            color: var(--primary);
+        }
+
+        .tab-icon {
+            font-size: 24px;
+        }
+
+        .button {
+            padding: 12px 16px;
+            background: var(--primary);
+            color: var(--bg-main);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .button:active {
+            background: var(--primary-dark);
+        }
+
+        .button.secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: var(--bg-card);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: flex-end;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            width: 100%;
+            max-height: 90vh;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+        }
+
+        .attack-card {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .attack-card h3 {
+            font-size: 16px;
+            margin: 0 0 8px 0;
+        }
+
+        .attack-type {
+            display: inline-block;
+            background: var(--bg-dark);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .result-row {
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .result-icon {
+            font-size: 20px;
+        }
+
+        .result-content {
+            flex: 1;
+        }
+
+        .result-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .result-detail {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .result-duration {
+            text-align: right;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .toggle-label {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .switch {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            background: var(--bg-dark);
+            border-radius: 14px;
+            cursor: pointer;
+            border: 2px solid var(--border);
+            transition: border-color 0.2s;
+        }
+
+        .switch.on {
+            border-color: var(--primary);
+        }
+
+        .switch-knob {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 22px;
+            height: 22px;
+            background: var(--text-secondary);
+            border-radius: 11px;
+            transition: left 0.2s;
+        }
+
+        .switch.on .switch-knob {
+            left: 24px;
+            background: var(--primary);
+        }
+
+        .success-message {
+            background: var(--success);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .error-message {
+            background: var(--error);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: var(--bg-dark);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            width: 0%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--bg-main);
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 480px) {
+            .content {
+                padding-bottom: 70px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1 id="headerTitle">📊 Tableau de Bord</h1>
+                <p id="headerSubtitle">Métriques</p>
+            </div>
+            <div class="status-badge" id="statusBadge">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Déconnecté</span>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Dashboard Tab -->
+            <div id="tab-dashboard" class="tab-content active">
+                <div id="dashboardContent"></div>
+            </div>
+
+            <!-- Audits Tab -->
+            <div id="tab-audits" class="tab-content">
+                <div style="margin-bottom: 16px;">
+                    <button class="button" onclick="app.showNewAuditModal()">➕ Nouvel Audit</button>
+                </div>
+                <div id="auditsList"></div>
+            </div>
+
+            <!-- Attacks Tab -->
+            <div id="tab-attacks" class="tab-content">
+                <div id="attacksList"></div>
+            </div>
+
+            <!-- Results Tab -->
+            <div id="tab-results" class="tab-content">
+                <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+                    <button class="button secondary" onclick="app.sortResults('recent')" id="sortBtn">↕️ Plus récent</button>
+                    <button class="button secondary" onclick="app.filterResults('all')" id="filterBtn">🔽 Tous</button>
+                </div>
+                <div id="resultsList"></div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="tab-settings" class="tab-content">
+                <div style="margin-bottom: 20px;">
+                    <h2 style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">📡 Connexion ESP32</h2>
+                    <div class="input-group">
+                        <label class="input-label">Adresse IP</label>
+                        <input type="text" class="input-field" id="esp32IP" placeholder="192.168.1.100" value="192.168.1.100">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Port</label>
+                        <input type="number" class="input-field" id="esp32Port" placeholder="8080" value="8080">
+                    </div>
+                    <button class="button" id="connectBtn" onclick="app.connectESP32()" style="width: 100%; margin-top: 12px;">🔌 Connecter</button>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h2 style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">⚙️ Application</h2>
+                    <div class="toggle">
+                        <div class="toggle-label">Mode Offline</div>
+                        <div class="switch on" onclick="app.toggleOfflineMode(this)">
+                            <div class="switch-knob"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h2 style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">📊 Statistiques</h2>
+                    <div class="stat-card">
+                        <div class="stat-content">
+                            <div class="stat-label">Audits Totaux</div>
+                            <div class="stat-value" id="totalAudits">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-content">
+                            <div class="stat-label">Résultats</div>
+                            <div class="stat-value" id="totalResults">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-content">
+                            <div class="stat-label">Taux de Réussite</div>
+                            <div class="stat-value" id="successRate">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="button secondary" onclick="app.resetApp()" style="width: 100%;">🗑️ Réinitialiser l'app</button>
+            </div>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <button class="tab-button active" onclick="app.switchTab(0)">
+                <div class="tab-icon">📊</div>
+                <div>Tableau</div>
+            </button>
+            <button class="tab-button" onclick="app.switchTab(1)">
+                <div class="tab-icon">📋</div>
+                <div>Audits</div>
+            </button>
+            <button class="tab-button" onclick="app.switchTab(2)">
+                <div class="tab-icon">⚡</div>
+                <div>Attaques</div>
+            </button>
+            <button class="tab-button" onclick="app.switchTab(3)">
+                <div class="tab-icon">📈</div>
+                <div>Résultats</div>
+            </button>
+            <button class="tab-button" onclick="app.switchTab(4)">
+                <div class="tab-icon">⚙️</div>
+                <div>Paramètres</div>
+            </button>
+        </div>
+
+        <!-- New Audit Modal -->
+        <div id="newAuditModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">➕ Nouvel Audit</div>
+                <div class="input-group">
+                    <label class="input-label">Nom de l'audit</label>
+                    <input type="text" class="input-field" id="auditName" placeholder="Ex: Test WiFi Bureau">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Type</label>
+                    <select class="input-field" id="auditType">
+                        <option value="WiFi">WiFi</option>
+                        <option value="BLE">Bluetooth LE</option>
+                        <option value="Sub-GHz">Sub-GHz</option>
+                        <option value="NFC">NFC</option>
+                        <option value="Combiné">Combiné</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Cible</label>
+                    <input type="text" class="input-field" id="auditTarget" placeholder="Ex: 192.168.1.1">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Localisation</label>
+                    <input type="text" class="input-field" id="auditLocation" placeholder="Ex: Bureau">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Opérateur</label>
+                    <input type="text" class="input-field" id="auditOperator" placeholder="Votre nom">
+                </div>
+                <button class="button" onclick="app.createAudit()" style="width: 100%; margin-top: 16px;">✅ Créer l'Audit</button>
+                <button class="button secondary" onclick="app.closeNewAuditModal()" style="width: 100%; margin-top: 8px;">Annuler</button>
+            </div>
+        </div>
+
+        <!-- Attack Configuration Modal -->
+        <div id="attackConfigModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header" id="attackModalTitle">⚠️ Configuration Attaque</div>
+                <div style="background: var(--bg-dark); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                    <p style="font-size: 12px; line-height: 1.6;">⚠️ <strong>Utilisation Autorisée</strong><br>À n'utiliser que sur vos propres réseaux et avec permission explicite.</p>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Cible (MAC/IP)</label>
+                    <input type="text" class="input-field" id="attackTarget" placeholder="AA:BB:CC:DD:EE:FF">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Durée (secondes)</label>
+                    <input type="range" class="input-field" id="attackDuration" min="1" max="300" value="30" style="height: 6px; padding: 8px 0;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" id="durationDisplay">30s</div>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Intensité (%)</label>
+                    <input type="range" class="input-field" id="attackIntensity" min="1" max="100" value="50" style="height: 6px; padding: 8px 0;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;" id="intensityDisplay">50%</div>
+                </div>
+                <button class="button" onclick="app.launchAttack()" style="width: 100%; margin-top: 16px;">🚀 Lancer l'Attaque</button>
+                <button class="button secondary" onclick="app.closeAttackModal()" style="width: 100%; margin-top: 8px;">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            currentTab: 0,
+            currentAudit: null,
+            audits: [],
+            results: [],
+            statistics: {
+                totalAttacks: 0,
+                successfulAttacks: 0,
+                failedAttacks: 0,
+                totalDuration: 0,
+                attacksByType: {}
+            },
+            esp32Connected: false,
+            webSocket: null,
+            offlineMode: true,
+            sortOrder: 'recent',
+            filterType: 'all',
+            selectedAttackType: null,
+
+            init() {
+                this.loadFromStorage();
+                this.registerServiceWorker();
+                this.renderDashboard();
+                this.setupEventListeners();
+            },
+
+            async registerServiceWorker() {
+                if ('serviceWorker' in navigator) {
+                    try {
+                        await navigator.serviceWorker.register('sw.js');
+                    } catch (err) {
+                        console.log('Service Worker registration failed:', err);
+                    }
+                }
+            },
+
+            setupEventListeners() {
+                document.getElementById('attackDuration').addEventListener('input', (e) => {
+                    document.getElementById('durationDisplay').textContent = e.target.value + 's';
+                });
+                document.getElementById('attackIntensity').addEventListener('input', (e) => {
+                    document.getElementById('intensityDisplay').textContent = e.target.value + '%';
+                });
+            },
+
+            loadFromStorage() {
+                const stored = localStorage.getItem('auditLoggerData');
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    this.audits = data.audits || [];
+                    this.results = data.results || [];
+                    this.statistics = data.statistics || this.statistics;
+                }
+            },
+
+            saveToStorage() {
+                localStorage.setItem('auditLoggerData', JSON.stringify({
+                    audits: this.audits,
+                    results: this.results,
+                    statistics: this.statistics
+                }));
+            },
+
+            switchTab(tabIndex) {
+                this.currentTab = tabIndex;
+                document.querySelectorAll('.tab-content').forEach((el, i) => {
+                    el.classList.toggle('active', i === tabIndex);
+                });
+                document.querySelectorAll('.tab-button').forEach((el, i) => {
+                    el.classList.toggle('active', i === tabIndex);
+                });
+
+                const headers = [
+                    { title: '📊 Tableau de Bord', subtitle: 'Métriques' },
+                    { title: '📋 Audits', subtitle: 'Gérez vos audits' },
+                    { title: '⚡ Attaques', subtitle: 'Lancez les tests' },
+                    { title: '📈 Résultats', subtitle: 'Analysez les résultats' },
+                    { title: '⚙️ Paramètres', subtitle: 'Configurez l\'application' }
+                ];
+
+                document.getElementById('headerTitle').textContent = headers[tabIndex].title;
+                document.getElementById('headerSubtitle').textContent = headers[tabIndex].subtitle;
+
+                if (tabIndex === 0) this.renderDashboard();
+                if (tabIndex === 1) this.renderAudits();
+                if (tabIndex === 2) this.renderAttacks();
+                if (tabIndex === 3) this.renderResults();
+                if (tabIndex === 4) this.renderSettings();
+            },
+
+            renderDashboard() {
+                const content = document.getElementById('dashboardContent');
+                const successRate = this.statistics.totalAttacks > 0
+                    ? ((this.statistics.successfulAttacks / this.statistics.totalAttacks) * 100).toFixed(1)
+                    : 0;
+
+                content.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Attaques Totales</div>
+                            <div class="stat-value">${this.statistics.totalAttacks}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Réussies</div>
+                            <div class="stat-value">${this.statistics.successfulAttacks}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Échouées</div>
+                            <div class="stat-value">${this.statistics.failedAttacks}</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Taux de Réussite</div>
+                            <div class="stat-value">${successRate}%</div>
+                        </div>
+                    </div>
+
+                    ${this.statistics.totalAttacks > 0 ? `
+                        <div class="chart-container">
+                            <div class="chart-title">Attaques Récentes</div>
+                            ${this.results.slice(-5).reverse().map(r => `
+                                <div class="result-row">
+                                    <div class="result-icon">${r.success ? '✅' : '❌'}</div>
+                                    <div class="result-content">
+                                        <div class="result-title">${r.attackType}</div>
+                                        <div class="result-detail">${r.target} • ${r.duration}s</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <div>Aucune attaque lancée</div>
+                            <div style="font-size: 12px;">Commencez par créer un audit et lancer une attaque</div>
+                        </div>
+                    `}
+                `;
+            },
+
+            renderAudits() {
+                const content = document.getElementById('auditsList');
+                if (this.audits.length === 0) {
+                    content.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><div>Aucun audit</div></div>`;
+                    return;
+                }
+
+                content.innerHTML = this.audits.map(audit => `
+                    <div class="attack-card">
+                        <h3>${audit.name}</h3>
+                        <div class="attack-type">${audit.type}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            Statut: ${audit.status}<br>
+                            Cible: ${audit.target}<br>
+                            Résultats: ${audit.results ? audit.results.length : 0}
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            renderAttacks() {
+                const attacks = [
+                    { name: '🚀 Déauthentification', type: 'WiFi', icon: '🔴' },
+                    { name: '📡 Inondation de Balises', type: 'WiFi', icon: '🟡' },
+                    { name: '🔐 Brute Force PIN BLE', type: 'BLE', icon: '🔵' },
+                    { name: '📝 Lecture/Écriture GATT', type: 'BLE', icon: '🟢' },
+                    { name: '📻 Rejeu Sub-GHz', type: 'Sub-GHz', icon: '🟣' },
+                    { name: '🏷️ Clonage NFC', type: 'NFC', icon: '🟠' }
+                ];
+
+                document.getElementById('attacksList').innerHTML = attacks.map((attack, idx) => `
+                    <div class="attack-card">
+                        <h3>${attack.name}</h3>
+                        <div class="attack-type">${attack.type}</div>
+                        <button class="button" onclick="app.openAttackModal('${attack.name}', '${attack.type}')" style="width: 100%; margin-top: 8px;">Configurer & Lancer</button>
+                    </div>
+                `).join('');
+            },
+
+            renderResults() {
+                const content = document.getElementById('resultsList');
+                let filtered = this.results;
+
+                if (this.filterType === 'success') {
+                    filtered = filtered.filter(r => r.success);
+                } else if (this.filterType === 'failed') {
+                    filtered = filtered.filter(r => !r.success);
+                }
+
+                if (this.sortOrder === 'oldest') {
+                    filtered = filtered.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                } else if (this.sortOrder === 'duration') {
+                    filtered = filtered.sort((a, b) => b.duration - a.duration);
+                } else {
+                    filtered = filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                }
+
+                if (filtered.length === 0) {
+                    content.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><div>Aucun résultat</div></div>`;
+                    return;
+                }
+
+                content.innerHTML = filtered.map(result => `
+                    <div class="result-row">
+                        <div class="result-icon">${result.success ? '✅' : '❌'}</div>
+                        <div class="result-content">
+                            <div class="result-title">${result.attackType}</div>
+                            <div class="result-detail">${result.target}</div>
+                        </div>
+                        <div class="result-duration">${result.duration}s</div>
+                    </div>
+                `).join('');
+            },
+
+            renderSettings() {
+                document.getElementById('totalAudits').textContent = this.audits.length;
+                document.getElementById('totalResults').textContent = this.results.length;
+                const successRate = this.statistics.totalAttacks > 0
+                    ? ((this.statistics.successfulAttacks / this.statistics.totalAttacks) * 100).toFixed(1)
+                    : 0;
+                document.getElementById('successRate').textContent = successRate + '%';
+            },
+
+            showNewAuditModal() {
+                document.getElementById('newAuditModal').classList.add('active');
+            },
+
+            closeNewAuditModal() {
+                document.getElementById('newAuditModal').classList.remove('active');
+            },
+
+            createAudit() {
+                const name = document.getElementById('auditName').value;
+                const type = document.getElementById('auditType').value;
+                const target = document.getElementById('auditTarget').value;
+                const location = document.getElementById('auditLocation').value;
+                const operator = document.getElementById('auditOperator').value;
+
+                if (!name || !target) {
+                    alert('Veuillez remplir tous les champs');
+                    return;
+                }
+
+                this.audits.push({
+                    id: Date.now(),
+                    name, type, target, location, operator,
+                    status: 'En Attente',
+                    dateStart: new Date().toISOString(),
+                    results: []
+                });
+
+                this.saveToStorage();
+                this.closeNewAuditModal();
+                document.getElementById('auditName').value = '';
+                document.getElementById('auditTarget').value = '';
+                document.getElementById('auditLocation').value = '';
+                document.getElementById('auditOperator').value = '';
+                this.renderAudits();
+            },
+
+            openAttackModal(attackName, attackType) {
+                this.selectedAttackType = attackName;
+                document.getElementById('attackModalTitle').textContent = attackName;
+                document.getElementById('attackConfigModal').classList.add('active');
+            },
+
+            closeAttackModal() {
+                document.getElementById('attackConfigModal').classList.remove('active');
+            },
+
+            launchAttack() {
+                const target = document.getElementById('attackTarget').value;
+                const duration = parseInt(document.getElementById('attackDuration').value);
+                const intensity = parseInt(document.getElementById('attackIntensity').value);
+
+                if (!target) {
+                    alert('Veuillez entrer une cible');
+                    return;
+                }
+
+                const success = Math.random() > 0.3;
+                const result = {
+                    id: Date.now(),
+                    attackType: this.selectedAttackType,
+                    target,
+                    duration,
+                    timestamp: new Date().toISOString(),
+                    success,
+                    message: success ? 'Attaque réussie' : 'Attaque échouée',
+                    details: { intensité: intensity + '%' }
+                };
+
+                this.results.push(result);
+                this.statistics.totalAttacks++;
+                this.statistics.totalDuration += duration;
+                if (success) {
+                    this.statistics.successfulAttacks++;
+                } else {
+                    this.statistics.failedAttacks++;
+                }
+
+                this.saveToStorage();
+                this.closeAttackModal();
+                alert(`Résultat: ${result.message}`);
+                this.switchTab(3);
+            },
+
+            connectESP32() {
+                const ip = document.getElementById('esp32IP').value;
+                const port = document.getElementById('esp32Port').value;
+
+                if (!ip || !port) {
+                    alert('Veuillez entrer IP et port');
+                    return;
+                }
+
+                this.esp32Connected = true;
+                document.getElementById('statusDot').classList.add('connected');
+                document.getElementById('statusText').textContent = 'Connecté';
+                document.getElementById('connectBtn').textContent = '✅ Connecté';
+                document.getElementById('connectBtn').disabled = true;
+
+                console.log(`Connexion à ${ip}:${port}`);
+            },
+
+            sortResults(order) {
+                this.sortOrder = order;
+                this.renderResults();
+            },
+
+            filterResults(type) {
+                this.filterType = type;
+                this.renderResults();
+            },
+
+            toggleOfflineMode(el) {
+                el.classList.toggle('on');
+                this.offlineMode = el.classList.contains('on');
+            },
+
+            resetApp() {
+                if (confirm('Êtes-vous sûr? Cela supprimera toutes les données.')) {
+                    this.audits = [];
+                    this.results = [];
+                    this.statistics = {
+                        totalAttacks: 0,
+                        successfulAttacks: 0,
+                        failedAttacks: 0,
+                        totalDuration: 0,
+                        attacksByType: {}
+                    };
+                    this.saveToStorage();
+                    this.renderDashboard();
+                    this.renderSettings();
+                }
+            }
+        };
+
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>

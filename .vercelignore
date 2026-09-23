@@ -1,0 +1,12 @@
+# Don't deploy unnecessary files
+.git
+.gitignore
+README.md
+audit-logger-ios/
+docs/
+web/
+_config.yml
+.htaccess
+*.md
+.DS_Store
+node_modules/
