@@ -103,9 +103,10 @@ JamResult startJamming(const JammerConfig &config) {
     }
 
     if (result.success) {
-        Serial.println("[JammerSuite] Jamming started (type " + String(config.type) + ")");
+        Serial.printf("[JammerSuite] Jamming started (type %d)\n", config.type);
     } else if (result.error.length() > 0) {
-        Serial.println("[JammerSuite] Error: " + result.error);
+        Serial.print("[JammerSuite] Error: ");
+        Serial.println(result.error);
         g_jamming = false;
     }
 
@@ -119,7 +120,7 @@ void stop() {
     SubghzJammerSuite::stop();
     JammingSignalGenerator::stop();
     g_jamming = false;
-    Serial.println("[JammerSuite] All jamming stopped");
+    Serial.println("[JammerSuite] Stopped");
 }
 
 bool isActive() {

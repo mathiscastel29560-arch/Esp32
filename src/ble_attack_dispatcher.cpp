@@ -87,9 +87,10 @@ AttackResult executeAttack(const AttackConfig &config) {
     }
 
     if (result.success) {
-        Serial.println("[BLEAttackDispatcher] Attack started (type " + String(config.type) + ")");
+        Serial.printf("[BLEAttackDispatcher] Attack started (type %d)\n", config.type);
     } else if (result.error.length() > 0) {
-        Serial.println("[BLEAttackDispatcher] Error: " + result.error);
+        Serial.print("[BLEAttackDispatcher] Error: ");
+        Serial.println(result.error);
         g_attacking = false;
     }
 
@@ -97,11 +98,10 @@ AttackResult executeAttack(const AttackConfig &config) {
 }
 
 void stop() {
-    // Only audio hijacker has explicit stop
     BleAudioHijacking::AudioHijacker hijacker;
     hijacker.stop();
     g_attacking = false;
-    Serial.println("[BLEAttackDispatcher] All attacks stopped");
+    Serial.println("[BLEAttackDispatcher] Stopped");
 }
 
 bool isActive() {
