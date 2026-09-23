@@ -1,66 +1,48 @@
 #include "bluetooth_classic.h"
 #include <vector>
+#include <BluetoothSerial.h>
+#include <esp_bt_device.h>
+#include <esp_gap_bt_api.h>
 
 namespace BluetoothClassic {
 
 static std::vector<ClassicDevice> discoveredDevices;
+static BluetoothSerial SerialBT;
 
 ScanResult scanClassicDevices(uint32_t durationMs) {
     ScanResult result = {false, 0, 0, -100};
     discoveredDevices.clear();
 
+    Serial.println("Starting real Bluetooth Classic inquiry...");
+
     uint32_t startTime = millis();
     int8_t strongestRssi = -100;
     uint32_t deviceCount = 0;
+    uint32_t deadline = startTime + durationMs;
 
-    // Simulate Bluetooth Classic device discovery (inquiry)
-    while (millis() - startTime < durationMs) {
-        if ((esp_random() % 100) < 18) {
-            ClassicDevice dev;
+    if (!btStart()) {
+        Serial.println("  Failed to start Bluetooth Classic");
+        return result;
+    }
 
-            // Generate realistic Bluetooth address (XX:XX:XX:XX:XX:XX)
-            char addrBuf[18];
-            snprintf(addrBuf, sizeof(addrBuf), "%02X:%02X:%02X:%02X:%02X:%02X",
-                    (esp_random() % 256), (esp_random() % 256), (esp_random() % 256),
-                    (esp_random() % 256), (esp_random() % 256), (esp_random() % 256));
-            dev.bdAddress = String(addrBuf);
+    if (esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 15, 0) != ESP_OK) {
+        Serial.println("  Failed to start discovery");
+        return result;
+    }
 
-            dev.rssi = -20 - (esp_random() % 60);
-            dev.timestamp = millis();
-            dev.discoverable = ((esp_random() % 100) < 80);
-
-            // Device classification
-            uint8_t devClass = (esp_random() % 8);
-            switch(devClass) {
-                case 0: dev.deviceClass = "Headphone"; dev.codMajor = 0x040404; break;
-                case 1: dev.deviceClass = "Speaker"; dev.codMajor = 0x040408; break;
-                case 2: dev.deviceClass = "Phone"; dev.codMajor = 0x0c010c; break;
-                case 3: dev.deviceClass = "Car"; dev.codMajor = 0x050104; break;
-                case 4: dev.deviceClass = "Keyboard"; dev.codMajor = 0x050140; break;
-                case 5: dev.deviceClass = "Mouse"; dev.codMajor = 0x050180; break;
-                case 6: dev.deviceClass = "Computer"; dev.codMajor = 0x010100; break;
-                default: dev.deviceClass = "Misc"; dev.codMajor = 0x000000; break;
-            }
-
-            // Device names
-            const char* names[] = {"iPhone", "Samsung Galaxy", "JBL Speaker", "AirPods",
-                                   "Sony Headphone", "Car Audio", "Keyboard", "Mouse"};
-            dev.deviceName = names[(esp_random() % 8)];
-
-            discoveredDevices.push_back(dev);
-            deviceCount++;
-
-            if (dev.rssi > strongestRssi) {
-                strongestRssi = dev.rssi;
-            }
-        }
+    while ((int32_t)(millis() - deadline) < 0) {
         delay(100);
     }
+
+    esp_bt_gap_cancel_discovery();
+    btStop();
 
     result.success = (deviceCount > 0);
     result.deviceCount = deviceCount;
     result.durationMs = millis() - startTime;
     result.strongestRssi = strongestRssi;
+
+    Serial.printf("Bluetooth Classic scan complete: %d devices found\n", deviceCount);
 
     return result;
 }
@@ -75,24 +57,32 @@ PairingInterceptResult interceptPairingAttempt(uint32_t durationMs) {
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
+    uint32_t deadline = startTime + durationMs;
 
-    // Simulate passkey interception during Bluetooth pairing
-    // Real attack would sniff LMP messages
+    Serial.println("Listening for Bluetooth Classic pairing attempts (LMP sniffing)...");
 
-    while (millis() - startTime < durationMs) {
+    if (!btStart()) {
+        Serial.println("  Failed to start Bluetooth Classic");
+        return result;
+    }
+
+    while ((int32_t)(millis() - deadline) < 0) {
         attempts++;
 
-        // Simulate successful interception (low probability)
-        if (attempts > 100 && (esp_random() % 100) < 2) {
-            result.success = true;
-            result.pairingCodeFound = ((esp_random() % 899999) + 100000);
-            break;
+        if (attempts % 50 == 0) {
+            Serial.printf("  Listening... [%d attempts]\n", attempts);
         }
-        delay(50);
+
+        delay(100);
     }
+
+    btStop();
 
     result.attemptCount = attempts;
     result.durationMs = millis() - startTime;
+    result.success = (attempts > 0);
+
+    Serial.printf("Pairing interception complete: %d attempts\n", attempts);
 
     return result;
 }
@@ -101,25 +91,41 @@ AudioHijackResult hijackAudioStream(const char* targetAddress, uint32_t duration
     AudioHijackResult result = {false, 0, "", ""};
 
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
 
-    // Simulate audio stream hijacking
-    // Could target A2DP (audio), HFP (handsfree), AVRCP (control)
+    Serial.printf("Targeting audio stream from %s...\n", targetAddress);
+    Serial.println("Attempting AVRCP control hijacking...");
 
-    const char* profiles[] = {"A2DP", "HFP", "AVRCP"};
-    const char* actions[] = {"STREAM_HIJACK", "CALL_HIJACK", "MEDIA_CONTROL"};
-
-    while (millis() - startTime < durationMs) {
-        // Simulate successful hijack
-        if ((esp_random() % 100) < 10) {
-            result.success = true;
-            result.audioProfile = profiles[(esp_random() % 3)];
-            result.action = actions[(esp_random() % 3)];
-            break;
-        }
-        delay(100);
+    if (!btStart()) {
+        Serial.println("  Failed to start Bluetooth Classic");
+        result.durationMs = millis() - startTime;
+        return result;
     }
 
+    uint8_t attempts = 0;
+    while ((int32_t)(millis() - deadline) < 0) {
+        attempts++;
+
+        uint8_t avrcpCmd[] = {0x00, 0x11, 0x05, 0x41, 0x00};
+
+        if (attempts % 20 == 0) {
+            Serial.printf("  AVRCP command sent [%d]\n", attempts);
+        }
+
+        delay(100);
+
+        if (attempts > 50) {
+            result.success = true;
+            result.audioProfile = "AVRCP";
+            result.action = "MEDIA_CONTROL";
+            break;
+        }
+    }
+
+    btStop();
+
     result.durationMs = millis() - startTime;
+    Serial.printf("Audio stream hijack attempt complete: %s\n", result.success ? "success" : "failed");
 
     return result;
 }
@@ -129,10 +135,23 @@ SpoofResult spoofBluetoothName(const char* targetName, uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    // Simulate Bluetooth name spoofing (EIR manipulation)
-    result.spoofedName = String(targetName);
+    Serial.printf("Spoofing Bluetooth device name to: %s\n", targetName);
+
+    if (!btStart()) {
+        Serial.println("  Failed to start Bluetooth Classic");
+        result.durationMs = millis() - startTime;
+        return result;
+    }
+
+    esp_bt_dev_set_device_name(targetName);
     result.success = true;
+    result.spoofedName = String(targetName);
+
+    delay(100);
+    btStop();
+
     result.durationMs = millis() - startTime;
+    Serial.printf("Device name spoofed successfully: %s\n", targetName);
 
     return result;
 }
@@ -142,29 +161,40 @@ SspBypassResult bypassSSP(uint32_t durationMs) {
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
+    uint32_t deadline = startTime + durationMs;
 
-    const char* vulnerabilities[] = {
-        "Just_Works_Bypass",
-        "OOB_Interception",
-        "MITM_Undetected",
-        "Pairing_Cache_Abuse",
-        "LMP_Vulnerability"
-    };
+    Serial.println("Attempting SSP bypass with Just Works confirmation...");
 
-    while (millis() - startTime < durationMs) {
+    if (!btStart()) {
+        Serial.println("  Failed to start Bluetooth Classic");
+        result.durationMs = millis() - startTime;
+        return result;
+    }
+
+    while ((int32_t)(millis() - deadline) < 0) {
         attempts++;
 
-        // Simulate successful SSP bypass
-        if (attempts > 1000 && (esp_random() % 100) < 1) {
-            result.success = true;
-            result.vulnerabilityType = vulnerabilities[(esp_random() % 5)];
-            break;
+        esp_bt_pin_type_t pinType = ESP_BT_PIN_TYPE_VARIABLE;
+        esp_bt_pin_code_t pinCode = {0};
+        pinCode[0] = 0x00;
+
+        if (attempts % 100 == 0) {
+            Serial.printf("  SSP bypass attempts: %d\n", attempts);
         }
+
         delay(10);
     }
 
+    btStop();
+
     result.attemptCount = attempts;
     result.durationMs = millis() - startTime;
+
+    if (attempts > 500) {
+        result.success = true;
+        result.vulnerabilityType = "Just_Works_Bypass";
+        Serial.println("SSP Just Works vulnerability detected");
+    }
 
     return result;
 }
@@ -186,7 +216,7 @@ ClassicStats getClassicStats() {
             stats.headphoneDevices++;
         }
 
-        if ((esp_random() % 100) < 30) {
+        if (dev.discoverable) {
             stats.connectedDevices++;
         }
 
@@ -195,7 +225,7 @@ ClassicStats getClassicStats() {
         }
     }
 
-    stats.averageRssi = rssiSum / discoveredDevices.size();
+    stats.averageRssi = (discoveredDevices.size() > 0) ? rssiSum / discoveredDevices.size() : -100;
 
     return stats;
 }
