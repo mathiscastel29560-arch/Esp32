@@ -6,6 +6,7 @@
 
 // Circular buffer in PSRAM for unlimited logging
 // Automatically overwrites oldest entries when full
+// Optionally compresses entries to save space (40-60% reduction)
 
 class PSRAMLogBuffer {
 public:
@@ -34,7 +35,11 @@ public:
     
     // Clear all
     void clear();
-    
+
+    // Enable/disable compression (reduces size by ~40-60%)
+    void setCompressionEnabled(bool enabled) { compression_enabled_ = enabled; }
+    bool isCompressionEnabled() const { return compression_enabled_; }
+
     // Get stats
     struct Stats {
         uint32_t total_size;
@@ -55,6 +60,7 @@ private:
     uint32_t write_pos_;
     uint32_t entry_count_;
     uint32_t overflow_count_;
+    bool compression_enabled_;
     
     struct EntryHeader {
         uint32_t timestamp;
