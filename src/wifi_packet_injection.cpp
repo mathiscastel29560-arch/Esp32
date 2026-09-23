@@ -1,10 +1,26 @@
 #include "wifi_packet_injection.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 #include <esp_wifi.h>
+#include <WiFi.h>
 
 namespace WifiPacketInjection {
 
 PacketInjector::PacketInjector() : isRunning_(false), seqNum_(0), startTime_(0) {}
+
+void PacketInjector::setupWifiInjectionMode(uint8_t channel) {
+  // Initialize WiFi in STA mode for packet injection
+  WiFi.mode(WIFI_STA);
+
+  // Disconnect from any AP
+  WiFi.disconnect(false); // false = keep RF on
+
+  // Set to specific channel
+  esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+
+  // Enable promiscuous mode for monitoring
+  esp_wifi_set_promiscuous(true);
+}
 
 InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
   InjectionResult result;
@@ -16,14 +32,23 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
     return result;
   }
 
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
+
   isRunning_ = true;
   startTime_ = millis();
-  uint32_t delayMs = 1000 / config.packetsPerSec;
+  uint32_t deadline = startTime_ + config.durationMs;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     std::vector<uint8_t> beacon = buildFrame(BEACON, bssidBytes);
@@ -49,7 +74,7 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
   return result;
 }
 
-InjectionResult PacketInjection::injectProbe(const InjectionConfig& config) {
+InjectionResult PacketInjector::injectProbe(const InjectionConfig& config) {
   InjectionResult result;
   result.success = false;
   result.packetsSent = 0;
@@ -59,19 +84,31 @@ InjectionResult PacketInjection::injectProbe(const InjectionConfig& config) {
     return result;
   }
 
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
+
   isRunning_ = true;
   startTime_ = millis();
-  uint32_t delayMs = 1000 / config.packetsPerSec;
+  uint32_t deadline = startTime_ + config.durationMs;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint32_t pps = (config.packetsPerSec == 0) ? 1 : config.packetsPerSec;
+  uint32_t delayMs = 1000 / pps;
+
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     // Alternate between Probe Request and Response
     FrameType type = (result.packetsSent % 2 == 0) ? PROBE_REQUEST : PROBE_RESPONSE;
-    std::vector<uint8_t> probe = buildFrame(type, bssidBytes);
+    probe = buildFrame(type, bssidBytes);
 
     sendRawFrame(probe.data(), probe.size());
     result.packetsSent++;
@@ -98,21 +135,33 @@ InjectionResult PacketInjector::injectAuth(const InjectionConfig& config) {
     return result;
   }
 
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
+
   isRunning_ = true;
   startTime_ = millis();
-  uint32_t delayMs = 1000 / config.packetsPerSec;
+  uint32_t deadline = startTime_ + config.durationMs;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint32_t pps = (config.packetsPerSec == 0) ? 1 : config.packetsPerSec;
+  uint32_t delayMs = 1000 / pps;
+
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     std::vector<uint8_t> auth = buildFrame(AUTH_REQUEST, bssidBytes);
 
     // Add random auth algorithm and status code
-    auth.push_back(random(0, 2)); // auth type (open/shared)
-    auth.push_back(random(0, 256)); // status code
+    auth.push_back((esp_random() % 2)); // auth type (open/shared)
+    auth.push_back((esp_random() % 256)); // status code
 
     sendRawFrame(auth.data(), auth.size());
     result.packetsSent++;
@@ -139,13 +188,23 @@ InjectionResult PacketInjector::injectAssoc(const InjectionConfig& config) {
     return result;
   }
 
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
+
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.durationMs;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
+
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     std::vector<uint8_t> assoc = buildFrame(ASSOC_REQUEST, bssidBytes);
@@ -176,19 +235,32 @@ InjectionResult PacketInjector::fuzzFrames(const InjectionConfig& config) {
     return result;
   }
 
+  // Setup WiFi for injection
+  setupWifiInjectionMode(config.targetChannel);
+
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.durationMs;
 
-  uint8_t bssidBytes[6];
-  sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+  uint8_t bssidBytes[6] = {0};
+  int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
          &bssidBytes[3], &bssidBytes[4], &bssidBytes[5]);
 
-  const FrameType frameTypes[] = {BEACON, PROBE_REQUEST, AUTH_REQUEST, DATA_FRAME, NULL_FRAME};
+  if (parsed != 6) {
+    result.error = "Invalid BSSID format (expected xx:xx:xx:xx:xx:xx)";
+    result.success = false;
+    return result;
+  }
 
-  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
-    FrameType type = frameTypes[random(0, 5)];
-    std::vector<uint8_t> frame = buildFrame(type, bssidBytes);
+  const FrameType frameTypes[] = {BEACON, PROBE_REQUEST, AUTH_REQUEST, DATA_FRAME, NULL_FRAME};
+  std::vector<uint8_t> frame;
+  frame.reserve(256);
+
+  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
+    frame.clear();
+    FrameType type = frameTypes[(esp_random() % 5)];
+    frame = buildFrame(type, bssidBytes);
 
     // Fuzz payload
     auto fuzzVec = generateFuzzVector();
@@ -257,7 +329,7 @@ std::vector<uint8_t> PacketInjector::buildFrame(FrameType type, const uint8_t* b
 
   // Transmitter address
   for (int i = 0; i < 6; i++) {
-    frame.push_back(random(0, 256));
+    frame.push_back((esp_random() % 256));
   }
 
   // BSSID
@@ -275,10 +347,10 @@ std::vector<uint8_t> PacketInjector::buildFrame(FrameType type, const uint8_t* b
 
 std::vector<uint8_t> PacketInjector::generateFuzzVector() {
   std::vector<uint8_t> fuzz;
-  uint32_t fuzzLen = random(10, 100);
+  uint32_t fuzzLen = ((esp_random() % 90) + 10);
 
   for (uint32_t i = 0; i < fuzzLen; i++) {
-    fuzz.push_back(random(0, 256));
+    fuzz.push_back((esp_random() % 256));
   }
 
   return fuzz;

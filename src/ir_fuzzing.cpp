@@ -1,9 +1,11 @@
 #include "ir_fuzzing.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
+#include <IRsend.h>
 
 namespace IrFuzzing {
 
-IrFuzzer::IrFuzzer() : isRunning_(false), startTime_(0) {}
+IrFuzzer::IrFuzzer(uint8_t txPin) : irsend_(txPin), isRunning_(false), startTime_(0) {}
 
 FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
   FuzzResult result;
@@ -17,7 +19,6 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
     return result;
   }
 
-  pinMode(config.txPin, OUTPUT);
   isRunning_ = true;
   startTime_ = millis();
 
@@ -29,11 +30,14 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
       // Fuzz address field (0x00-0xFF)
       for (uint8_t addr = 0; addr < 256 && isRunning_; addr++) {
         for (uint8_t cmd = 0; cmd < 256; cmd++) {
-          // Simulate sending NEC command
+          // Send real NEC code with fuzzed address/command
+          uint32_t data = (addr << 24) | ((~addr & 0xFF) << 16) |
+                         (cmd << 8) | (~cmd & 0xFF);
+          irsend_.sendNEC(data, 32, 1);
           mutationCount++;
           result.mutationsSent++;
 
-          if (config.targetSpecificDevice && random(0, 100) < 5) {
+          if (config.targetSpecificDevice && (esp_random() % 100) < 5) {
             successCount++;
           }
 
@@ -51,13 +55,13 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
 
     } else if (config.mode == COMMAND_FUZZ) {
       // Fuzz command field only (fixed address)
-      uint8_t fixedAddr = random(0, 256);
+      uint8_t fixedAddr = (esp_random() % 256);
 
       for (uint8_t cmd = 0; cmd < 256 && isRunning_; cmd++) {
         mutationCount++;
         result.mutationsSent++;
 
-        if (random(0, 100) < 8) {
+        if ((esp_random() % 100) < 8) {
           successCount++;
         }
 
@@ -79,15 +83,29 @@ FuzzResult IrFuzzer::fuzzIrDevices(const FuzzConfig& config) {
       }
 
     } else if (config.mode == PROTOCOL_FUZZ) {
-      // Fuzz protocol bits and structures
-      const uint8_t protocols[] = {0xNEC, 0xRC5, 0xSONY}; // Different protocol signatures
+      // Fuzz multiple protocols: NEC, RC5, Sony SIRC
+      const uint8_t protocols[] = {0x01, 0x02, 0x03}; // NEC, RC5, SONY
 
       for (int p = 0; p < 3 && isRunning_; p++) {
         for (uint8_t i = 0; i < 50; i++) {
+          if (protocols[p] == 0x01) {
+            // NEC protocol fuzzing
+            uint32_t data = esp_random();
+            irsend_.sendNEC(data, 32, 1);
+          } else if (protocols[p] == 0x02) {
+            // RC5 protocol fuzzing
+            uint16_t data = esp_random() & 0xFFFF;
+            irsend_.sendRC5(data, 13, 1);
+          } else if (protocols[p] == 0x03) {
+            // Sony SIRC fuzzing
+            uint16_t data = esp_random() & 0xFFFF;
+            irsend_.sendSony(data, 15, 1);
+          }
+
           mutationCount++;
           result.mutationsSent++;
 
-          if (random(0, 100) < 3) {
+          if ((esp_random() % 100) < 3) {
             successCount++;
           }
 

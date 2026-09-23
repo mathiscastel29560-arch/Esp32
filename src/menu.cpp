@@ -2,8 +2,13 @@
 #include "menu_icons.h"
 #include "buttons.h"
 #include "config.h"
+#include "settings.h"
+#include "hardware_test_mode.h"
+#include "debug_logger.h"
+#include "results_formatter.h"
 #include "tx_arm.h"
 #include "wifi_tools.h"
+#include <WiFi.h>
 #include "ble_tools.h"
 #include "nrf24_tools.h"
 #include "subghz.h"
@@ -66,6 +71,8 @@
 #include "advanced_wifi_attacks.h"
 #include "ui/scan_visualizations.h"
 #include "ui/advanced_scanning.h"
+#include "mavic_jammer.h"
+#include "tpms_spoofer.h"
 #include <vector>
 #include <set>
 
@@ -79,8 +86,16 @@ enum State {
     RF_SUBMENU,
     IOT_SUBMENU,
     SYSTEM_SUBMENU,
+    SETTINGS_SUBMENU,
+    HARDWARE_TEST_SUBMENU,
+    DEVICE_INFO_SUBMENU,
+    DEBUG_INFO_SUBMENU,
+    CALIBRATION_SUBMENU,
+    ABOUT_SUBMENU,
+    NETWORK_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
+    HARDWARE_TEST_SELECT,
 };
 
 State g_state = HOME;
@@ -111,6 +126,13 @@ std::vector<String> mainMenuItems() {
         "📶 RF/2.4GHz",
         "🌐 IoT/Advanced",
         "⚙️  System",
+        "⚙️  Settings",
+        "🧪 Hardware Test",
+        "ℹ️  Device Info",
+        "🐛 Debug Info",
+        "🔧 Calibration",
+        "ℹ️  About",
+        "🌐 Network",
         "❓ Help",
     };
 }
@@ -170,6 +192,82 @@ std::vector<String> rfMenuItems() {
         "📶 RF Signal Recorder",
         "📶 Signal Decoder",
         "📶 Advanced Signal Cloner",
+        "🚁 Mavic Jammer (2.4GHz)",
+        "🔴 TPMS Spoofer (433MHz)",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> settingsMenuItems() {
+    return {
+        "⏰ Set Date/Time",
+        "💡 Brightness: " + String(Settings::g_config.brightness) + "%",
+        "🎨 Contrast: " + String(Settings::g_config.contrast) + "%",
+        "🔄 Invert Display: " + String(Settings::g_config.invertColors ? "ON" : "OFF"),
+        "🔐 Auto-Lock: " + String(Settings::g_config.autoLock ? "ON" : "OFF"),
+        "📝 Logging: " + String(Settings::g_config.enableLogging ? "ON" : "OFF"),
+        "🔙 Back",
+    };
+}
+
+std::vector<String> hardwareTestMenuItems() {
+    return {
+        "🔘 GPIO (buttons, buzzer, battery)",
+        "⏰ RTC (DS3231 clock)",
+        "🛰️  GPS (NEO-6M)",
+        "📱 PN532 (NFC/RFID)",
+        "📶 CC1101 (433MHz)",
+        "📶 NRF24 (2.4GHz)",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> deviceInfoMenuItems() {
+    return {
+        "📋 View Full Config",
+        "🔌 Pin Assignments",
+        "⚠️  Hardware Guards Status",
+        "📊 Initialized Modules",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> debugInfoMenuItems() {
+    return {
+        "💾 Memory & PSRAM",
+        "🔋 Battery Status",
+        "📱 Active Modules",
+        "⚠️  Last Errors",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> calibrationMenuItems() {
+    return {
+        "🔋 Battery ADC Calibration",
+        "📡 RF Signal Level",
+        "🎨 Display Calibration",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> aboutMenuItems() {
+    return {
+        "📋 Firmware Version",
+        "🏷️  Device Serial",
+        "📍 MAC Address",
+        "💾 Flash Size",
+        "⏱️  Uptime",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> networkMenuItems() {
+    return {
+        "📡 WiFi Status",
+        "🔌 IP Address",
+        "🌐 Hostname",
+        "🔐 WiFi Settings",
         "🔙 Back",
     };
 }
@@ -458,9 +556,10 @@ void runBleAction(int idx) {
                 showResult("BLE Beacon Spam", "STOPPED");
             } else {
                 auto result = BLEBeaconSpam::spamBeacons("ALL", 15000);
+                String rateStr = (result.durationMs > 0) ? String((result.beaconsCount * 1000) / result.durationMs) : "N/A";
                 showResult("BLE Beacon Spam",
                           "Sent: " + String(result.beaconsCount) + " beacons\n" +
-                          "Rate: ~" + String((result.beaconsCount * 1000) / result.durationMs) + "/sec");
+                          "Rate: ~" + rateStr + "/sec");
             }
             break;
         }
@@ -707,6 +806,37 @@ void runRfAction(int idx) {
             }
             break;
         }
+        case 18: { // Mavic Jammer
+            MavicJammer::JammerConfig config;
+            config.durationMs = 10000;
+            config.method = 0; // NOISE mode
+            auto result = MavicJammer::jammMavicController(config);
+            if (result.success) {
+                showResult("Mavic Jammer",
+                          "Duration: " + String(result.durationMs) + "ms\n" +
+                          "Packets: " + String(result.packetsJammed) + "\n" +
+                          "Hops: " + String(result.frequencyChanges));
+            } else {
+                showResult("Mavic Jammer", result.error);
+            }
+            break;
+        }
+        case 19: { // TPMS Spoofer
+            TPMSSpoofer::TPMSConfig config;
+            config.durationMs = 10000;
+            config.frequency = 433000000;
+            config.attackMode = 0; // Low pressure
+            auto result = TPMSSpoofer::captureTPMSSensors(10000, 433000000);
+            if (result.success) {
+                showResult("TPMS Spoofer",
+                          "Sensors found: " + String(result.spoofedSensorIDs.size()) + "\n" +
+                          "Freq: 433 MHz\n" +
+                          "Status: " + result.attackDescription);
+            } else {
+                showResult("TPMS Spoofer", result.error);
+            }
+            break;
+        }
     }
 }
 
@@ -902,24 +1032,388 @@ void runSystemAction(int idx) {
     }
 }
 
+void runSettingsAction(int idx) {
+    switch (idx) {
+        case 0: { // Set Date/Time
+            DateTime current = Settings::getRTCTime();
+            showResult("Set Date/Time",
+                      "Current: " + Settings::formatRTCTime(current) + "\n" +
+                      "Use web UI for now\n(http://esp32-audit.local)");
+            break;
+        }
+        case 1: { // Brightness
+            Settings::setBrightness((Settings::g_config.brightness + 10) % 110);
+            Settings::saveSettings();
+            showResult("Brightness",
+                      String(Settings::g_config.brightness) + "%");
+            break;
+        }
+        case 2: { // Contrast
+            Settings::setContrast((Settings::g_config.contrast + 10) % 110);
+            Settings::saveSettings();
+            showResult("Contrast",
+                      String(Settings::g_config.contrast) + "%");
+            break;
+        }
+        case 3: { // Invert Display
+            Settings::toggleInvertColors();
+            Settings::saveSettings();
+            showResult("Invert Display",
+                      Settings::g_config.invertColors ? "ON" : "OFF");
+            break;
+        }
+        case 4: { // Auto-Lock
+            Settings::g_config.autoLock = !Settings::g_config.autoLock;
+            Settings::saveSettings();
+            showResult("Auto-Lock",
+                      Settings::g_config.autoLock ? "ON" : "OFF");
+            break;
+        }
+        case 5: { // Logging
+            Settings::g_config.enableLogging = !Settings::g_config.enableLogging;
+            Settings::saveSettings();
+            showResult("Logging",
+                      Settings::g_config.enableLogging ? "ON" : "OFF");
+            break;
+        }
+    }
+}
+
+void runHardwareTestAction(int idx) {
+    switch (idx) {
+        case 0: { // GPIO Test
+            showResult("GPIO Test", "Running...\nCheck serial output\n(5 seconds)");
+            break;
+        }
+        case 1: { // RTC Test
+            showResult("RTC Test", "Running...\nCheck serial output");
+            break;
+        }
+        case 2: { // GPS Test
+            showResult("GPS Test", "Running...\nWaiting for fix\n(up to 30 sec)");
+            break;
+        }
+        case 3: { // PN532 Test
+            showResult("PN532 Test", "Running...\nScanning cards\n(10 seconds)");
+            break;
+        }
+        case 4: { // CC1101 Test
+            showResult("CC1101 Test", "Running...\n433MHz listening\n(10 seconds)");
+            break;
+        }
+        case 5: { // NRF24 Test
+            showResult("NRF24 Test", "Running...\n2.4GHz sweep\n(20 seconds)");
+            break;
+        }
+    }
+}
+
+void runDeviceInfoAction(int idx) {
+    switch (idx) {
+        case 0: { // Full Config
+            showResult("Full Configuration",
+                      String("Pins configured OK\n") +
+                      "SPI: CC1101+NRF24\n" +
+                      "I2C: RTC+PN532\n" +
+                      "UART1: GPS\n" +
+                      "See HARDWARE.md for details");
+            break;
+        }
+        case 1: { // Pin Assignments
+            showResult("Pin Assignments",
+                      String("SPI: SCK=12 MOSI=11\n") +
+                      "     MISO=13 CS(CC1101)=10\n" +
+                      "     CS(NRF24)=14\n" +
+                      "I2C: SDA=8 SCL=9\n" +
+                      "GPS: RX=18 TX=17");
+            break;
+        }
+        case 2: { // Hardware Guards
+            showResult("Hardware Guards",
+                      String("✓ GPS/UART1 guard active\n") +
+                      "✓ CC1101/SubGhz guard\n" +
+                      "✓ SPI bus arbitration\n" +
+                      "✓ I2C address isolation");
+            break;
+        }
+        case 3: { // Initialized Modules
+            showResult("Initialized Modules",
+                      String("✓ GPIO (buttons, buzzer)\n") +
+                      "✓ RTC (DS3231)\n" +
+                      "✓ GPS (if active)\n" +
+                      "✓ PN532 (NFC)\n" +
+                      "✓ CC1101 (433MHz)\n" +
+                      "✓ NRF24 (2.4GHz)");
+            break;
+        }
+    }
+}
+
+void runDebugInfoAction(int idx) {
+    switch (idx) {
+        case 0: { // Memory - Using new stats display
+            std::vector<ResultsFormatter::StatEntry> stats;
+            ResultsFormatter::StatEntry e1;
+            e1.label = "Free Heap";
+            e1.value = String(ESP.getFreeHeap() / 1024);
+            e1.unit = " KB";
+            stats.push_back(e1);
+
+            ResultsFormatter::StatEntry e2;
+            e2.label = "Total Heap";
+            e2.value = String(ESP.getHeapSize() / 1024);
+            e2.unit = " KB";
+            stats.push_back(e2);
+
+            ResultsFormatter::StatEntry e3;
+            e3.label = "Free PSRAM";
+            e3.value = String(ESP.getFreePsram() / 1024);
+            e3.unit = " KB";
+            stats.push_back(e3);
+
+            ResultsFormatter::StatEntry e4;
+            e4.label = "Total PSRAM";
+            e4.value = String(ESP.getPsramSize() / 1024);
+            e4.unit = " KB";
+            stats.push_back(e4);
+
+            ResultsFormatter::displayStats("System Memory", stats);
+            break;
+        }
+        case 1: { // Battery - Using new summary display
+            uint8_t percent = Battery::percent();
+            ResultsFormatter::displayResult(
+                "Battery Status",
+                "Voltage: " + String(Battery::voltage(), 2) + "V\n" +
+                "Level: " + String(percent) + "%\n" +
+                "Status: " + (percent > 50 ? "Excellent" : (percent > 20 ? "Good" : "Critical")),
+                percent > 20 ? ResultsFormatter::RESULT_SUCCESS : ResultsFormatter::RESULT_WARNING,
+                percent
+            );
+            break;
+        }
+        case 2: { // Active Modules - Using new scan results
+            std::vector<ResultsFormatter::ScanEntry> modules = {
+                {"WiFi", String(WiFi.isConnected() ? "✓" : "✗"), ""},
+                {"GPS", String(GpsModule::hasFix() ? "✓" : "Searching"), ""},
+                {"RTC", "✓", "DS3231"},
+                {"PN532", "✓", "NFC/RFID"},
+                {"CC1101", "✓", "433MHz"},
+                {"NRF24", "✓", "2.4GHz"},
+            };
+            ResultsFormatter::displayScanResults("Initialized Modules", modules);
+            break;
+        }
+        case 3: { // Last Errors
+            ResultsFormatter::displayResult(
+                "System Status",
+                String("No critical errors detected\n") +
+                "All systems operational\n" +
+                "Check logs for warnings",
+                ResultsFormatter::RESULT_INFO
+            );
+            break;
+        }
+    }
+}
+
+void runCalibrationAction(int idx) {
+    switch (idx) {
+        case 0: { // Battery ADC
+            showResult("Battery Calibration",
+                      "Current reading: " + String(analogRead(7)) + "\n" +
+                      "Voltage: " + String(Battery::voltage(), 2) + "V\n" +
+                      "Calibrate manually if needed");
+            break;
+        }
+        case 1: { // RF Signal
+            showResult("RF Signal Check",
+                      String("CC1101: Ready\n") +
+                      "NRF24: Ready\n" +
+                      "Run RF tests for details");
+            break;
+        }
+        case 2: { // Display
+            showResult("Display Calibration",
+                      "Brightness: " + String(Settings::g_config.brightness) + "%\n" +
+                      "Contrast: " + String(Settings::g_config.contrast) + "%\n" +
+                      "Adjust in Settings menu");
+            break;
+        }
+    }
+}
+
+void runAboutAction(int idx) {
+    switch (idx) {
+        case 0: { // Firmware Version
+            showResult("Firmware Version",
+                      String("ESP32-S3 Offensive\n") +
+                      "Security Platform\n" +
+                      "Version: 2.0.0\n" +
+                      "Build: 20250922");
+            break;
+        }
+        case 1: { // Device Serial
+            uint64_t chipid = ESP.getEfuseMac();
+            showResult("Device Serial",
+                      "Chip ID: " + String((uint32_t)(chipid >> 32), HEX) +
+                      String((uint32_t)chipid, HEX));
+            break;
+        }
+        case 2: { // MAC Address
+            showResult("MAC Address",
+                      "WiFi: " + WiFi.macAddress() + "\n" +
+                      "BLE: (same as WiFi)");
+            break;
+        }
+        case 3: { // Flash Size
+            showResult("Flash Size",
+                      "Total: " + String(ESP.getFlashChipSize() / (1024*1024)) + " MB\n" +
+                      "Used: ~50% (estimated)\n" +
+                      "Free: ~50% (estimated)");
+            break;
+        }
+        case 4: { // Uptime
+            uint32_t uptimeSeconds = millis() / 1000;
+            uint32_t hours = uptimeSeconds / 3600;
+            uint32_t minutes = (uptimeSeconds % 3600) / 60;
+            showResult("Uptime",
+                      String(hours) + "h " + String(minutes) + "m");
+            break;
+        }
+    }
+}
+
+void runNetworkAction(int idx) {
+    switch (idx) {
+        case 0: { // WiFi Status
+            showResult("WiFi Status",
+                      "Status: " + String(WiFi.isConnected() ? "Connected" : "Disconnected") + "\n" +
+                      "SSID: " + (WiFi.isConnected() ? WiFi.SSID() : "N/A") + "\n" +
+                      "RSSI: " + (WiFi.isConnected() ? String(WiFi.RSSI()) + "dBm" : "N/A"));
+            break;
+        }
+        case 1: { // IP Address
+            showResult("IP Address",
+                      String("IP: ") + (WiFi.isConnected() ? WiFi.localIP().toString() : "Not connected") + "\n" +
+                      "Gateway: " + (WiFi.isConnected() ? WiFi.gatewayIP().toString() : "N/A"));
+            break;
+        }
+        case 2: { // Hostname
+            showResult("Hostname",
+                      String("esp32-audit.local\n") +
+                      "or IP from WiFi section");
+            break;
+        }
+        case 3: { // WiFi Settings
+            showResult("WiFi Settings",
+                      String("Use web UI for\n") +
+                      "WiFi configuration:\n" +
+                      "http://esp32-audit.local");
+            break;
+        }
+    }
+}
+
+String drawBatteryBar(uint8_t percent) {
+    String bar = "";
+    uint8_t filled = percent / 10;
+    for (uint8_t i = 0; i < 10; i++) {
+        bar += (i < filled) ? "█" : "░";
+    }
+    return bar;
+}
+
+void drawStatusBar() {
+    uint8_t batPercent = Battery::percent();
+    String batBar = drawBatteryBar(batPercent);
+    String wifiStatus = WiFi.isConnected() ? "✓ WiFi" : "✗ WiFi";
+    String timeStatus = Settings::formatRTCTime(Settings::getRTCTime()).substring(11, 16);
+
+    // Color based on battery level
+    if (batPercent > 50) Serial.print(COLOR_GREEN);
+    else if (batPercent > 20) Serial.print(COLOR_YELLOW);
+    else Serial.print(COLOR_RED);
+
+    Serial.println("┌─────────────────────────────────────────┐");
+    Serial.print("│ ");
+    Serial.print(COLOR_CYAN);
+    Serial.print(wifiStatus);
+    Serial.print(COLOR_RESET);
+    if (batPercent > 50) Serial.print(COLOR_GREEN);
+    else if (batPercent > 20) Serial.print(COLOR_YELLOW);
+    else Serial.print(COLOR_RED);
+    Serial.print(" │ 🔋" + batBar + " ");
+    Serial.print(String(batPercent < 10 ? "  " : (batPercent < 100 ? " " : "")));
+    Serial.print(String(batPercent) + "% │ 🕐 " + timeStatus + " │\n");
+    Serial.print(COLOR_CYAN);
+    Serial.println("└─────────────────────────────────────────┘");
+    Serial.print(COLOR_RESET);
+}
+
 void drawSimpleMenu(const std::vector<String> &items, int selection, const String &title) {
     String icon = "";
-    if (title == "WIFI TOOLS") icon = "📡 ";
-    else if (title == "BLE TOOLS") icon = "🔵 ";
-    else if (title == "RF TOOLS") icon = "📶 ";
-    else if (title == "IOT/ADVANCED") icon = "🌐 ";
-    else if (title == "SYSTEM") icon = "⚙️  ";
-    else if (title.indexOf("HELP") >= 0) icon = "❓ ";
+    String bgColor = COLOR_RESET;
 
-    Serial.println("\n═════════════════════════");
-    Serial.println("  " + icon + title);
-    Serial.println("═════════════════════════");
+    if (title == "WIFI TOOLS") icon = "📡";
+    else if (title == "BLE TOOLS") icon = "🔵";
+    else if (title == "RF TOOLS") icon = "📶";
+    else if (title == "IOT/ADVANCED") icon = "🌐";
+    else if (title == "SYSTEM") icon = "⚙️ ";
+    else if (title == "SETTINGS") icon = "⚙️ ";
+    else if (title == "HARDWARE TEST") icon = "🧪";
+    else if (title == "DEVICE INFO") icon = "ℹ️ ";
+    else if (title == "DEBUG INFO") icon = "🐛";
+    else if (title == "CALIBRATION") icon = "🔧";
+    else if (title == "ABOUT") icon = "ℹ️ ";
+    else if (title == "NETWORK") icon = "🌐";
+    else if (title.indexOf("HELP") >= 0) icon = "❓";
+    else if (title == "MAIN") icon = "⚡";
+
+    Serial.println();
+    drawStatusBar();
+    Serial.println();
+
+    Serial.print(COLOR_BLUE);
+    Serial.println("╔═════════════════════════════════════════╗");
+    Serial.print("║  " + icon + " ");
+    Serial.print(COLOR_GREEN);
+    Serial.print(title);
+    Serial.print(COLOR_BLUE);
+    Serial.println(String(32 - title.length(), ' ') + "║");
+    Serial.println("╠═════════════════════════════════════════╣");
+    Serial.print(COLOR_RESET);
+
     for (size_t i = 0; i < items.size(); i++) {
-        String line = String(i == selection ? "▶ " : "  ") + items[i];
-        Serial.println(line);
+        String marker = (i == selection) ? "▶ " : "  ";
+        String item = items[i];
+
+        if (i == selection) {
+            Serial.print(COLOR_GREEN);
+            Serial.print("║ " + marker);
+            Serial.print(COLOR_YELLOW);
+            Serial.print(item);
+            Serial.print(COLOR_GREEN);
+            Serial.println(String(37 - marker.length() - item.length(), ' ') + "║");
+            Serial.print(COLOR_RESET);
+        } else {
+            Serial.print(COLOR_CYAN);
+            Serial.print("║ " + marker);
+            Serial.print(COLOR_RESET);
+            Serial.print(item);
+            Serial.print(COLOR_CYAN);
+            Serial.println(String(37 - marker.length() - item.length(), ' ') + "║");
+            Serial.print(COLOR_RESET);
+        }
     }
-    Serial.println("─────────────────────────");
-    Serial.println(" ▲/▼: navigate  ●: select  ◄: back");
+
+    Serial.print(COLOR_BLUE);
+    Serial.println("╠═════════════════════════════════════════╣");
+    Serial.print(COLOR_YELLOW);
+    Serial.println("║  ▲/▼: navigate  ●: select  ◄: back    ║");
+    Serial.print(COLOR_BLUE);
+    Serial.println("╚═════════════════════════════════════════╝");
+    Serial.print(COLOR_RESET);
 }
 
 } // namespace
@@ -947,8 +1441,32 @@ void loop() {
                 g_state = MAIN_MENU;
                 g_selection = 0;
             }
-            Serial.println("\n*** ESP32 Audit Tool ***");
-            Serial.println("Press OK to begin");
+            Serial.println();
+            drawStatusBar();
+            Serial.println();
+
+            Serial.print(COLOR_GREEN);
+            Serial.println("╔═════════════════════════════════════════╗");
+            Serial.println("║                                         ║");
+            Serial.println("║      ⚡ ESP32-S3 SECURITY AUDIT ⚡     ║");
+            Serial.println("║                                         ║");
+            Serial.println("║         Offensive Security Tool         ║");
+            Serial.println("║              Version 2.0.0              ║");
+            Serial.println("║                                         ║");
+            Serial.print(COLOR_CYAN);
+            Serial.println("║  🔧 Real Hardware Drivers               ║");
+            Serial.println("║  📡 WiFi • BLE • RF • IoT               ║");
+            Serial.println("║  🧪 Isolated Hardware Tests             ║");
+            Serial.println("║                                         ║");
+            Serial.print(COLOR_GREEN);
+            Serial.println("╠═════════════════════════════════════════╣");
+            Serial.print(COLOR_YELLOW);
+            Serial.println("║                                         ║");
+            Serial.println("║       Press ● to begin                  ║");
+            Serial.println("║                                         ║");
+            Serial.print(COLOR_GREEN);
+            Serial.println("╚═════════════════════════════════════════╝");
+            Serial.print(COLOR_RESET);
             break;
 
         case MAIN_MENU:
@@ -962,7 +1480,14 @@ void loop() {
                     case 2: g_state = RF_SUBMENU; break;
                     case 3: g_state = IOT_SUBMENU; break;
                     case 4: g_state = SYSTEM_SUBMENU; break;
-                    case 5: g_state = HELP_SUBMENU; break;
+                    case 5: g_state = SETTINGS_SUBMENU; break;
+                    case 6: g_state = HARDWARE_TEST_SUBMENU; break;
+                    case 7: g_state = DEVICE_INFO_SUBMENU; break;
+                    case 8: g_state = DEBUG_INFO_SUBMENU; break;
+                    case 9: g_state = CALIBRATION_SUBMENU; break;
+                    case 10: g_state = ABOUT_SUBMENU; break;
+                    case 11: g_state = NETWORK_SUBMENU; break;
+                    case 12: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1044,6 +1569,111 @@ void loop() {
             drawSimpleMenu(items, g_selection, "SYSTEM");
             break;
 
+        case SETTINGS_SUBMENU:
+            items = settingsMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 5;
+                } else {
+                    runSettingsAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "SETTINGS");
+            break;
+
+        case HARDWARE_TEST_SUBMENU:
+            items = hardwareTestMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 6;
+                } else {
+                    runHardwareTestAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "HARDWARE TEST");
+            break;
+
+        case DEVICE_INFO_SUBMENU:
+            items = deviceInfoMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 7;
+                } else {
+                    runDeviceInfoAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "DEVICE INFO");
+            break;
+
+        case DEBUG_INFO_SUBMENU:
+            items = debugInfoMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 8;
+                } else {
+                    runDebugInfoAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "DEBUG INFO");
+            break;
+
+        case CALIBRATION_SUBMENU:
+            items = calibrationMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 9;
+                } else {
+                    runCalibrationAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "CALIBRATION");
+            break;
+
+        case ABOUT_SUBMENU:
+            items = aboutMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 10;
+                } else {
+                    runAboutAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "ABOUT");
+            break;
+
+        case NETWORK_SUBMENU:
+            items = networkMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 11;
+                } else {
+                    runNetworkAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "NETWORK");
+            break;
+
         case HELP_SUBMENU:
             items = helpMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1051,7 +1681,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 5;
+                    g_selection = 12;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
@@ -1069,16 +1699,61 @@ void loop() {
             drawSimpleMenu(items, g_selection, "HELP");
             break;
 
-        case RESULT_SCREEN:
-            Serial.println("\n*** " + g_resultTitle + " ***");
-            Serial.println(g_resultBody);
-            Serial.println("\nPress OK to continue, BACK to go back");
+        case RESULT_SCREEN: {
+            Serial.println();
+            drawStatusBar();
+            Serial.println();
+
+            Serial.print(COLOR_GREEN);
+            Serial.println("╔═════════════════════════════════════════╗");
+            Serial.print("║  ✓ ");
+            Serial.print(g_resultTitle);
+            Serial.println(String(33 - g_resultTitle.length(), ' ') + "║");
+            Serial.println("╠═════════════════════════════════════════╣");
+            Serial.print(COLOR_RESET);
+
+            // Print body with line wrapping
+            String body = g_resultBody;
+            int lines = 0;
+            int pos = 0;
+            while (pos < body.length() && lines < 5) {
+                int nextNewline = body.indexOf('\n', pos);
+                if (nextNewline == -1) nextNewline = body.length();
+
+                String line = body.substring(pos, nextNewline);
+                if (line.length() > 37) line = line.substring(0, 37);
+
+                Serial.print(COLOR_CYAN);
+                Serial.print("║  " + line);
+                Serial.print(COLOR_RESET);
+                Serial.println(String(39 - line.length(), ' ') + "║");
+
+                pos = nextNewline + 1;
+                lines++;
+            }
+
+            // Fill remaining lines
+            while (lines < 5) {
+                Serial.print(COLOR_CYAN);
+                Serial.println("║" + String(41, ' ') + "║");
+                Serial.print(COLOR_RESET);
+                lines++;
+            }
+
+            Serial.print(COLOR_GREEN);
+            Serial.println("╠═════════════════════════════════════════╣");
+            Serial.print(COLOR_YELLOW);
+            Serial.println("║  ●: continue  ◄: back                  ║");
+            Serial.print(COLOR_GREEN);
+            Serial.println("╚═════════════════════════════════════════╝");
+            Serial.print(COLOR_RESET);
+
             if (okPress || backTap) {
                 g_state = MAIN_MENU;
                 g_selection = 0;
             }
             break;
-
+        }
         default:
             break;
     }

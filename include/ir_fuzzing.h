@@ -2,6 +2,7 @@
 #define IR_FUZZING_H
 
 #include <Arduino.h>
+#include <IRsend.h>
 
 namespace IrFuzzing {
 
@@ -32,12 +33,13 @@ struct FuzzResult {
 
 class IrFuzzer {
 public:
-  IrFuzzer();
+  IrFuzzer(uint8_t txPin = 14); // GPIO14 for IR LED
   FuzzResult fuzzIrDevices(const FuzzConfig& config);
   void stop();
   bool isRunning() const { return isRunning_; }
 
 private:
+  IRsend irsend_;
   bool isRunning_;
   unsigned long startTime_;
 

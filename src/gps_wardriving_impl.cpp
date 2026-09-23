@@ -1,6 +1,7 @@
 #include "gps_wardriving.h"
 #include "gps_module.h"
 #include "config.h"
+#include "results_display.h"
 #include <LittleFS.h>
 
 namespace GpsWardriving {
@@ -86,8 +87,23 @@ WardriveSession endSession() {
     Serial.println("Duration: " + String(g_session.endTime - g_session.startTime) + "ms");
     Serial.println("Networks logged: " + String(g_session.entries.size()));
     Serial.println("Distance: ~" + String(g_session.totalDistance / 1000) + " km");
-    
-    return {g_session.startTime, g_session.endTime, g_session.entries, 
+
+    std::vector<String> displayLines;
+    displayLines.push_back(String(g_session.entries.size()) + " network(s) logged");
+    displayLines.push_back("Distance: ~" + String(g_session.totalDistance / 1000) + " km");
+    displayLines.push_back("Start: " + String(g_session.startLat, 4) + ", " + String(g_session.startLon, 4));
+    displayLines.push_back("End: " + String(g_session.endLat, 4) + ", " + String(g_session.endLon, 4));
+    displayLines.push_back("Duration: " + String((g_session.endTime - g_session.startTime) / 1000) + "s");
+
+    ResultsDisplay::showResult("Wardriving", {
+        "Wardriving Session",
+        String(g_session.entries.size()) + " network(s)",
+        100,
+        displayLines,
+        g_session.entries.size() > 0 ? ResultsDisplay::ResultType::SUCCESS : ResultsDisplay::ResultType::INFO
+    });
+
+    return {g_session.startTime, g_session.endTime, g_session.entries,
             g_session.startLat, g_session.startLon, g_session.endLat, g_session.endLon, g_session.totalDistance};
 }
 

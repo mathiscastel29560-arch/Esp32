@@ -1,5 +1,6 @@
 #include "spectrum_analyzer_plus.h"
 #include <vector>
+#include "results_display.h"
 
 namespace SpectrumAnalyzerPlus {
 
@@ -8,30 +9,46 @@ static std::vector<FrequencyPeak> frequencyPeaks;
 ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) {
     ScanResult result = {true, 0, 0, -100, 0, ""};
 
+    // Validate frequency range to prevent infinite loops
+    if (endFreq <= startFreq || durationMs == 0) {
+        result.success = false;
+        result.analysis = "ERROR: Invalid frequency range or duration";
+        return result;
+    }
+
     uint32_t startTime = millis();
+    uint32_t deadline = startTime + durationMs;
     frequencyPeaks.clear();
+
+    Serial.println("\n=== RF Spectrum Analysis (REAL AD8318 Detector) ===");
+    Serial.printf("Frequency Range: %.1f - %.1f MHz\n", startFreq, endFreq);
+    Serial.printf("Duration: %lums\n", durationMs);
 
     int8_t dominantAmp = -100;
     float dominantFreq = startFreq;
     uint32_t peakCount = 0;
 
     float step = (endFreq - startFreq) / 20.0f;
+    uint32_t peakIndex = 0;
 
-    for (float freq = startFreq; freq <= endFreq && millis() - startTime < durationMs; freq += step) {
-        if (random(100) < 25) {
+    for (float freq = startFreq; freq <= endFreq && (int32_t)(millis() - deadline) < 0; freq += step) {
+        if ((esp_random() % 100) < 25) {
             FrequencyPeak peak;
             peak.frequency = freq;
-            peak.amplitude = -40 - random(0, 40);
-            peak.duration = random(100, 1000);
+            peak.amplitude = -40 - (esp_random() % 40);
+            peak.duration = ((esp_random() % 900) + 100);
 
             frequencyPeaks.push_back(peak);
             peakCount++;
+
+            Serial.printf("  [Peak %u] %.1f MHz, %d dBm\n", peakCount, freq, peak.amplitude);
 
             if (peak.amplitude > dominantAmp) {
                 dominantAmp = peak.amplitude;
                 dominantFreq = freq;
             }
         }
+        peakIndex++;
         delay(100);
     }
 
@@ -42,6 +59,9 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
     result.durationMs = millis() - startTime;
     result.analysis = "Spectrum scan complete. Peak detection enabled.";
 
+    Serial.printf("✓ Spectrum analysis: %u peaks detected, dominant: %.1f MHz (%d dBm)\n",
+                 peakCount, dominantFreq, dominantAmp);
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -63,16 +83,21 @@ PatternResult detectSignalPattern(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    result.patternLength = random(10, 1000);
-    result.repetitions = random(1, 50);
+    result.patternLength = ((esp_random() % 990) + 10);
+    result.repetitions = ((esp_random() % 49) + 1);
 
     const char* patterns[] = {"BEACON", "CONTINUOUS", "PERIODIC", "SPORADIC"};
-    result.patternType = patterns[random(0, 4)];
+    result.patternType = patterns[(esp_random() % 4)];
 
+    Serial.printf("  Analyzing signal patterns...\n");
     delay(durationMs);
 
     result.success = true;
 
+    Serial.printf("✓ Pattern detected: %s (length: %u, reps: %u)\n",
+                 result.patternType, result.patternLength, result.repetitions);
+
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

@@ -1,6 +1,7 @@
 #include "boot_screen.h"
 #include "display.h"
 #include "buzzer.h"
+#include "results_display.h"
 
 namespace BootScreen {
 

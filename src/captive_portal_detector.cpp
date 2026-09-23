@@ -1,6 +1,25 @@
 #include "captive_portal_detector.h"
 #include <LittleFS.h>
 
+namespace {
+constexpr uint32_t SCAN_DELAY_MS = 50;
+constexpr uint32_t CONNECTION_CHECK_DELAY_MS = 100;
+constexpr uint32_t HTTP_TEST_DELAY_MS = 100;
+constexpr uint32_t LOGIN_ATTEMPT_DELAY_MS = 100;
+constexpr uint32_t PORTAL_FETCH_DELAY_MS = 50;
+constexpr int HTTP_OK = 200;
+constexpr int HTTP_REDIRECT = 302;
+constexpr int HTTP_REDIRECT_TEMP = 307;
+constexpr int HTTP_MOVED_PERM = 301;
+constexpr int HTTP_SUCCESS_MAX = 400;
+constexpr int TEST_CREDENTIALS_COUNT = 4;
+constexpr size_t LOG_ENTRY_BUF_SIZE = 256;
+constexpr int HTML_TAG_LENGTH = 7; // length of "</title>"
+const char* PORTAL_LOG_FILE = "/logs/handshakes/captive_portals.csv";
+const char* PORTAL_LOG_DIR = "/logs/handshakes";
+const char* TEST_CONNECTIVITY_URL = "http://google.com";
+}
+
 namespace CaptivePortalDetector {
 
 PortalDetector::PortalDetector() : isRunning_(false), startTime_(0) {}
@@ -12,12 +31,13 @@ PortalResult PortalDetector::scanNetworks(const PortalConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
+  uint32_t deadline = startTime_ + config.scanTimeoutMs;
 
   // Scan for WiFi networks
   int networkCount = WiFi.scanNetworks();
 
   for (int i = 0; i < networkCount && isRunning_; i++) {
-    if (millis() - startTime_ > config.scanTimeoutMs) {
+    if ((int32_t)(millis() - deadline) >= 0) {
       break;
     }
 
@@ -43,11 +63,11 @@ PortalResult PortalDetector::scanNetworks(const PortalConfig& config) {
       }
     }
 
-    delay(50);
+    delay(SCAN_DELAY_MS);
   }
 
   result.success = result.portalsFound > 0;
-  result.logFile = "/logs/handshakes/captive_portals.csv";
+  result.logFile = PORTAL_LOG_FILE;
 
   isRunning_ = false;
   return result;
@@ -65,12 +85,11 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
   isRunning_ = true;
   startTime_ = millis();
 
-  // Connect to network
   WiFi.begin(ssid);
 
-  uint32_t connectionTimeout = timeout;
-  while (!WiFi.isConnected() && (millis() - startTime_) < connectionTimeout) {
-    delay(100);
+  uint32_t deadline = startTime_ + timeout;
+  while (!WiFi.isConnected() && (int32_t)(millis() - deadline) < 0) {
+    delay(CONNECTION_CHECK_DELAY_MS);
   }
 
   if (!WiFi.isConnected()) {
@@ -84,36 +103,40 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
   portal.ssid = ssid;
   portal.rssi = WiFi.RSSI();
 
-  // Common captive portal detection URLs
+  // Comprehensive captive portal detection URLs (real world tests)
   const char* testUrls[] = {
-    "http://captive.apple.com/hotspot-detect.html",
-    "http://msftncsi.com/ncsi.txt",
-    "http://clients3.google.com/generate_204"
+    "http://captive.apple.com/hotspot-detect.html",      // Apple
+    "http://msftncsi.com/ncsi.txt",                       // Microsoft
+    "http://clients3.google.com/generate_204",            // Google
+    "http://connectivity-check.ubuntu.com/",              // Ubuntu
+    "http://example.com/",                                // Generic
+    "http://detectportal.firefox.com/success.txt",        // Firefox
+    "http://httpbin.org/status/200"                       // Generic HTTP test
   };
 
   for (const char* testUrl : testUrls) {
     HTTPClient http;
+    http.setConnectTimeout(3000);
+    http.setTimeout(5000);
     http.begin(testUrl);
+
     int httpCode = http.GET();
 
-    if (httpCode == 302 || httpCode == 307 || httpCode == 200) {
-      String location = http.getHeader("Location");
-      if (!location.isEmpty()) {
-        portal.redirectUrl = location;
-        portal.portalUrl = location;
-        result.portals.push_back(portal);
-        result.portalsFound++;
-        result.success = true;
-        logPortal(portal);
-        break;
-      }
+    if (httpCode == HTTP_REDIRECT || httpCode == HTTP_REDIRECT_TEMP || httpCode == HTTP_OK) {
+      portal.portalUrl = testUrl;
+      result.portals.push_back(portal);
+      result.portalsFound++;
+      result.success = true;
+      logPortal(portal);
+      http.end();
+      break;
     }
 
     http.end();
-    delay(100);
+    delay(HTTP_TEST_DELAY_MS);
   }
 
-  result.logFile = "/logs/handshakes/captive_portals.csv";
+  result.logFile = PORTAL_LOG_FILE;
   isRunning_ = false;
   return result;
 }
@@ -133,7 +156,7 @@ PortalResult PortalDetector::interactWithPortal(const DetectedPortal& portal) {
   // Fetch portal page
   int httpCode = http.GET();
 
-  if (httpCode == 200) {
+  if (httpCode == HTTP_OK) {
     String html = http.getString();
 
     // Extract form fields and attempt auto-login
@@ -142,19 +165,19 @@ PortalResult PortalDetector::interactWithPortal(const DetectedPortal& portal) {
       const char* testCredsUsername[] = {"admin", "user", "test", "guest"};
       const char* testCredsPassword[] = {"admin", "password", "test", "123456"};
 
-      for (int i = 0; i < 4; i++) {
+      for (int i = 0; i < TEST_CREDENTIALS_COUNT; i++) {
         String payload = String("username=") + testCredsUsername[i] +
                         "&password=" + testCredsPassword[i];
 
         http.addHeader("Content-Type", "application/x-www-form-urlencoded");
         int postCode = http.POST(payload);
 
-        if (postCode == 200 || postCode == 302) {
+        if (postCode == HTTP_OK || postCode == HTTP_REDIRECT) {
           result.success = true;
           break;
         }
 
-        delay(100);
+        delay(LOGIN_ATTEMPT_DELAY_MS);
       }
     }
 
@@ -162,7 +185,7 @@ PortalResult PortalDetector::interactWithPortal(const DetectedPortal& portal) {
   }
 
   http.end();
-  result.logFile = "/logs/handshakes/captive_portals.csv";
+  result.logFile = PORTAL_LOG_FILE;
   return result;
 }
 
@@ -181,13 +204,13 @@ String PortalDetector::fetchCaptivePortalUrl(const char* ssid) {
     http.begin(url);
     int httpCode = http.GET();
 
-    if (httpCode == 200 || httpCode == 302) {
+    if (httpCode == HTTP_OK || httpCode == HTTP_REDIRECT) {
       http.end();
       return url;
     }
 
     http.end();
-    delay(50);
+    delay(PORTAL_FETCH_DELAY_MS);
   }
 
   return "";
@@ -198,7 +221,7 @@ String PortalDetector::getPortalTitle(const String& html) {
   int titleEnd = html.indexOf("</title>");
 
   if (titleStart >= 0 && titleEnd > titleStart) {
-    return html.substring(titleStart + 7, titleEnd);
+    return html.substring(titleStart + HTML_TAG_LENGTH, titleEnd);
   }
 
   return "Unknown";
@@ -206,10 +229,10 @@ String PortalDetector::getPortalTitle(const String& html) {
 
 bool PortalDetector::testConnectivity() {
   HTTPClient http;
-  http.begin("http://google.com");
+  http.begin(TEST_CONNECTIVITY_URL);
   int code = http.GET();
   http.end();
-  return (code == 200 || code == 301 || code == 302);
+  return (code == HTTP_OK || code == HTTP_MOVED_PERM || code == HTTP_REDIRECT);
 }
 
 bool PortalDetector::validateRedirect(const String& url) {
@@ -220,24 +243,33 @@ bool PortalDetector::validateRedirect(const String& url) {
   int code = http.GET();
   http.end();
 
-  return (code >= 200 && code < 400);
+  return (code >= HTTP_OK && code < HTTP_SUCCESS_MAX);
 }
 
 void PortalDetector::logPortal(const DetectedPortal& portal) {
-  if (!LittleFS.begin()) return;
+  if (!LittleFS.begin()) {
+    Serial.println("Error: Failed to mount LittleFS");
+    return;
+  }
 
-  File logFile = LittleFS.open("/logs/handshakes/captive_portals.csv", "a");
+  File logFile = LittleFS.open(PORTAL_LOG_FILE, "a");
   if (!logFile) {
-    LittleFS.mkdir("/logs/handshakes");
-    logFile = LittleFS.open("/logs/handshakes/captive_portals.csv", "a");
+    // Create directory if it doesn't exist
+    if (!LittleFS.mkdir(PORTAL_LOG_DIR)) {
+      Serial.println("Warning: Directory already exists or failed to create");
+    }
+    // Try opening again
+    logFile = LittleFS.open(PORTAL_LOG_FILE, "a");
   }
 
   if (logFile) {
-    char logEntry[256];
+    char logEntry[LOG_ENTRY_BUF_SIZE];
     snprintf(logEntry, sizeof(logEntry), "%lu,%s,%s,%d\n",
              millis(), portal.ssid.c_str(), portal.portalUrl.c_str(), portal.rssi);
     logFile.print(logEntry);
-    logFile.close();
+    logFile.close();  // Always close the file
+  } else {
+    Serial.println("Error: Failed to open captive portal log file");
   }
 
   LittleFS.end();

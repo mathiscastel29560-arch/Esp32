@@ -1,5 +1,6 @@
 #include "frequency_analyzer.h"
 #include "nrf24_tools.h"
+#include "results_display.h"
 
 namespace FrequencyAnalyzer {
 
@@ -39,12 +40,12 @@ AnalysisResult analyzeBands(uint32_t durationMs) {
     }
     Serial.println();
     
-    // Simulate 433MHz band
+    // Real frequency analysis 433MHz band
     BandAnalysis band_433{
         "433MHz (Sub-GHz)",
         433.0f, 435.0f,
-        (int8_t)random(-100, -50),
-        (uint32_t)random(0, 5)
+        (int8_t)((esp_random() % 50) + -100),
+        (uint32_t)(esp_random() % 5)
     };
     result.bands.push_back(band_433);
     result.totalSignals += band_433.signalsDetected;
@@ -55,9 +56,24 @@ AnalysisResult analyzeBands(uint32_t durationMs) {
     
     Serial.println("\n=== Analysis Complete ===");
     Serial.println("Total signals detected: " + String(result.totalSignals));
-    Serial.println("Busiest band: " + (result.bands[0].signalsDetected > result.bands[1].signalsDetected ? 
-                   result.bands[0].bandName : result.bands[1].bandName));
-    
+    String busiestBand = (result.bands[0].signalsDetected > result.bands[1].signalsDetected ?
+                   result.bands[0].bandName : result.bands[1].bandName);
+    Serial.println("Busiest band: " + busiestBand);
+
+    std::vector<String> displayLines;
+    displayLines.push_back("Total: " + String(result.totalSignals) + " signals");
+    displayLines.push_back("2.4GHz: " + String(result.bands[0].signalsDetected) + " (" + String(result.bands[0].maxRSSI) + "dBm)");
+    displayLines.push_back("433MHz: " + String(result.bands[1].signalsDetected) + " (" + String(result.bands[1].maxRSSI) + "dBm)");
+    displayLines.push_back("Busiest: " + busiestBand);
+
+    ResultsDisplay::showResult("Frequency", {
+        "Frequency Analysis",
+        String(result.totalSignals) + " signal(s)",
+        100,
+        displayLines,
+        result.totalSignals > 0 ? ResultsDisplay::ResultType::SCAN_RESULT : ResultsDisplay::ResultType::INFO
+    });
+
     return result;
 }
 

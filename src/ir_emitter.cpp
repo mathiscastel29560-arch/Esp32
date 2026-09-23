@@ -1,9 +1,11 @@
 #include "ir_emitter.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
+#include "tx_arm.h"
 
 namespace IrEmitter {
 
-IrEmitter::IrEmitter() : isRunning_(false), startTime_(0) {}
+IrEmitter::IrEmitter(uint8_t txPin) : irsend_(txPin), isRunning_(false), startTime_(0) {}
 
 EmitResult IrEmitter::emitNecCode(const EmitterConfig& config, uint8_t address, uint8_t command) {
   EmitResult result;
@@ -16,41 +18,23 @@ EmitResult IrEmitter::emitNecCode(const EmitterConfig& config, uint8_t address, 
     return result;
   }
 
-  pinMode(config.txPin, OUTPUT);
   isRunning_ = true;
   startTime_ = millis();
 
   for (uint32_t rep = 0; rep < config.repeatCount && isRunning_; rep++) {
-    // NEC Protocol: 9ms header + 4.5ms space + 32 bits + stop bit
-    sendPulse(config.txPin, config.frequency, 9000); // 9ms header
-    delayMicroseconds(4500); // 4.5ms space
+    // Use IRremoteESP8266 library for real NEC encoding
+    // NEC: 32-bit data (address + command encoded with checksum)
+    uint32_t data = (address << 24) | ((~address & 0xFF) << 16) |
+                    (command << 8) | (~command & 0xFF);
 
-    // Send 32 bits (address x2, command x2)
-    for (int i = 0; i < 32; i++) {
-      uint8_t bit = (i < 8) ? ((address >> i) & 1) :
-                    (i < 16) ? ((~address >> (i-8)) & 1) :
-                    (i < 24) ? ((command >> (i-16)) & 1) :
-                    ((~command >> (i-24)) & 1);
-
-      if (bit) {
-        sendPulse(config.txPin, config.frequency, 560);  // 1 bit
-        delayMicroseconds(1690);
-      } else {
-        sendPulse(config.txPin, config.frequency, 560);  // 0 bit
-        delayMicroseconds(560);
-      }
-
-      result.pulsesSent++;
-    }
-
-    // Stop bit
-    sendPulse(config.txPin, config.frequency, 560);
+    irsend_.sendNEC(data, 32, config.repeatCount);
     result.codesEmitted++;
+    result.pulsesSent += 68; // NEC sends 68 pulses per code
 
     if (config.rapidFire) {
-      delay(50); // 50ms between rapid-fire codes
+      delay(50);
     } else {
-      delay(100); // 100ms between normal codes
+      delay(100);
     }
   }
 
@@ -59,7 +43,78 @@ EmitResult IrEmitter::emitNecCode(const EmitterConfig& config, uint8_t address, 
   result.logFile = "/logs/handshakes/ir_emit.csv";
   logEmission(result.codesEmitted);
 
-  digitalWrite(config.txPin, LOW);
+  isRunning_ = false;
+  return result;
+}
+
+EmitResult IrEmitter::emitRcCode(const EmitterConfig& config, uint8_t address, uint8_t command, uint8_t toggle) {
+  EmitResult result;
+  result.success = false;
+  result.codesEmitted = 0;
+
+  if (!TxArm::isArmed()) {
+    result.error = "TX not armed";
+    return result;
+  }
+
+  isRunning_ = true;
+  startTime_ = millis();
+
+  for (uint32_t rep = 0; rep < config.repeatCount && isRunning_; rep++) {
+    // RC5/RC6 protocol via IRremoteESP8266
+    // RC5: 14-bit data (1 start + 1 toggle + 5 address + 6 command)
+    uint16_t data = (toggle << 12) | (address << 6) | command;
+    irsend_.sendRC5(data, 13, config.repeatCount);
+    result.codesEmitted++;
+    result.pulsesSent += 27; // RC5 sends ~27 pulses
+
+    if (config.rapidFire) {
+      delay(50);
+    } else {
+      delay(100);
+    }
+  }
+
+  result.elapsedMs = millis() - startTime_;
+  result.success = true;
+  result.logFile = "/logs/handshakes/ir_emit.csv";
+  logEmission(result.codesEmitted);
+
+  isRunning_ = false;
+  return result;
+}
+
+EmitResult IrEmitter::emitSonyCode(const EmitterConfig& config, uint16_t data) {
+  EmitResult result;
+  result.success = false;
+  result.codesEmitted = 0;
+
+  if (!TxArm::isArmed()) {
+    result.error = "TX not armed";
+    return result;
+  }
+
+  isRunning_ = true;
+  startTime_ = millis();
+
+  for (uint32_t rep = 0; rep < config.repeatCount && isRunning_; rep++) {
+    // Sony SIRC protocol via IRremoteESP8266
+    irsend_.sendSony(data, 15, config.repeatCount);
+    result.codesEmitted++;
+    result.pulsesSent += 31; // Sony SIRC sends ~31 pulses
+
+    if (config.rapidFire) {
+      delay(50);
+    } else {
+      delay(100);
+    }
+  }
+
+  result.elapsedMs = millis() - startTime_;
+  result.success = true;
+  result.logFile = "/logs/handshakes/ir_emit.csv";
+  logEmission(result.codesEmitted);
+
   isRunning_ = false;
   return result;
 }
@@ -78,30 +133,26 @@ EmitResult IrEmitter::emitRawTimings(const EmitterConfig& config, const std::vec
     return result;
   }
 
-  pinMode(config.txPin, OUTPUT);
   isRunning_ = true;
   startTime_ = millis();
 
-  bool isCarrier = true; // Start with carrier on
-
-  for (const auto& timing : timings) {
-    if (isCarrier) {
-      sendPulse(config.txPin, config.frequency, timing);
-    } else {
-      delayMicroseconds(timing);
-    }
-
-    isCarrier = !isCarrier;
-    result.pulsesSent++;
+  // Convert std::vector to uint16_t array for IRsend::sendRaw
+  uint16_t* rawTimings = new uint16_t[timings.size()];
+  for (size_t i = 0; i < timings.size(); i++) {
+    rawTimings[i] = timings[i];
   }
 
+  // Use IRremoteESP8266 sendRaw for arbitrary IR sequences
+  irsend_.sendRaw(rawTimings, timings.size(), config.frequency);
+
   result.codesEmitted = 1;
+  result.pulsesSent = timings.size();
   result.elapsedMs = millis() - startTime_;
   result.success = true;
   result.logFile = "/logs/handshakes/ir_emit.csv";
   logEmission(result.codesEmitted);
 
-  digitalWrite(config.txPin, LOW);
+  delete[] rawTimings;
   isRunning_ = false;
   return result;
 }
@@ -115,28 +166,14 @@ EmitResult IrEmitter::replayCapture(const EmitterConfig& config, const std::vect
     return result;
   }
 
-  // Parse captured data and replay
+  // Parse captured data and replay - scale 8-bit samples to 16-bit timings
   std::vector<uint16_t> timings;
-  for (uint32_t i = 0; i < capturedData.size() && i < 128; i++) {
-    timings.push_back(capturedData[i] * 100); // Scale up
+  for (uint32_t i = 0; i < capturedData.size() && i < 256; i++) {
+    timings.push_back(capturedData[i] * 100); // Scale by 100 to get microseconds
   }
 
   result = emitRawTimings(config, timings);
   return result;
-}
-
-void IrEmitter::sendPulse(uint8_t pin, uint32_t frequency, uint16_t duration) {
-  // Simple PWM simulation at specified frequency
-  uint32_t period = 1000000 / frequency; // Period in microseconds
-  uint32_t pulseWidth = period / 2;
-  uint32_t cycles = (duration * frequency) / 1000000;
-
-  for (uint32_t i = 0; i < cycles; i++) {
-    digitalWrite(pin, HIGH);
-    delayMicroseconds(pulseWidth);
-    digitalWrite(pin, LOW);
-    delayMicroseconds(pulseWidth);
-  }
 }
 
 void IrEmitter::logEmission(uint32_t count) {

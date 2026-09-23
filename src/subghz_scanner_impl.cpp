@@ -1,6 +1,7 @@
 #include "subghz_scanner.h"
 #include "config.h"
 #include <RadioLib.h>
+#include "results_display.h"
 
 namespace {
 Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);
@@ -55,6 +56,7 @@ ScanResult scanBand(uint32_t durationMs) {
     Serial.println("Strongest: " + String(result.strongestSignal) + "dBm @ " + 
                   String(result.busyFrequency, 2) + " MHz");
     
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

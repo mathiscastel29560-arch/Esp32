@@ -1,5 +1,6 @@
 #include "iot_device_hunter.h"
 #include "wifi_tools.h"
+#include "results_display.h"
 
 namespace IoTDeviceHunter {
 
@@ -56,6 +57,26 @@ HuntResult huntDevices(uint32_t durationMs) {
     }
     
     Serial.println("✓ Found " + String(result.devicesFound) + " IoT devices");
+
+    std::vector<String> displayLines;
+    if (result.devicesFound > 0) {
+        displayLines.push_back(String(result.devicesFound) + " IoT device(s)");
+        for (size_t i = 0; i < result.devices.size() && i < 8; i++) {
+            displayLines.push_back(result.devices[i].vendor + " - " + result.devices[i].deviceType);
+            displayLines.push_back("  Signal: " + String(result.devices[i].signal) + "dBm");
+        }
+    } else {
+        displayLines.push_back("No IoT devices found");
+    }
+
+    ResultsDisplay::showResult("IoT Hunter", {
+        "IoT Device Discovery",
+        String(result.devicesFound) + " device(s)",
+        100,
+        displayLines,
+        result.devicesFound > 0 ? ResultsDisplay::ResultType::SCAN_RESULT : ResultsDisplay::ResultType::INFO
+    });
+
     return result;
 }
 

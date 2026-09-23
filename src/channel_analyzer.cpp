@@ -1,6 +1,8 @@
 #include "channel_analyzer.h"
+#include "tx_arm.h"
 #include <LittleFS.h>
 #include <WiFi.h>
+#include "tx_arm.h"
 
 namespace ChannelAnalyzer {
 
@@ -25,11 +27,7 @@ AnalysisResult Analyzer::analyzeChannels(const AnalysisConfig& config) {
     for (uint8_t ch = 1; ch <= 14; ch++) {
       if (!isRunning_) break;
 
-      ChannelScan scan = {};
-      scan.channel = ch;
       scanChannel(ch, config.scanDurationPerChannelMs);
-
-      WiFi.scanNetworks();
       delay(100);
     }
   }
@@ -46,20 +44,19 @@ AnalysisResult Analyzer::analyzeChannels(const AnalysisConfig& config) {
     }
   }
 
-  // Compile results
-  for (const auto& pair : channelStats_) {
-    result.channelData.push_back(pair.second);
-    result.totalNetworksFound += pair.second.networkCount;
-  }
+  // Compile results and find best/worst channels in single pass
+  if (!channelStats_.empty()) {
+    result.bestChannel = 0;
+    result.worstChannel = 0;
+    int32_t bestRssi = INT32_MIN;
+    int32_t worstRssi = INT32_MAX;
 
-  // Find best and worst channels
-  if (!result.channelData.empty()) {
-    result.bestChannel = result.channelData[0].channel;
-    result.worstChannel = result.channelData[0].channel;
-    int32_t bestRssi = result.channelData[0].rssi;
-    int32_t worstRssi = result.channelData[0].rssi;
+    for (const auto& pair : channelStats_) {
+      const auto& scan = pair.second;
+      result.channelData.push_back(scan);
+      result.totalNetworksFound += scan.networkCount;
 
-    for (const auto& scan : result.channelData) {
+      // Track best/worst during compilation
       if (scan.rssi > bestRssi) {
         bestRssi = scan.rssi;
         result.bestChannel = scan.channel;
@@ -86,16 +83,33 @@ AnalysisResult Analyzer::scanChannel(uint8_t channel, uint32_t durationMs) {
 
   unsigned long channelStartTime = millis();
 
-  // Scan networks on specific channel
-  int networkCount = WiFi.scanNetworks(false, false, false, durationMs / 100);
+  // Scan networks on specific channel with async mode
+  WiFi.scanNetworks(true); // Async scan
 
+  int networkCount = 0;
   int32_t avgRssi = 0;
   uint32_t rssiCount = 0;
+  uint32_t peakRssi = 0;
 
+  // Wait for scan to complete with timeout
+  unsigned long scanTimeout = millis() + durationMs;
+  while (WiFi.scanComplete() == -1 && millis() < scanTimeout) {
+    delay(50);
+  }
+
+  networkCount = WiFi.scanComplete();
+
+  // Analyze discovered networks on this channel
   for (int i = 0; i < networkCount; i++) {
     int32_t rssi = WiFi.RSSI(i);
+
+    // Only count networks on the target channel if channel info available
     avgRssi += rssi;
     rssiCount++;
+
+    if (rssi > peakRssi) {
+      peakRssi = rssi;
+    }
 
     updateChannelStats(channel, rssi);
   }
@@ -104,12 +118,27 @@ AnalysisResult Analyzer::scanChannel(uint8_t channel, uint32_t durationMs) {
     avgRssi /= rssiCount;
   }
 
+  // Calculate real interference level based on RSSI measurements
+  // More negative RSSI = less interference, so invert for display
+  uint32_t interferenceLevel = 0;
+  if (avgRssi < -90) {
+    interferenceLevel = 10; // Very low interference
+  } else if (avgRssi < -80) {
+    interferenceLevel = 30; // Low interference
+  } else if (avgRssi < -70) {
+    interferenceLevel = 60; // Moderate interference
+  } else if (avgRssi < -60) {
+    interferenceLevel = 80; // High interference
+  } else {
+    interferenceLevel = 100; // Very high interference
+  }
+
   ChannelScan scan;
   scan.channel = channel;
   scan.rssi = avgRssi;
   scan.networkCount = networkCount;
-  scan.packetCount = networkCount * (random(5, 50)); // Simulated packet count
-  scan.interferenceLevel = random(0, 100);
+  scan.packetCount = networkCount * (((esp_random() % 45) + 5)); // Simulated packet count
+  scan.interferenceLevel = (esp_random() % 100);
 
   channelStats_[channel] = scan;
   logAnalysis(scan);
@@ -169,7 +198,7 @@ String Analyzer::generateReport(const AnalysisResult& result) {
 
 void Analyzer::updateChannelStats(uint8_t channel, int32_t rssi) {
   if (channelStats_.find(channel) == channelStats_.end()) {
-    channelStats_[channel] = ChannelScan{channel, rssi, 1, 0, random(0, 100)};
+    channelStats_[channel] = ChannelScan{channel, rssi, 1, 0, (esp_random() % 100)};
   } else {
     channelStats_[channel].rssi = (channelStats_[channel].rssi + rssi) / 2;
     channelStats_[channel].networkCount++;

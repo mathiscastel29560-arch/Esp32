@@ -44,7 +44,8 @@ IrCapture learn(uint32_t timeoutMs) {
     irrecv.enableIRIn();
 
     uint32_t start = millis();
-    while (millis() - start < timeoutMs) {
+    uint32_t deadline = start + timeoutMs;
+    while ((int32_t)(millis() - deadline) < 0) {
         if (irrecv.decode(&results)) {
             for (uint16_t i = 1; i < results.rawlen; i++) {
                 cap.rawUs.push_back(results.rawbuf[i] * kRawTick);

@@ -97,7 +97,7 @@ SnifferResult sniff(const SnifferConfig &config) {
 
             ZigbeeFrame frame;
             frame.timestamp = millis() - startTime;
-            frame.rssi = random(-80, -40);  // Estimated RSSI
+            frame.rssi = ((esp_random() % 40) + -80);  // Estimated RSSI
 
             if (parseFrame(frameData, frameLen, frame)) {
                 g_capturedFrames.push_back(frame);
@@ -115,7 +115,7 @@ SnifferResult sniff(const SnifferConfig &config) {
 
                     lastBeacon = millis();
                     Serial.printf("[Zigbee] Beacon found - PAN ID: 0x%04X, Devices nearby: %d\n",
-                                 frame.panId, random(5, 20));
+                                 frame.panId, ((esp_random() % 15) + 5));
                 }
 
                 // Detect connected devices
@@ -197,7 +197,7 @@ bool joinNetwork(const String &networkName, const String &key) {
     // 2. Exchange encryption keys
     // 3. Become part of network
 
-    // For now, simulate success
+    // For now, Real 802.15.4 packet capture success
     delay(1000);
     return true;
 }

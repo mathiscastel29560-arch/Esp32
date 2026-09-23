@@ -1,6 +1,7 @@
 #include "handshake_capture.h"
 #include "config.h"
 #include "mac_utils.h"
+#include "timeout_utils.h"
 #include "deauth.h"
 
 #include <LittleFS.h>
@@ -102,10 +103,12 @@ Result capture(const String &bssidStr, uint8_t channel, uint32_t durationMs) {
     esp_wifi_set_promiscuous(true);
 
     uint32_t start = millis();
-    uint32_t deauthAt = start + durationMs / 3;
+    uint32_t deauthAt = start + durationMs / 3;  // Trigger deauth at 1/3 into capture
     bool deauthSent = false;
-    while (millis() - start < durationMs) {
-        if (!deauthSent && millis() >= deauthAt) {
+
+    // Use safe timeout comparison (handles millis() wraparound)
+    while (TimeoutUtils::isWithinTimeout(start, durationMs)) {
+        if (!deauthSent && TimeoutUtils::hasReached(deauthAt)) {
             Deauth::send(bssidStr, "", channel, 10);
             deauthSent = true;
         }
