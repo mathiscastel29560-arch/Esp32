@@ -10,9 +10,7 @@ volatile bool g_jamActive = false;
 uint32_t g_jamPacketsCount = 0;
 
 void sendJamSignal(float freq) {
-    radio.begin(freq);
-    radio.setOOK(true);
-    radio.transmitDirectAsync();
+    radio.setFrequency(freq);
 
     for (int i = 0; i < 32; i++) {
         digitalWrite(PIN_CC1101_GDO0, i % 2);
@@ -43,6 +41,27 @@ JamResult jamRFSignals(const String &frequency, uint32_t durationMs, const Strin
         Serial.println("✗ TX not armed (hold BACK button)");
         return result;
     }
+
+    // Initialize radio once for entire jamming session
+    float freq = 433.92f;
+    if (frequency != "433.92") {
+        freq = frequency.toFloat();
+    }
+
+    int initResult = radio.begin(freq);
+    if (initResult != RADIOLIB_ERR_NONE) {
+        Serial.println("✗ Radio init failed (code: " + String(initResult) + ")");
+        return result;
+    }
+
+    radio.setOOK(true);
+    int txResult = radio.transmitDirectAsync();
+    if (txResult != RADIOLIB_ERR_NONE) {
+        Serial.println("✗ Transmit setup failed (code: " + String(txResult) + ")");
+        return result;
+    }
+
+    pinMode(PIN_CC1101_GDO0, OUTPUT);
 
     g_jamActive = true;
     g_jamPacketsCount = 0;
