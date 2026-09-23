@@ -173,13 +173,12 @@ RelayResult MitmRelay::interceptData(uint8_t* data, uint32_t len) {
   }
 
   if (logFile) {
-    char hexData[64];
+    char hexData[64] = {0};
     uint32_t displayLen = (len > 16) ? 16 : len;
-    hexData[0] = '\0';
-    for (uint32_t i = 0; i < displayLen; i++) {
-      char hex[3];
-      snprintf(hex, sizeof(hex), "%02X", data[i]);
-      strcat(hexData, hex);
+    uint32_t offset = 0;
+
+    for (uint32_t i = 0; i < displayLen && offset + 2 < sizeof(hexData); i++) {
+      offset += snprintf(hexData + offset, sizeof(hexData) - offset, "%02X", data[i]);
     }
     logFile.printf("%lu,DATA_RELAY,%u,%s\n", millis(), len, hexData);
     logFile.close();
@@ -204,12 +203,11 @@ void MitmRelay::logKeys(const uint8_t* keyData, uint32_t len) {
 
   if (logFile) {
     // Log pairing/encryption keys in hex format
-    char hexKey[128];
-    hexKey[0] = '\0';
-    for (uint32_t i = 0; i < len && i < 32; i++) {
-      char hex[3];
-      snprintf(hex, sizeof(hex), "%02X", keyData[i]);
-      strcat(hexKey, hex);
+    char hexKey[128] = {0};
+    uint32_t offset = 0;
+
+    for (uint32_t i = 0; i < len && i < 32 && offset + 2 < sizeof(hexKey); i++) {
+      offset += snprintf(hexKey + offset, sizeof(hexKey) - offset, "%02X", keyData[i]);
     }
     logFile.printf("%lu,KEY_INTERCEPT,%u,%s\n", millis(), len, hexKey);
     logFile.close();
