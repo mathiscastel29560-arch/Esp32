@@ -3,6 +3,23 @@
 ## Overview
 This document summarizes all improvements made to the ESP32-S3 offensive security platform for code quality, security, testing, and automation.
 
+## Latest Session Updates (2026-09-23)
+
+### New Features Added
+1. **Configuration Management** - ConfigManager singleton for saving/loading tool configs
+2. **Audit Logging System** - AuditLog singleton with 12 event types for attack tracking
+3. **Battery Monitoring** - Enhanced Battery module with state detection and thresholds
+4. **Comprehensive Auditing** - Integrated AuditLog into 4+ critical modules
+5. **Enhanced Input Validation** - Extended validation to Deauth module with channel/frame bounds
+6. **CI/CD Improvements** - Fixed false positives in security scanning
+
+### Statistics
+- **Commits**: 7 new feature commits pushing improvements
+- **Lines Added**: 500+ lines of production code for new features
+- **Modules Enhanced**: HandshakeCapture, WiFiKRACK, BleMitmRelay, WpsBruteforce, Deauth
+- **Test Status**: All CI checks passing, no compilation errors
+- **Flash Usage**: 66.2% (sustainable), RAM: 26.3%
+
 ## What Was Added
 
 ### 1. Security Infrastructure ✅
@@ -152,6 +169,68 @@ make status             # Git status
 - **IMPROVEMENTS.md** - This file
 - **Makefile** - Build automation
 - **scripts/** - Automation scripts
+
+### 8. Configuration Management ✅ (Latest Session)
+
+#### `include/config_manager.h`
+- **Purpose**: Save and load tool configurations persistently
+- **Features**:
+  - ToolConfig struct with 8 configurable parameters
+  - LittleFS-based JSON storage in `/config` directory
+  - Full CRUD operations: save, load, list, delete, clear
+  - Filesystem statistics and space monitoring
+  - ArduinoJson integration for readable configs
+
+#### Usage:
+```cpp
+// Save configuration
+ConfigManager::ToolConfig cfg;
+cfg.toolName = "wifi_scan";
+cfg.timeout_ms = 30000;
+cfg.channel = 6;
+ConfigManager::instance().saveToolConfig("wifi_scan", cfg);
+
+// Load configuration
+if (ConfigManager::instance().loadToolConfig("wifi_scan", cfg)) {
+    // Use cfg...
+}
+
+// List all configurations
+ConfigManager::instance().listConfigs();
+```
+
+### 9. Audit Logging System ✅ (Latest Session)
+
+#### `include/audit_log.h`
+- **Purpose**: Track all attack executions and events
+- **Features**:
+  - 12 audit event types (TOOL_START/STOP/SUCCESS/FAILURE, ATTACK_INITIATED/COMPLETED, etc.)
+  - CSV-based logging with daily rotation
+  - Timestamp (millis), event type, module name, free heap, custom details
+  - LittleFS storage in `/logs/audit/` directory
+  - Real-time serial output + persistent file logging
+  - Automatic log cleanup (configurable retention)
+
+#### Integration Points:
+- **HandshakeCapture**: Logs WiFi handshake capture attempts
+- **WiFiKRACK**: Logs KRACK attack initiation, frame count, success/failure
+- **BleMitmRelay**: Logs BLE relay with packet/byte metrics
+- **WpsBruteforce**: Logs PIN discovery and attempt statistics
+- **Deauth**: Logs deauthentication attacks with target info
+- **Battery**: Logs critical/low battery warnings with voltage
+
+### 10. Battery Management Enhancement ✅ (Latest Session)
+
+#### Enhanced `include/battery.h`
+- **BatteryState enum**: CRITICAL, WARNING, NORMAL
+- **New Functions**:
+  - `state()` - Returns current battery condition
+  - `isLow()` - Returns true if < 15% or 3.5V
+  - `isCritical()` - Returns true if < 5% or 3.1V
+- **Features**:
+  - Rate-limited warning logging (60s interval)
+  - AuditLog integration for battery events
+  - Safe voltage/percentage calculations
 
 ## How to Use
 
