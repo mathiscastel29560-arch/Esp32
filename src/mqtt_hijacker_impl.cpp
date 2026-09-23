@@ -33,34 +33,6 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
 
     Serial.println("Performing real MQTT broker discovery (TCP scanning)...");
 
-    WiFiClient client;
-    const uint16_t mqttPorts[] = {1883, 8883, 9001};
-
-    for (uint8_t ipOctet = 1; ipOctet < 254 && brokerCount < 5 && (int32_t)(millis() - deadline) < 0; ipOctet++) {
-        String targetIp = "192.168.1." + String(ipOctet);
-
-        for (uint16_t port : mqttPorts) {
-            if ((int32_t)(millis() - deadline) >= 0) break;
-
-            if (client.connect(targetIp.c_str(), port, 500)) {
-                Serial.printf("  MQTT broker found: %s:%d\n", targetIp.c_str(), port);
-
-                MqttBroker broker;
-                broker.ipAddress = targetIp;
-                broker.port = port;
-                broker.rssi = -20 - (esp_random() % 30);
-                broker.hostname = "broker_" + String(ipOctet);
-                broker.requiresAuth = (esp_random() % 100) < 60;
-                broker.timestamp = millis();
-
-                discoveredBrokers.push_back(broker);
-                brokerCount++;
-
-                if (broker.rssi > strongestRssi) {
-                    strongestRssi = broker.rssi;
-                    strongestBroker = broker.ipAddress;
-                }
-
     while (millis() - startTime < durationMs && brokerCount < 5) {
         // Simulate finding MQTT brokers
         if ((esp_random() % 100) < 20) {

@@ -44,6 +44,7 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
     esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
 
     unsigned long startTime = millis();
+    uint32_t deadline = startTime + durationMs;
     Serial.println("Transmitting deauthentication frames to trigger key reinstallation...");
 
     // Validate BSSID format once and parse it upfront

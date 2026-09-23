@@ -1,6 +1,7 @@
 #include "coap_scanner.h"
 #include <vector>
 #include "results_display.h"
+#include <WiFiUdp.h>
 
 namespace CoapScanner {
 
@@ -31,17 +32,12 @@ ScanResult scanCoapServers(uint32_t durationMs) {
             server.requiresAuth = ((esp_random() % 100) < 40);
             server.timestamp = millis();
 
-
-                        discoveredServers.push_back(server);
-                        serverCount++;
-                        resourceCount += 3;
-                    }
-                }
-                udp.stop();
-            }
-
-            delay(10);
+            discoveredServers.push_back(server);
+            serverCount++;
+            resourceCount += 3;
         }
+
+        delay(10);
     }
 
     result.success = (serverCount > 0);
@@ -68,6 +64,8 @@ EnumerationResult enumerateCoapResources(const char* serverIp, uint32_t duration
     uint32_t resourcesFound = 0;
     String paths = "";
     uint32_t deadline = startTime + durationMs;
+
+    WiFiUDP udp;
 
     Serial.println("\n=== CoAP Resource Enumeration (REAL .well-known/core) ===");
     Serial.printf("Target: %s\n", serverIp);

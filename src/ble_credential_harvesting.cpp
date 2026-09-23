@@ -98,15 +98,7 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
         }
         NimBLEDevice::deleteClient(pClient);
       }
-
-      cred.harvestedData = HexUtils::toHexString(linkKey, 16);
-      result.credentials.push_back(cred);
-      result.credentialsFound++;
-      logCredential(cred);
-      Serial.printf("  [%d] Pairing key captured from %s\n", result.credentialsFound, addrStr);
     }
-
-    NimBLEDevice::deleteClient(pClient);
   }
 
   result.success = result.credentialsFound > 0;

@@ -39,6 +39,9 @@ InjectionResult PacketInjector::injectBeacon(const InjectionConfig& config) {
   startTime_ = millis();
   uint32_t deadline = startTime_ + config.durationMs;
 
+  uint32_t pps = (config.packetsPerSec == 0) ? 1 : config.packetsPerSec;
+  uint32_t delayMs = 1000 / pps;
+
   uint8_t bssidBytes[6] = {0};
   int parsed = sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &bssidBytes[0], &bssidBytes[1], &bssidBytes[2],
@@ -108,7 +111,7 @@ InjectionResult PacketInjector::injectProbe(const InjectionConfig& config) {
   while (isRunning_ && (millis() - startTime_) < config.durationMs) {
     // Alternate between Probe Request and Response
     FrameType type = (result.packetsSent % 2 == 0) ? PROBE_REQUEST : PROBE_RESPONSE;
-    probe = buildFrame(type, bssidBytes);
+    std::vector<uint8_t> probe = buildFrame(type, bssidBytes);
 
     sendRawFrame(probe.data(), probe.size());
     result.packetsSent++;

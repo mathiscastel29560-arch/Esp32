@@ -1,6 +1,8 @@
 #include "http_downgrade_attack.h"
 #include "tx_arm.h"
 #include "results_display.h"
+#include <WiFi.h>
+#include <esp_wifi.h>
 
 namespace {
 volatile bool g_downgradeActive = false;

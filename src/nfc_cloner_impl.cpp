@@ -2,6 +2,9 @@
 #include "drivers/pn532_driver.h"
 #include "hardware.h"
 #include "results_display.h"
+#include <Wire.h>
+
+#define PN532_I2C_ADDRESS 0x24
 
 namespace NfcCloner {
 

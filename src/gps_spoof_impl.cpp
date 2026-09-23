@@ -3,6 +3,9 @@
 #include "config.h"
 #include <math.h>
 #include "results_display.h"
+#include <WiFi.h>
+#include <NimBLEDevice.h>
+#include <esp_wifi.h>
 
 namespace {
 volatile bool g_spoofActive = false;

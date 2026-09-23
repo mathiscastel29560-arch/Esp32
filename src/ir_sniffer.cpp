@@ -25,47 +25,34 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
       IrCode code;
       code.timestamp = millis();
       code.protocol = identifyProtocol(results);
-      code.rssi = -55; // Real IR reception RSSI for IR
+      code.rssi = -55;
 
-      // Decode IR code from results
-      if (results.bits > 0) { // Filter out noise
+      if (results.bits > 0) {
+        // Decode protocol-specific fields
+        if (results.decode_type == decode_type_t::NEC) {
+          code.address = (results.value >> 16) & 0xFF;
+          code.command = results.value & 0xFF;
+        } else if (results.decode_type == decode_type_t::RC5 ||
+                   results.decode_type == decode_type_t::RC6) {
+          code.address = (results.value >> 8) & 0x1F;
+          code.command = results.value & 0xFF;
+        } else if (results.decode_type == decode_type_t::SONY) {
+          code.address = (results.value >> 16) & 0xFF;
+          code.command = results.value & 0xFF;
+        }
 
-          if (decodedCode.protocol != "UNKNOWN") {
-            decodedCode.timestamp = millis();
-            result.codes.push_back(decodedCode);
-            result.codesCapTured++;
-            codeCount++;
+        if (code.protocol != "UNKNOWN") {
+          result.codes.push_back(code);
+          result.codesCapTured++;
+          codeCount++;
 
-            Serial.printf("  [%d] %s: addr=0x%02X cmd=0x%02X\n",
-              codeCount, decodedCode.protocol.c_str(),
-              decodedCode.address, decodedCode.command);
+          Serial.printf("  [%d] %s: addr=0x%02X cmd=0x%02X\n",
+            codeCount, code.protocol.c_str(),
+            code.address, code.command);
 
-            logCode(decodedCode);
-            timingBuffer.clear();
-          } else if (timingBuffer.size() > 50) {
-            timingBuffer.erase(timingBuffer.begin());
-          }
+          logCode(code);
         }
       }
-
-      // Decode protocol-specific fields
-      if (results.decode_type == decode_type_t::NEC) {
-        code.address = (results.value >> 16) & 0xFF;
-        code.command = results.value & 0xFF;
-      } else if (results.decode_type == decode_type_t::RC5 ||
-                 results.decode_type == decode_type_t::RC6) {
-        code.address = (results.value >> 8) & 0x1F;
-        code.command = results.value & 0xFF;
-      } else if (results.decode_type == decode_type_t::SONY) {
-        code.address = (results.value >> 16) & 0xFF;
-        code.command = results.value & 0xFF;
-      }
-
-      result.codes.push_back(code);
-      result.codesCapTured++;
-      codeCount++;
-      logCode(code);
-      protocolCounts.push_back(code.protocol);
 
       irrecv_.resume();
     }

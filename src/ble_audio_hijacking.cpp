@@ -19,7 +19,6 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
   }
 
   NimBLEDevice::init("ESP32-AudioDetect");
-  NimBLEAddress bleAddr(addr, false);
 
   NimBLEClient* pClient = NimBLEDevice::createClient();
   // Convert uint8_t address array to uint64_t for NimBLEAddress

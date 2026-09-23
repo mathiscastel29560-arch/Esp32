@@ -108,6 +108,7 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     g_deauthCount = 0;
     uint32_t startTime = millis();
     uint32_t lastUpdate = startTime;
+    uint32_t deadline = startTime + durationMs;
 
     Serial.println("Starting deauth flood...");
 
@@ -144,7 +145,6 @@ DeauthResult sendDeauthFrames(const String &targetBSSID, uint32_t durationMs, bo
     result.deauthCount = g_deauthCount;
     uint32_t elapsed = millis() - startTime;
 
-    uint32_t elapsed = millis() - startTime;
     Serial.println("✓ Deauth attack complete");
     Serial.println("Total frames: " + String(result.deauthCount));
     Serial.println("Duration: " + String(elapsed) + "ms");

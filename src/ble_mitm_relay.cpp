@@ -96,7 +96,11 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
   // Create generic service for relaying (0x180A is Device Information Service as template)
   NimBLEService* pService = g_relayServer->createService("180A");
 
-  std::vector<NimBLERemoteService*>* services = pClient->getServices(true);
+  // Create characteristic for relaying data
+  g_relayChar = pService->createCharacteristic("2A29", NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  g_relayChar->setCallbacks(new RelayCharacteristicCallbacks());
+  pService->start();
+
   uint32_t relayCount = 0;
 
   // Connect to target device

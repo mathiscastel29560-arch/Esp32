@@ -45,17 +45,6 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
 
     while (millis() - startTime < durationMs && g_hijackActive) {
         // Real IEEE 802.11 Association frames with spoofed MAC
-        g_assocCount++;
-        // Association frame transmission via esp_wifi_80211_tx
-
-        if (now >= nextChannelSwitch) {
-            uint8_t ch = channels[channelIdx % 3];
-            esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
-            channelIdx++;
-            nextChannelSwitch = now + 1000;
-            Serial.printf("  Channel switched to %d\n", ch);
-        }
-
         uint8_t targetAddr[6];
         sscanf(targetMAC.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
                &targetAddr[0], &targetAddr[1], &targetAddr[2],
