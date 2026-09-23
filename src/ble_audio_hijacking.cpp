@@ -21,7 +21,13 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
   NimBLEDevice::init("ESP32-AudioDetect");
 
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  NimBLEAddress targetAddr(addr, BLE_ADDR_RANDOM);
+
+  // Convert uint8_t address array to uint64_t for NimBLEAddress
+  uint64_t addrInt = 0;
+  for (int i = 0; i < 6; i++) {
+    addrInt = (addrInt << 8) | addr[i];
+  }
+  NimBLEAddress targetAddr(addrInt, BLE_ADDR_RANDOM);
 
   // Connect to target device
   if (!pClient->connect(targetAddr)) {
