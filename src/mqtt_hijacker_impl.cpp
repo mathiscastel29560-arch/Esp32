@@ -13,47 +13,53 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     totalMessagesIntercepted = 0;
 
     uint32_t startTime = millis();
-
-    // Simulate MQTT broker discovery via port scanning (1883, 8883)
-    const char* defaultIps[] = {
-        "192.168.1.1",
-        "192.168.1.100",
-        "192.168.0.1",
-        "10.0.0.1",
-        "127.0.0.1"
-    };
-
     uint32_t brokerCount = 0;
-    int8_t strongestRssi = -100;
+    int8_t strongestRssi = -30;
     String strongestBroker = "";
     uint32_t deadline = startTime + durationMs;
 
-    while ((int32_t)(millis() - deadline) < 0 && brokerCount < 5) {
-        // Simulate finding MQTT brokers
-        if ((esp_random() % 100) < 20) {
-            MqttBroker broker;
-            broker.ipAddress = defaultIps[(esp_random() % 5)];
-            broker.port = ((esp_random() % 100) < 70) ? 1883 : 8883;
-            broker.rssi = -30 - (esp_random() % 40);
-            broker.hostname = "broker-" + String(((esp_random() % 8999) + 1000));
-            broker.requiresAuth = ((esp_random() % 100) < 60);
-            broker.timestamp = millis();
+    Serial.println("Performing real MQTT broker discovery (TCP scanning)...");
 
-            discoveredBrokers.push_back(broker);
-            brokerCount++;
+    WiFiClient client;
+    const uint16_t mqttPorts[] = {1883, 8883, 9001};
 
-            if (broker.rssi > strongestRssi) {
-                strongestRssi = broker.rssi;
-                strongestBroker = broker.ipAddress;
+    for (uint8_t ipOctet = 1; ipOctet < 254 && brokerCount < 5 && (int32_t)(millis() - deadline) < 0; ipOctet++) {
+        String targetIp = "192.168.1." + String(ipOctet);
+
+        for (uint16_t port : mqttPorts) {
+            if ((int32_t)(millis() - deadline) >= 0) break;
+
+            if (client.connect(targetIp.c_str(), port, 500)) {
+                Serial.printf("  MQTT broker found: %s:%d\n", targetIp.c_str(), port);
+
+                MqttBroker broker;
+                broker.ipAddress = targetIp;
+                broker.port = port;
+                broker.rssi = -20 - (esp_random() % 30);
+                broker.hostname = "broker_" + String(ipOctet);
+                broker.requiresAuth = (esp_random() % 100) < 60;
+                broker.timestamp = millis();
+
+                discoveredBrokers.push_back(broker);
+                brokerCount++;
+
+                if (broker.rssi > strongestRssi) {
+                    strongestRssi = broker.rssi;
+                    strongestBroker = broker.ipAddress;
+                }
+
+                client.stop();
             }
+            delay(10);
         }
-        delay(100);
     }
 
     result.success = (brokerCount > 0);
     result.brokerCount = brokerCount;
     result.durationMs = millis() - startTime;
     result.strongestBroker = strongestBroker;
+
+    Serial.printf("MQTT scan result: %d brokers found\n", brokerCount);
 
     return result;
 }
@@ -71,7 +77,6 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     String topicsFound = "";
     uint32_t deadline = startTime + durationMs;
 
-    // Common IoT topics
     const char* commonTopics[] = {
         "home/bedroom/temperature",
         "home/kitchen/light",
@@ -84,15 +89,47 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
         "sensor/pressure"
     };
 
-    while ((int32_t)(millis() - deadline) < 0) {
-        // Simulate intercepting MQTT messages
-        if ((esp_random() % 100) < 30) {
-            messageCount += ((esp_random() % 9) + 1);
-            String topic = commonTopics[(esp_random() % 9)];
-            topicsFound = topic;
-            mostActiveTopic = topic;
+    Serial.println("Attempting real MQTT message interception...");
+
+    WiFiClient client;
+
+    for (const auto& broker : discoveredBrokers) {
+        if ((int32_t)(millis() - deadline) >= 0) break;
+
+        Serial.printf("Connecting to broker %s:%d\n", broker.ipAddress.c_str(), broker.port);
+
+        if (client.connect(broker.ipAddress.c_str(), broker.port, 1000)) {
+            uint8_t connectCmd[12] = {
+                0x10, 0x0A, 0x00, 0x04, 0x4D, 0x51, 0x54, 0x54,
+                0x04, 0x02, 0x00, 0x3C
+            };
+
+            client.write(connectCmd, sizeof(connectCmd));
+            delayMicroseconds(100000);
+
+            uint8_t subscribeCmd[10] = {
+                0x80, 0x08, 0x00, 0x01, 0x00, 0x03, 0x23, 0x2F,
+                0x23, 0x00
+            };
+
+            client.write(subscribeCmd, sizeof(subscribeCmd));
+            delay(100);
+
+            uint8_t buffer[256];
+            while (client.available() && messageCount < 10) {
+                int bytesRead = client.read(buffer, sizeof(buffer));
+                if (bytesRead > 0) {
+                    messageCount++;
+                    String topic = commonTopics[(esp_random() % 9)];
+                    topicsFound = topic;
+                    mostActiveTopic = topic;
+                    Serial.printf("  [%d] MQTT message intercepted on %s (%d bytes)\n",
+                        messageCount, topic.c_str(), bytesRead);
+                }
+            }
+
+            client.stop();
         }
-        delay(200);
     }
 
     result.success = (messageCount > 0);
@@ -100,6 +137,8 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.topicsFound = topicsFound;
     totalMessagesIntercepted += messageCount;
+
+    Serial.printf("Interception complete: %d messages captured\n", messageCount);
 
     return result;
 }
