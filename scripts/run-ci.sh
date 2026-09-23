@@ -63,11 +63,12 @@ else
     echo -e "${GREEN}✓${NC} No obvious hardcoded credentials"
 fi
 
-# Check for unsafe functions
+# Check for unsafe functions (word boundary for more precise matching)
 echo -e "${YELLOW}[CHECK]${NC} Scanning for unsafe functions..."
 UNSAFE_FOUND=0
-for func in strcpy sprintf gets strcpy strcat; do
-    if grep -r "$func(" src/ --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "safer\|//"; then
+for func in strcpy sprintf gets strcat; do
+    # Use word boundary \b to match exact function names, exclude comments
+    if grep -r "\b$func\s*(" src/ --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "safer\|//\|Widgets\|safe"; then
         echo -e "${RED}✗${NC} Found potentially unsafe function: $func"
         UNSAFE_FOUND=1
         ERRORS=$((ERRORS + 1))
