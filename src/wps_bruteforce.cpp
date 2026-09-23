@@ -1,5 +1,6 @@
 #include "wps_bruteforce.h"
 #include "tx_arm.h"
+#include "audit_log.h"
 #include <LittleFS.h>
 #include <esp_wifi.h>
 #include <mbedtls/md.h>
@@ -21,8 +22,15 @@ WpsResult WpsBruteforcer::bruteforcePin(const WpsConfig& config) {
 
   if (!TxArm::isArmed()) {
     result.error = "TX not armed - hold BACK button";
+    AUDIT_LOG(AuditEventType::TOOL_FAILURE, "WpsBruteforce", "TX not armed");
     return result;
   }
+
+  char details[96];
+  snprintf(details, sizeof(details), "BSSID=%s,channel=%d,pin_range=%u-%u",
+           config.targetBssid, config.targetChannel,
+           config.startPin, config.endPin);
+  AuditLog::instance().log(AuditEventType::TOOL_START, "WpsBruteforce", details);
 
   isRunning_ = true;
   startTime_ = millis();
@@ -66,6 +74,10 @@ WpsResult WpsBruteforcer::bruteforcePin(const WpsConfig& config) {
           result.validPin = pin;
           result.psk = passphrase;
           logAttempt("PIN_ENUM", pin, true);
+
+          char pinDetails[96];
+          snprintf(pinDetails, sizeof(pinDetails), "PIN=%08u,passphrase=%s", pin, passphrase.c_str());
+          AuditLog::instance().log(AuditEventType::TOOL_SUCCESS, "WpsBruteforce", pinDetails);
           break;
         }
       }
@@ -96,6 +108,13 @@ WpsResult WpsBruteforcer::bruteforcePin(const WpsConfig& config) {
       logFile.close();
     }
     LittleFS.end();
+  }
+
+  if (!result.success) {
+    char failDetails[96];
+    snprintf(failDetails, sizeof(failDetails), "attempts=%u,elapsed=%ldms",
+             attemptCount_, result.elapsedMs);
+    AuditLog::instance().log(AuditEventType::TOOL_FAILURE, "WpsBruteforce", failDetails);
   }
 
   isRunning_ = false;
