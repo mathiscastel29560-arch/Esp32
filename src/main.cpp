@@ -28,10 +28,13 @@
 #include "ui/ui.h"
 #include "boot_screen.h"
 #include "system_diagnostics.h"
+#include "power_manager.h"
+#include "psram_log_buffer.h"
 
 namespace {
 String apSsid;
 uint32_t lastDisplayUpdate = 0;
+uint32_t lastPowerModeUpdate = 0;
 }
 
 void setup() {
@@ -39,8 +42,12 @@ void setup() {
 
     LittleFS.begin(true); // format on first boot if no filesystem is found
 
+    // Initialize power management and PSRAM logging
+    PSRAMLogBuffer::instance().begin(4096); // 4MB PSRAM buffer for unlimited logging
+
     Buzzer::begin();
     Battery::begin();
+    PowerManager::instance().begin(); // Power management with auto battery-based mode
 
     // Display::begin() auto-detects which screen is wired (TFT or OLED,
     // see display.h) and itself calls SPI.begin() for the shared TFT/
@@ -116,6 +123,13 @@ void loop() {
     CustomModule::loop();
 
     uint32_t now = millis();
+
+    // Update power mode based on battery every 5 seconds
+    if (now - lastPowerModeUpdate > 5000) {
+        lastPowerModeUpdate = now;
+        PowerManager::instance().updateModeBattery();
+    }
+
     if (!Menu::isActive() && now - lastDisplayUpdate > 1000) {
         lastDisplayUpdate = now;
         Ui::StatusInfo status;
