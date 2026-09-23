@@ -33,6 +33,7 @@
 #include "watchdog_timer.h"
 #include "ota_updater.h"
 #include "dual_core_manager.h"
+#include "log_database.h"
 
 namespace {
 String apSsid;
@@ -54,6 +55,7 @@ void setup() {
     WatchdogTimer::instance().begin(10); // 10-second watchdog for deadlock detection
     OtaUpdater::instance().begin(); // OTA firmware updates
     DualCoreManager::instance().begin(); // Parallel processing on dual cores
+    LogDatabase::instance().begin("/logs/audit.db"); // Structured log database
 
     // Display::begin() auto-detects which screen is wired (TFT or OLED,
     // see display.h) and itself calls SPI.begin() for the shared TFT/
