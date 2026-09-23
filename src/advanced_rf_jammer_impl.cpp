@@ -23,7 +23,7 @@ int initCC1101Advanced(float freq) {
         radio.setOOK(true);
         radio.setRxBandwidth(58.0f);
         radio.setBitRate(4.8f);
-        radio.setOutputPower(10);  // 10 dBm
+        radio.setOutputPower(10);
         g_radioInitialized = true;
     }
 
@@ -105,7 +105,6 @@ JamResult jamRFSignals(const String &frequency, uint32_t durationMs, const Strin
     if (initCC1101Advanced(targetFreq) != RADIOLIB_ERR_NONE) {
         Serial.println("✗ CC1101 initialization failed");
         g_jamActive = false;
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -143,7 +142,6 @@ JamResult jamRFSignals(const String &frequency, uint32_t durationMs, const Strin
                  (result.jamPacketsCount * 1000.0f) / elapsed);
     Serial.printf("⚠️  RF spectrum around %.2f MHz jammed\n", targetFreq);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

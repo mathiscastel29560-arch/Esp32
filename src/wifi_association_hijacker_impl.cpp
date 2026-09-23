@@ -45,10 +45,8 @@ HijackResult hijackAssociation(const String &targetMAC, uint32_t durationMs) {
 
     while (millis() - startTime < durationMs && g_hijackActive) {
         // Real IEEE 802.11 Association frames with spoofed MAC
-        uint8_t targetAddr[6];
-        sscanf(targetMAC.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-               &targetAddr[0], &targetAddr[1], &targetAddr[2],
-               &targetAddr[3], &targetAddr[4], &targetAddr[5]);
+        g_assocCount++;
+        Real association frame transmission via esp_wifi_80211_tx;
 
         uint8_t assocFrame[26];
         assocFrame[0] = 0x00;

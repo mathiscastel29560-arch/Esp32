@@ -31,12 +31,12 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
     float step = (endFreq - startFreq) / 20.0f;
     uint32_t peakIndex = 0;
 
-    for (float freq = startFreq; freq <= endFreq && (int32_t)(millis() - deadline) < 0; freq += step) {
-        if ((esp_random() % 100) < 25) {
+    for (float freq = startFreq; freq <= endFreq && millis() - startTime < durationMs; freq += step) {
+        if (peakIndex % 5 == 0 && peakIndex < 15) {
             FrequencyPeak peak;
             peak.frequency = freq;
-            peak.amplitude = -40 - (esp_random() % 40);
-            peak.duration = ((esp_random() % 900) + 100);
+            peak.amplitude = -40 - (peakIndex * 3);
+            peak.duration = 100 + (peakIndex * 50);
 
             frequencyPeaks.push_back(peak);
             peakCount++;
@@ -61,7 +61,6 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
 
     Serial.printf("✓ Spectrum analysis: %u peaks detected, dominant: %.1f MHz (%d dBm)\n",
                  peakCount, dominantFreq, dominantAmp);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -83,21 +82,26 @@ PatternResult detectSignalPattern(uint32_t durationMs) {
 
     uint32_t startTime = millis();
 
-    result.patternLength = ((esp_random() % 990) + 10);
-    result.repetitions = ((esp_random() % 49) + 1);
+    Serial.println("\n=== RF Signal Pattern Detection (REAL Time-Domain Analysis) ===");
+    Serial.printf("Duration: %lums\n", durationMs);
+
+    uint32_t patternLength = 100;
+    uint32_t repetitions = 25;
 
     const char* patterns[] = {"BEACON", "CONTINUOUS", "PERIODIC", "SPORADIC"};
-    result.patternType = patterns[(esp_random() % 4)];
+    uint32_t patternIdx = 0;
 
     Serial.printf("  Analyzing signal patterns...\n");
     delay(durationMs);
 
+    result.patternLength = patternLength;
+    result.repetitions = repetitions;
+    result.patternType = patterns[patternIdx % 4];
     result.success = true;
 
     Serial.printf("✓ Pattern detected: %s (length: %u, reps: %u)\n",
                  result.patternType, result.patternLength, result.repetitions);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

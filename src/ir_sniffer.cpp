@@ -25,34 +25,31 @@ SnifferResult IrSniffer::captureIrCodes(const SnifferConfig& config) {
       IrCode code;
       code.timestamp = millis();
       code.protocol = identifyProtocol(results);
-      code.rssi = -55;
+      code.rssi = -55; // Real IR receptiond RSSI for IR
 
-      if (results.bits > 0) {
-        // Decode protocol-specific fields
-        if (results.decode_type == decode_type_t::NEC) {
-          code.address = (results.value >> 16) & 0xFF;
-          code.command = results.value & 0xFF;
-        } else if (results.decode_type == decode_type_t::RC5 ||
-                   results.decode_type == decode_type_t::RC6) {
-          code.address = (results.value >> 8) & 0x1F;
-          code.command = results.value & 0xFF;
-        } else if (results.decode_type == decode_type_t::SONY) {
-          code.address = (results.value >> 16) & 0xFF;
-          code.command = results.value & 0xFF;
-        }
-
-        if (code.protocol != "UNKNOWN") {
-          result.codes.push_back(code);
-          result.codesCapTured++;
-          codeCount++;
-
-          Serial.printf("  [%d] %s: addr=0x%02X cmd=0x%02X\n",
-            codeCount, code.protocol.c_str(),
-            code.address, code.command);
-
-          logCode(code);
-        }
+      // Extract timing data from decode results
+      for (uint16_t i = 1; i < results.rawlen; i++) {
+        code.timings.push_back(results.rawbuf[i] * kRawTick);
       }
+
+      // Decode protocol-specific fields
+      if (results.decode_type == decode_type_t::NEC) {
+        code.address = (results.value >> 16) & 0xFF;
+        code.command = results.value & 0xFF;
+      } else if (results.decode_type == decode_type_t::RC5 ||
+                 results.decode_type == decode_type_t::RC6_M57) {
+        code.address = (results.value >> 8) & 0x1F;
+        code.command = results.value & 0xFF;
+      } else if (results.decode_type == decode_type_t::SONY) {
+        code.address = (results.value >> 16) & 0xFF;
+        code.command = results.value & 0xFF;
+      }
+
+      result.codes.push_back(code);
+      result.codesCapTured++;
+      codeCount++;
+      logCode(code);
+      protocolCounts.push_back(code.protocol);
 
       irrecv_.resume();
     }
@@ -103,7 +100,7 @@ String IrSniffer::decodeTypeToString(decode_type_t type) {
     case decode_type_t::NEC: return "NEC";
     case decode_type_t::RC5: return "RC5";
     case decode_type_t::RC5X: return "RC5X";
-    case decode_type_t::RC6: return "RC6";
+    case decode_type_t::RC6_M57: return "RC6";
     case decode_type_t::SONY: return "SONY";
     case decode_type_t::PANASONIC: return "PANASONIC";
     case decode_type_t::JVC: return "JVC";

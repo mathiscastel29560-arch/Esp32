@@ -48,19 +48,22 @@ AnalysisResult PowerAnalyzer::analyzeBlePower(const AnalysisConfig& config) {
     // Convert ADC reading to voltage: (reading / 4095) * 3.3V
     float currentVoltage = (currentRaw / 4095.0f) * 3.3f;
 
-    uint8_t state = (esp_random() % 100);
-    if (state < 60) {
-      // Idle state
-      sample.milliamps = ((esp_random() % 15) + 5) / 100.0f; // 0.05-0.2mA
-    } else if (state < 90) {
-      // Scanning state
-      sample.milliamps = ((esp_random() % 10000) + 10000) / 1000.0f; // 10-20mA
-    } else {
-      // Transmission state
-      sample.milliamps = ((esp_random() % 30000) + 20000) / 1000.0f; // 20-50mA
+    // Calculate current using Ohm's law: I = V / R
+    // Current flows through 1Ω shunt, so voltage directly represents current
+    sample.milliamps = (currentVoltage / shuntResistance) * 1000.0f;  // Convert to mA
+
+    // Read supply voltage from ADC
+    uint16_t voltageRaw = analogRead(voltagePin);
+    // Convert ADC reading to voltage (accounting for voltage divider)
+    // Assuming voltage divider with 1:1 ratio for 0-3.3V measurement
+    sample.voltage = (voltageRaw / 4095.0f) * 3.3f;
+
+    // If no voltage divider, voltage should be around 3.3V
+    if (sample.voltage < 0.5f) {
+      sample.voltage = 3.3f;  // Fallback to nominal supply voltage
     }
 
-    sample.voltage = 3.3f + (((esp_random() % 100) + -50) / 1000.0f);
+    // Calculate power: P = V × I
     sample.powerMw = sample.milliamps * sample.voltage;
 
     // Sanity checks for realistic BLE power consumption

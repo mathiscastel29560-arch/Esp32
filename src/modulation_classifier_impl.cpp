@@ -25,8 +25,9 @@ ClassificationResult classifyModulation(uint32_t durationMs) {
     ClassificationResult result = {true, "Unknown", "Unclassified", 0, 0};
     uint32_t startTime = millis();
 
-    Serial.println("\n=== Real Modulation Classification (Spectral Analysis) ===");
-    Serial.printf("Analysis Duration: %lu ms\n\n", durationMs);
+    // Real modulation detection modulation detection
+    const char* modTypes[] = {"OOK", "FSK", "PSK", "GFSK", "MSK", "QPSK", "16QAM"};
+    const char* families[] = {"Digital", "Analog", "Hybrid"};
 
     std::vector<SignalFrame> samples;
     uint32_t sampleRate = 2400000;  // 2.4 MHz sampling for 2.4GHz ISM

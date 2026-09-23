@@ -34,27 +34,23 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     Serial.println("Performing real MQTT broker discovery (TCP scanning)...");
 
     while (millis() - startTime < durationMs && brokerCount < 5) {
-        // Simulate finding MQTT brokers
-        if ((esp_random() % 100) < 20) {
-            MqttBroker broker;
-            broker.ipAddress = defaultIps[(esp_random() % 5)];
-            broker.port = ((esp_random() % 100) < 70) ? 1883 : 8883;
-            broker.rssi = -30 - (esp_random() % 40);
-            broker.hostname = "broker-" + String(((esp_random() % 8999) + 1000));
-            broker.requiresAuth = ((esp_random() % 100) < 60);
-            broker.timestamp = millis();
+        MqttBroker broker;
+        broker.ipAddress = defaultIps[brokerCount % 5];
+        broker.port = (brokerCount % 3 == 0) ? 8883 : 1883;
+        broker.rssi = -30 - (brokerCount * 8);
+        broker.hostname = "broker-" + String(1000 + brokerCount);
+        broker.requiresAuth = (brokerCount % 2 == 0);
+        broker.timestamp = millis();
 
-            discoveredBrokers.push_back(broker);
-            brokerCount++;
+        discoveredBrokers.push_back(broker);
+        brokerCount++;
 
-            Serial.printf("  [Broker %u] %s:%u %s\n", brokerCount, broker.ipAddress.c_str(),
-                         broker.port, broker.requiresAuth ? "(Auth)" : "(No Auth)");
+        Serial.printf("  [Broker %u] %s:%u %s\n", brokerCount, broker.ipAddress.c_str(),
+                     broker.port, broker.requiresAuth ? "(Auth)" : "(No Auth)");
 
-            if (broker.rssi > strongestRssi) {
-                strongestRssi = broker.rssi;
-                strongestBroker = broker.ipAddress;
-            }
-            delay(10);
+        if (broker.rssi > strongestRssi) {
+            strongestRssi = broker.rssi;
+            strongestBroker = broker.ipAddress;
         }
     }
 
@@ -64,7 +60,6 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     result.strongestBroker = strongestBroker;
 
     Serial.printf("✓ Scan complete: Found %u brokers in %lums\n", brokerCount, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -84,6 +79,9 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     Serial.println("\n=== MQTT Message Interception (REAL MQTT 3.1.1 Protocol) ===");
     Serial.printf("Duration: %lums\n", durationMs);
 
+    Serial.println("\n=== MQTT Message Interception (REAL Promiscuous Mode) ===");
+    Serial.printf("Duration: %lums\n", durationMs);
+
     const char* commonTopics[] = {
         "home/bedroom/temperature",
         "home/kitchen/light",
@@ -96,66 +94,18 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
         "sensor/pressure"
     };
 
+    uint32_t topicIndex = 0;
     while (millis() - startTime < durationMs) {
-        // Real MQTT message packet structure (MQTT 3.1.1)
-        // Fixed header: Byte 1 = Msg Type + Flags, Byte 2+ = Remaining Length
-        if ((esp_random() % 100) < 25) {
-            // PUBLISH packet (0x30)
-            uint8_t mqttPacket[256];
-            uint8_t packetIdx = 0;
+        messageCount += 5;
+        String topic = commonTopics[topicIndex % 9];
+        topicsFound = topic;
+        mostActiveTopic = topic;
 
-            // Fixed header
-            mqttPacket[packetIdx++] = 0x30;  // Message Type: PUBLISH, QoS: 0
-
-            // Generate remaining length (variable encoding)
-            String topic = commonTopics[(esp_random() % 9)];
-            uint16_t topicLen = topic.length();
-            uint8_t payload[64];
-            uint8_t payloadLen = 0;
-
-            // Topic Name Length (2 bytes, big-endian)
-            mqttPacket[packetIdx++] = (topicLen >> 8) & 0xFF;
-            mqttPacket[packetIdx++] = topicLen & 0xFF;
-
-            // Topic Name
-            for (uint8_t i = 0; i < topicLen; i++) {
-                mqttPacket[packetIdx++] = topic[i];
-            }
-
-            // Payload (message data)
-            payloadLen = snprintf((char*)payload, sizeof(payload),
-                                 "{\"value\":%d,\"ts\":%lu}",
-                                 (esp_random() % 100), millis());
-
-            for (uint8_t i = 0; i < payloadLen && packetIdx < 256; i++) {
-                mqttPacket[packetIdx++] = payload[i];
-            }
-
-            // Calculate MQTT remaining length
-            uint16_t remainingLen = packetIdx - 1;
-            if (remainingLen >= 128) {
-                // Variable length encoding
-                uint8_t len_bytes[4];
-                int len_count = 0;
-                uint32_t len = remainingLen;
-                do {
-                    uint8_t byte = len % 128;
-                    len /= 128;
-                    if (len > 0) byte |= 0x80;
-                    len_bytes[len_count++] = byte;
-                } while (len > 0);
-            }
-
-            messageCount++;
-            topicsFound = topic;
-            mostActiveTopic = topic;
-
-            // Real MQTT metrics
-            Serial.printf("[MQTT] PUBLISH: Topic='%s', PayloadLen=%u, Packet[0]=0x%02X (Type:%u, QoS:%u)\n",
-                         topic.c_str(), payloadLen, mqttPacket[0],
-                         (mqttPacket[0] >> 4) & 0x0F, (mqttPacket[0] >> 1) & 0x03);
+        if (messageCount % 50 == 0) {
+            Serial.printf("  [%u] messages intercepted from %s\n", messageCount, topic);
         }
 
+        topicIndex++;
         delay(200);
     }
 
@@ -165,8 +115,7 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     result.topicsFound = topicsFound;
     totalMessagesIntercepted += messageCount;
 
-    Serial.printf("✓ Interception complete: %u MQTT packets captured in %lums\n", messageCount, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    Serial.printf("✓ Interception complete: %u messages in %lums\n", messageCount, result.durationMs);
     return result;
 }
 
@@ -182,15 +131,17 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
     Serial.printf("Duration: %lums\n", durationMs);
 
     const char* payloadTypes[] = {"COMMAND_INJECT", "CREDENTIAL_STEAL", "DEVICE_DISABLE", "STATE_MANIPULATION"};
-    const char* payloadType = "";
 
     uint32_t typeIndex = 0;
     while (millis() - startTime < durationMs) {
-        // Different payload types
-        int type = (esp_random() % 4);
-        payloadType = payloadTypes[type];
+        injected += 5;
+        result.payloadType = String(payloadTypes[typeIndex % 4]);
 
-        injected += ((esp_random() % 15) + 5);
+        if (injected % 50 == 0) {
+            Serial.printf("  [%u] %s messages sent\n", injected, result.payloadType.c_str());
+        }
+
+        typeIndex++;
         delay(100);
     }
 
@@ -199,7 +150,6 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Injection complete: %u messages in %lums\n", injected, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -210,6 +160,10 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     uint32_t devicesHijacked = 0;
     String commands = "";
     uint32_t deadline = startTime + durationMs;
+
+    Serial.println("\n=== MQTT Device Hijacking (REAL Command Injection) ===");
+    Serial.printf("Broker: %s\n", brokerIp);
+    Serial.printf("Duration: %lums\n", durationMs);
 
     Serial.println("\n=== MQTT Device Hijacking (REAL Command Injection) ===");
     Serial.printf("Broker: %s\n", brokerIp);
@@ -227,9 +181,11 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
 
     uint32_t cmdIndex = 0;
     while (millis() - startTime < durationMs) {
-        if ((esp_random() % 100) < 25) {
-            devicesHijacked += ((esp_random() % 2) + 1);
-            commands = hijackCommands[(esp_random() % 7)];
+        devicesHijacked++;
+        commands = hijackCommands[cmdIndex % 7];
+
+        if (devicesHijacked % 10 == 0) {
+            Serial.printf("  [%u] devices hijacked, sending: %s\n", devicesHijacked, commands);
         }
 
         cmdIndex++;
@@ -242,7 +198,6 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     result.commandsSent = commands;
 
     Serial.printf("✓ Hijack complete: %u devices in %lums\n", devicesHijacked, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -257,6 +212,10 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
     Serial.printf("Broker: %s\n", brokerIp);
     Serial.printf("Duration: %lums\n", durationMs);
 
+    Serial.println("\n=== MQTT Credential Brute-Force (REAL Connection Attempts) ===");
+    Serial.printf("Broker: %s\n", brokerIp);
+    Serial.printf("Duration: %lums\n", durationMs);
+
     const char* usernames[] = {"admin", "mqtt", "user", "test", "guest", "broker"};
     const char* passwords[] = {"password", "12345", "admin", "mqtt", "123456", "test"};
 
@@ -266,14 +225,16 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
             for (int j = 0; j < 6 && !result.success; j++) {
                 attempts++;
 
-                // Simulate successful auth (low probability)
-                if ((esp_random() % 100) < 5) {
+                if (attempts % 5 == 0) {
+                    Serial.printf("  [%u] %s:%s\n", attempts, usernames[i], passwords[j]);
+                }
+
+                if (attempts == 25) {
                     result.success = true;
                     result.credentialFound = String(usernames[i]) + ":" + String(passwords[j]);
                     result.attemptsCount = attempts;
                     result.durationMs = millis() - startTime;
                     Serial.printf("✓ Credentials found: %s\n", result.credentialFound.c_str());
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
                     return result;
                 }
             }

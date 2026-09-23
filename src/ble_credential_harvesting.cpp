@@ -51,19 +51,15 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
 
     // Real pairing interception via GATT connection
     if (config.interceptPairing) {
-      if ((esp_random() % 100) < 30) { // 30% simulated success rate
+      NimBLEClient* pClient = NimBLEDevice::createClient();
+      NimBLEAddress devAddr = device.getAddress();
+
+      // Attempt to connect and capture pairing data
+      if (pClient->connect(devAddr)) {
         result.pairingAttempts++;
 
-        // Create client for this device
-        NimBLEClient* pClient = NimBLEDevice::createClient();
-        uint64_t addrInt = 0;
-        for (int j = 0; j < 6; j++) {
-          addrInt = (addrInt << 8) | device.getAddress().getNative()[j];
-        }
-        NimBLEAddress devAddr(addrInt, BLE_ADDR_RANDOM);
-
         // Check for pairing/authentication services
-        if (pClient->connect(devAddr) && pClient->discoverAttributes()) {
+        if (pClient->discoverAttributes()) {
           // Look for security-related characteristics
           // GAP Service (1800): includes security requirements
           NimBLERemoteService* pGapService = pClient->getService("1800");
@@ -79,24 +75,36 @@ HarvestResult CredentialHarvester::harvestCredentials(const HarvestConfig& confi
               cred.rssi = device.getRSSI();
               cred.harvestedData = pNameChar->readValue();
 
-              // Simulate pairing key extraction
-              uint8_t keyData[16];
-              for (int k = 0; k < 16; k++) {
-                keyData[k] = (esp_random() % 256);
-              }
-              cred.harvestedData = "";
-              for (int k = 0; k < 16; k++) {
-                char hexBuf[3];
-                snprintf(hexBuf, sizeof(hexBuf), "%02X", keyData[k]);
-                cred.harvestedData += hexBuf;
-              }
               result.credentials.push_back(cred);
               result.credentialsFound++;
+              logCredential(cred);
+            }
+
+            // Read device appearance (security indicator)
+            NimBLERemoteCharacteristic* pAppearChar =
+              pGapService->getCharacteristic("2A01");  // Appearance
+            if (pAppearChar && pAppearChar->canRead()) {
+              BleCredential cred;
+              memcpy(cred.deviceAddr, device.getAddress().getNative(), 6);
+              cred.timestamp = millis();
+              cred.credentialType = "DEVICE_APPEARANCE";
+              cred.rssi = device.getRSSI();
+              std::string value = pAppearChar->readValue();
+              for (uint32_t i = 0; i < value.length(); i++) {
+                char hexBuf[3];
+                snprintf(hexBuf, sizeof(hexBuf), "%02X", (uint8_t)value[i]);
+                cred.harvestedData += hexBuf;
+              }
+
+              result.credentials.push_back(cred);
+              result.credentialsFound++;
+              logCredential(cred);
             }
           }
-          pClient->disconnect();
         }
-        NimBLEDevice::deleteClient(pClient);
+        NimBLEAddress devAddr(addrInt, BLE_ADDR_RANDOM);
+
+        pClient->disconnect();
       }
     }
   }
@@ -157,31 +165,11 @@ HarvestResult CredentialHarvester::captureCharacteristics(const uint8_t* addr) {
 
   // Real GATT characteristic enumeration and capture
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  // Convert uint8_t address array to uint64_t for NimBLEAddress
-  uint64_t addrInt = 0;
-  for (int i = 0; i < 6; i++) {
-    addrInt = (addrInt << 8) | addr[i];
-  }
-  NimBLEAddress devAddr(addrInt, BLE_ADDR_RANDOM);
+  NimBLEAddress devAddr(addr, BLE_ADDR_RANDOM);
 
-  uint32_t charCount = ((esp_random() % 6) + 2);
-  for (uint32_t i = 0; i < charCount; i++) {
-    BleCredential cred;
-    memcpy(cred.deviceAddr, addr, 6);
-    cred.timestamp = millis();
-    cred.credentialType = "GATT_CHAR";
-    cred.rssi = ((esp_random() % 50) + -80);
-
-    uint32_t dataLen = ((esp_random() % 28) + 4);
-    uint8_t charData[32];
-    for (uint32_t j = 0; j < dataLen; j++) {
-      charData[j] = (esp_random() % 256);
-    }
-    cred.harvestedData = HexUtils::toHexString(charData, dataLen);
-
-    result.credentials.push_back(cred);
-    result.credentialsFound++;
-    logCredential(cred);
+  if (!pClient->connect(devAddr)) {
+    result.error = "Failed to connect to device";
+    return result;
   }
 
   // Discover all services and their characteristics
@@ -192,42 +180,39 @@ HarvestResult CredentialHarvester::captureCharacteristics(const uint8_t* addr) {
   }
 
   // Enumerate all GATT services and characteristics
-  auto services = pClient->getServices();
-  if (services) {
-    for (auto pService : *services) {
-      auto characteristics = pService->getCharacteristics();
-      if (characteristics) {
-        for (auto pChar : *characteristics) {
-          // Try to read all readable characteristics
-          if (pChar->canRead()) {
-            try {
-              std::string value = pChar->readValue();
-              if (!value.empty()) {
-                BleCredential cred;
-                memcpy(cred.deviceAddr, addr, 6);
-                cred.timestamp = millis();
-                cred.credentialType = "GATT_CHARACTERISTIC";
-                cred.rssi = -70;  // Average RSSI for proximity
+  std::vector<NimBLERemoteService*> services = pClient->getServices();
+  for (auto pService : services) {
+    std::vector<NimBLERemoteCharacteristic*> characteristics =
+      pService->getCharacteristics();
 
-                // Store UUID and data
-                String uuidStr = pChar->getUUID().toString().c_str();
-                cred.harvestedData = uuidStr + ":";
-                for (uint32_t i = 0; i < value.length() && i < 32; i++) {
-                  char hexBuf[3];
-                  snprintf(hexBuf, sizeof(hexBuf), "%02X", (uint8_t)value[i]);
-                  cred.harvestedData += hexBuf;
-                }
+    for (auto pChar : characteristics) {
+      // Try to read all readable characteristics
+      if (pChar->canRead()) {
+        try {
+          std::string value = pChar->readValue();
+          if (!value.empty()) {
+            BleCredential cred;
+            memcpy(cred.deviceAddr, addr, 6);
+            cred.timestamp = millis();
+            cred.credentialType = "GATT_CHARACTERISTIC";
+            cred.rssi = -70;  // Average RSSI for proximity
 
-                result.credentials.push_back(cred);
-                result.credentialsFound++;
-                logCredential(cred);
-
-                delay(10);  // Small delay between reads
-              }
-            } catch (...) {
-              // Silently skip characteristics that can't be read
+            // Store UUID and data
+            cred.harvestedData = pChar->getUUID().toString() + ":";
+            for (uint32_t i = 0; i < value.length() && i < 32; i++) {
+              char hexBuf[3];
+              snprintf(hexBuf, sizeof(hexBuf), "%02X", (uint8_t)value[i]);
+              cred.harvestedData += hexBuf;
             }
+
+            result.credentials.push_back(cred);
+            result.credentialsFound++;
+            logCredential(cred);
+
+            delay(10);  // Small delay between reads
           }
+        } catch (...) {
+          // Silently skip characteristics that can't be read
         }
       }
     }

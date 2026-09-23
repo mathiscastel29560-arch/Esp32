@@ -15,24 +15,40 @@ ScannerResult MqttScanner::scanMqttBrokers(const ScannerConfig& config) {
 
   // Standard MQTT ports to probe
   const uint16_t ports[] = {1883, 8883, 9001, 8000, 8080};
-  const char* commonTopics[] = {"sensor", "device", "status", "data", "command", "update"};
 
-  while (isRunning_ && (millis() - startTime) < config.scanDurationMs) {
-    // Simulate broker discovery
-    if ((esp_random() % 100) < 25) {
-      MqttBroker broker;
-      broker.hostname = "mqtt_" + String(((esp_random() % 899) + 100));
-      broker.port = ports[(esp_random() % 5)];
-      broker.clientId = "esp32_" + String(((esp_random() % 8999) + 1000));
-      broker.requiresAuth = (esp_random() % 2) == 1;
+  // Default common MQTT broker addresses if not specified
+  std::vector<String> hosts = config.targetHosts;
+  if (hosts.empty()) {
+    hosts.push_back("localhost");
+    hosts.push_back("mqtt.local");
+    hosts.push_back("192.168.1.1");
+  }
 
-      // Simulate topic discovery
-      uint32_t topicCount = ((esp_random() % 6) + 2);
-      for (uint32_t i = 0; i < topicCount; i++) {
-        String topic = String(commonTopics[(esp_random() % 6)]);
-        topic += "/" + String((esp_random() % 100));
-        broker.topics.push_back(topic);
-        result.topicsDiscovered++;
+  // Probe each host/port combination for MQTT brokers
+  for (const auto& host : hosts) {
+    if (!isRunning_ || (millis() - startTime) > config.scanDurationMs) break;
+
+    for (uint16_t port : ports) {
+      if (!isRunning_ || (millis() - startTime) > config.scanDurationMs) break;
+
+      // Attempt to probe this host:port for MQTT
+      if (probeBrokerPort(host, port)) {
+        MqttBroker broker;
+        broker.hostname = host;
+        broker.port = port;
+        broker.tlsEnabled = (port == 8883 || port == 8884);
+        broker.clientId = "esp32_scan_" + String(random(10000, 99999));
+        broker.discoveredAt = millis() - startTime;
+
+        // If connection enabled, try to enumerate topics
+        if (config.attemptConnection) {
+          if (connectAndProbeMqtt(host, port, broker)) {
+            result.topicsDiscovered += broker.topics.size();
+            result.brokersFound.push_back(broker);
+          }
+        } else {
+          result.brokersFound.push_back(broker);
+        }
       }
 
       delay(50); // Rate limiting

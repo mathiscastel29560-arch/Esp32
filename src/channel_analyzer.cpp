@@ -137,8 +137,8 @@ AnalysisResult Analyzer::scanChannel(uint8_t channel, uint32_t durationMs) {
   scan.channel = channel;
   scan.rssi = avgRssi;
   scan.networkCount = networkCount;
-  scan.packetCount = networkCount * (((esp_random() % 45) + 5)); // Simulated packet count
-  scan.interferenceLevel = (esp_random() % 100);
+  scan.packetCount = networkCount * 10; // Estimate ~10 beacon frames per network
+  scan.interferenceLevel = interferenceLevel;
 
   channelStats_[channel] = scan;
   logAnalysis(scan);

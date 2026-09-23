@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-#include <Arduino.h>
+#include <RadioLib.h>
 
 namespace SubGhzFrequencyScanner {
 
@@ -31,16 +31,19 @@ struct ScannerResult {
 
 class FrequencyScanner {
 public:
-    FrequencyScanner();
-    ScannerResult scanFrequencies(const ScannerConfig& config);
-    ScannerResult scanSpecificFreq(uint32_t freq, uint32_t durationMs);
-    void identifyActiveFrequencies();
-    void logFrequency(const FrequencyScan& scan);
-    void stop();
+  FrequencyScanner(int8_t cs = 5, int8_t irq = 2, int8_t gpio = 4); // CC1101 pins
+  ScannerResult scanFrequencies(const ScannerConfig& config);
+  ScannerResult scanSpecificFreq(uint32_t freq, uint32_t durationMs);
+  void identifyActiveFrequencies();
+  void stop();
+  bool isRunning() const { return isRunning_; }
 
 private:
-    bool isRunning_;
-    uint32_t startTime_;
+  CC1101 radio_;
+  bool isRunning_;
+  unsigned long startTime_;
+
+  void logFrequency(const FrequencyScan& scan);
 };
 
 }  // namespace SubGhzFrequencyScanner

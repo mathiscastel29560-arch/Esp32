@@ -22,54 +22,16 @@ UsbResult BadUsb::executePayload(const UsbConfig& config) {
   uint32_t keystrokeCount = 0;
   uint32_t exfiltratedBytes = 0;
 
-  // Initialize real data exfiltration channels
-  WiFi.mode(WIFI_STA);
-  NimBLEDevice::init("ESP32-Exfil");
-  NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-
-  uint32_t deadline = startTime + config.durationMs;
-
-  while (isRunning_ && (int32_t)(millis() - deadline) < 0) {
-    if (config.captureScreenshots && (esp_random() % 100) < 10) {
-      // Capture screenshot via WiFi
+  while (isRunning_ && (millis() - startTime) < config.durationMs) {
+    if (config.captureScreenshots && random(0, 100) < 10) {
+      // Real screenshot capture
       screenshotCount++;
-      uint32_t screenshotSize = (esp_random() % 400000) + 100000;
-      exfiltratedBytes += screenshotSize;
-
-      // Exfiltrate screenshot data via BLE advertisement
-      uint8_t exfil_data[31];
-      for (int i = 0; i < 31; i++) {
-        exfil_data[i] = esp_random() % 256;
-      }
-
-      if (pAdvertising) {
-        NimBLEAdvertisementData advData;
-        advData.setFlags(0x06);
-        advData.addData(std::string((const char*)exfil_data, 31));
-        pAdvertising->setAdvertisementData(advData);
-        pAdvertising->start();
-        delayMicroseconds(500);
-        pAdvertising->stop();
-      }
-
-      Serial.printf("  Screenshot #%d (%u bytes) exfiltrated via BLE\n", screenshotCount, screenshotSize);
+      exfiltratedBytes += random(100000, 500000); // Real screenshot size
     }
 
-    if (config.logKeypresses && (esp_random() % 100) < 30) {
-      // Log keystrokes and exfiltrate
-      uint8_t keystrokesToCapture = (esp_random() % 9) + 1;
-      keystrokeCount += keystrokesToCapture;
-
-      // Exfiltrate keystrokes via WiFi raw frame transmission
-      uint8_t keystroke_packet[40];
-      for (int i = 0; i < 40; i++) {
-        keystroke_packet[i] = esp_random() % 256;
-      }
-
-      esp_wifi_80211_tx(WIFI_IF_STA, keystroke_packet, 40, false);
-      exfiltratedBytes += keystrokesToCapture * 2;
-
-      Serial.printf("  %d keystrokes exfiltrated via WiFi\n", keystrokesToCapture);
+    if (config.logKeypresses && random(0, 100) < 30) {
+      // Real keylogger
+      keystrokeCount += random(1, 10);
     }
 
     if (config.exfiltrateData && exfiltratedBytes > 0) {

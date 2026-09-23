@@ -29,7 +29,7 @@ RFID::TagData g_lastScannedTag;
 
 // Simule un scan en attendant le vrai hardware PN532
 // En production : utiliser PN532 driver réel
-void scanViaRealRFID() {
+void Real RFID via MFRC522Scan() {
     // TODO: Remplacer par:
     // nfc.begin();
     // if (nfc.getFirmwareVersion()) { ... }

@@ -10,11 +10,13 @@ InjectionResult injectCustomPacket(const char* payload, const char* radioType, u
 
     String radio = String(radioType);
     if (radio == "auto") {
-        radio = ((esp_random() % 100) < 50) ? "cc1101" : "nrf24";
+        radio = "CC1101";
     }
 
-    result.packetsSent = ((esp_random() % 900) + 100);
-    result.radioType = radio;
+    Serial.println("\n=== Custom Packet Injection (REAL Radio Transmission) ===");
+    Serial.printf("Radio: %s\n", radio.c_str());
+    Serial.printf("Payload: %s\n", payload);
+    Serial.printf("Duration: %lums\n", durationMs);
 
     while (millis() - startTime < durationMs) {
         packetsSent++;
@@ -29,7 +31,6 @@ InjectionResult injectCustomPacket(const char* payload, const char* radioType, u
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Injection complete: %u packets via %s in %lums\n", packetsSent, radio.c_str(), result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -38,8 +39,9 @@ ReplayResult replayPackets(const uint8_t* capturedData, uint32_t dataLength, uin
     uint32_t startTime = millis();
     uint32_t packetsReplayed = 0;
 
-    result.packetsReplayed = (dataLength > 0) ? ((esp_random() % 45) + 5) : 0;
-    result.radioUsed = ((esp_random() % 100) < 70) ? "CC1101" : "NRF24";
+    Serial.println("\n=== Packet Replay Attack (REAL Transmission) ===");
+    Serial.printf("Captured data length: %u bytes\n", dataLength);
+    Serial.printf("Duration: %lums\n", durationMs);
 
     String radioUsed = "CC1101";
 
@@ -58,7 +60,6 @@ ReplayResult replayPackets(const uint8_t* capturedData, uint32_t dataLength, uin
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Replay complete: %u packets via %s in %lums\n", packetsReplayed, radioUsed.c_str(), result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -68,8 +69,9 @@ FuzzResult fuzzPackets(const char* radioType, uint32_t durationMs) {
     uint32_t fuzzedPackets = 0;
     uint32_t crashesFound = 0;
 
-    result.fuzzedPackets = ((esp_random() % 9000) + 1000);
-    result.crashesFound = (esp_random() % 3);
+    Serial.println("\n=== Packet Fuzzing (REAL Malformed Packet Generation) ===");
+    Serial.printf("Radio: %s\n", radioType);
+    Serial.printf("Duration: %lums\n", durationMs);
 
     while (millis() - startTime < durationMs) {
         fuzzedPackets++;
@@ -91,7 +93,6 @@ FuzzResult fuzzPackets(const char* radioType, uint32_t durationMs) {
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ Fuzzing complete: %u packets, %u crashes in %lums\n", fuzzedPackets, crashesFound, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

@@ -22,7 +22,9 @@ int initCC1101(float freq) {
         }
 
         radio.setOOK(true);
+        radio.setModulation(RADIOLIB_CC1101_MOD_OOK);
         radio.setRxBandwidth(58.0f);
+        radio.setRSSIThreshold(-100);
         radio.setBitRate(4.8f);
         g_radioInitialized = true;
     }
@@ -45,7 +47,7 @@ void sendRandomNoise(float freq) {
 
     uint8_t jamData[64];
     for (int i = 0; i < 64; i++) {
-        jamData[i] = esp_random() & 0xFF;
+        jamData[i] = random(0, 256);
     }
 
     radio.transmit(jamData, 64);
@@ -83,7 +85,6 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -92,17 +93,17 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
     g_jamCount = 0;
     uint32_t startTime = millis();
 
+    Serial.println("Initializing CC1101 radio...");
+
     if (initCC1101(433.92f) != RADIOLIB_ERR_NONE) {
         Serial.println("✗ CC1101 initialization failed");
         g_jamActive = false;
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     Serial.println("Transmitting Sub-GHz jamming signal...");
 
     while (millis() - startTime < durationMs && g_jamActive && TxArm::isArmed()) {
-        // Send jam carrier signal
         sendJamCarrier(433.92f, 1000);
 
         delay(5);
@@ -123,7 +124,6 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
                  result.jamPacketsCount, elapsed);
     Serial.println("⚠️  433.92 MHz ISM band disrupted (garage doors, RF remotes, etc.)");
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

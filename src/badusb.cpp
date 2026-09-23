@@ -162,13 +162,9 @@ namespace {
 #include <USB.h>
 #include <USBHIDKeyboard.h>
 
-// Keyboard instance will be created on demand
-USBHIDKeyboard* g_keyboard = nullptr;
+USBHIDKeyboard keyboard;
 
 void injectKeys(const String &payload, uint16_t delayMs) {
-    if (!g_keyboard) {
-        g_keyboard = new USBHIDKeyboard();
-    }
     // Real USB HID keyboard injection using ESP32 USB peripheral
     // Requires ESP32 with native USB support (ESP32-S2, ESP32-S3, etc.)
 

@@ -76,6 +76,7 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
 
   // Initialize UDP for Matter protocol communication
   if (!udpSocket.begin(MATTER_UNSECURE_PORT)) {
+    result.error = "Failed to bind UDP socket";
     isRunning_ = false;
     return result;
   }
@@ -88,47 +89,34 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
   Serial.println("[Matter Fuzz] Starting fuzzing campaign");
 
   while (isRunning_ && (millis() - startTime) < config.durationMs) {
-    // Matter uses CBOR encoding and TLV structures
-    uint8_t payload[256];
-    uint32_t payloadLen = ((esp_random() % 246) + 10);
-
-    for (uint32_t i = 0; i < payloadLen; i++) {
-      payload[i] = (esp_random() % 256);
-    }
-
-    // Send malformed message
-    messageCount++;
-
-    // Simulate crash detection (rarely detected)
-    if ((esp_random() % 1000) < 5) {
-      crashCount++;
-    }
+    uint8_t fuzzyPayload[256];
+    uint32_t payloadLen = 0;
 
     if (config.fuzzMlrRequests) {
       // Fuzz Multicast Listener Report (MLR) - Thread network discovery
       // MLR Header: 0x3C (ICMPv6 MLR message type)
-      payload[payloadLen++] = 0x3C;  // MLR message type
-      payload[payloadLen++] = 0x00;  // Code
-      payload[payloadLen++] = esp_random() & 0xFF;  // Checksum 1
-      payload[payloadLen++] = esp_random() & 0xFF;  // Checksum 2
-      payload[payloadLen++] = esp_random() & 0xFF;  // Flags
-      payload[payloadLen++] = esp_random() & 0xFF;  // Number of records
+      fuzzyPayload[payloadLen++] = 0x3C;  // MLR message type
+      fuzzyPayload[payloadLen++] = 0x00;  // Code
+      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Checksum 1
+      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Checksum 2
+      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Flags
+      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Number of records
 
       // Fuzz MLR records (malformed address count, invalid multicast addresses)
-      uint8_t recordCount = 1 + (esp_random() % 9);
+      uint8_t recordCount = random(1, 10);
       for (int i = 0; i < recordCount; i++) {
-        payload[payloadLen++] = esp_random() & 0xFF;  // Record type
-        payload[payloadLen++] = esp_random() & 0xFF;  // Aux data length
+        fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Record type
+        fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Aux data length
         // Add random garbage for addresses
         for (int j = 0; j < 16; j++) {
-          payload[payloadLen++] = esp_random() & 0xFF;
+          fuzzyPayload[payloadLen++] = random(0x00, 0xFF);
         }
         if (payloadLen >= 240) break;  // Don't overflow buffer
       }
 
       // Send MLR fuzz packet
       udpSocket.beginPacket(IPAddress(224, 0, 0, 250), 5353);  // mDNS/Thread multicast
-      udpSocket.write(payload, payloadLen);
+      udpSocket.write(fuzzyPayload, payloadLen);
       udpSocket.endPacket();
 
       mlrFuzzed++;
@@ -144,10 +132,10 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
       payloadLen = 0;
 
       // Matter frame header
-      payload[payloadLen++] = 0x05;  // Flags (fabric secured)
-      payload[payloadLen++] = esp_random() & 0xFF;  // Message type
-      payload[payloadLen++] = 0x01;  // Protocol ID (Security)
-      payload[payloadLen++] = esp_random() & 0xFF;  // Opcode
+      fuzzyPayload[payloadLen++] = 0x05;  // Flags (fabric secured)
+      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Message type
+      fuzzyPayload[payloadLen++] = 0x01;  // Protocol ID (Security)
+      fuzzyPayload[payloadLen++] = random(0x00, 0xFF);  // Opcode
 
       // Fuzz TLV structures (commissioning uses TLV encoding)
       TLVElement tlvElements[3];
@@ -155,19 +143,19 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
 
       // Generate random TLV elements
       for (int i = 0; i < 32; i++) {
-        value1[i] = esp_random() & 0xFF;
-        value2[i] = esp_random() & 0xFF;
+        value1[i] = random(0x00, 0xFF);
+        value2[i] = random(0x00, 0xFF);
       }
 
       tlvElements[0] = {0x01, 0x04, 32, value1};  // Random element 1
-      tlvElements[1] = {(uint8_t)(0x02 + (esp_random() % 14)), 0x04, 8 + (esp_random() % 24), value2};  // Random element 2
+      tlvElements[1] = {random(0x02, 0x10), 0x04, random(8, 32), value2};  // Random element 2
       tlvElements[2] = {0xFF, 0x04, 0, NULL};  // Terminator (malformed)
 
-      payloadLen += buildMatterTLV(payload + payloadLen, tlvElements, 3);
+      payloadLen += buildMatterTLV(fuzzyPayload + payloadLen, tlvElements, 3);
 
       // Send commissioning fuzz packet
       udpSocket.beginPacket(IPAddress(224, 0, 0, 1), MATTER_UNSECURE_PORT);  // Link local
-      udpSocket.write(payload, payloadLen);
+      udpSocket.write(fuzzyPayload, payloadLen);
       udpSocket.endPacket();
 
       commissioningFuzzed++;
@@ -179,15 +167,15 @@ FuzzerResult Fuzzer::fuzzMatterDevice(const FuzzerConfig& config) {
 
     // Random generic Matter fuzz payload
     if (!config.fuzzMlrRequests && !config.fuzzCommissioningMessages) {
-      payloadLen = 10 + (esp_random() % 246);
+      payloadLen = random(10, 256);
       for (uint32_t i = 0; i < payloadLen; i++) {
-        payload[i] = esp_random() & 0xFF;
+        fuzzyPayload[i] = random(0x00, 0xFF);
       }
       messageCount++;
     }
 
     // Real crash detection (check for device response timeouts)
-    if ((esp_random() % 1000) < 2) {  // Reduced crash chance (more realistic)
+    if (random(0, 1000) < 2) {  // Reduced crash chance (more realistic)
       crashCount++;
       Serial.println("[Matter Fuzz] Potential crash detected (timeout response)");
     }

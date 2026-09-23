@@ -118,22 +118,52 @@ PortalResult PortalDetector::detectPortal(const char* ssid, uint32_t timeout) {
     HTTPClient http;
     http.setConnectTimeout(3000);
     http.setTimeout(5000);
-    http.begin(testUrl);
 
-    int httpCode = http.GET();
+    if (http.begin(testUrl)) {
+      int httpCode = http.GET();
 
-    if (httpCode == HTTP_REDIRECT || httpCode == HTTP_REDIRECT_TEMP || httpCode == HTTP_OK) {
-      portal.portalUrl = testUrl;
-      result.portals.push_back(portal);
-      result.portalsFound++;
-      result.success = true;
-      logPortal(portal);
+      // Captive portal signs: redirect (30x) or unexpected content
+      if (httpCode > 0) {
+        String location = http.getHeader("Location");
+        String contentType = http.header("Content-Type");
+
+        // Redirect detected
+        if ((httpCode >= 301 && httpCode <= 307) && !location.isEmpty()) {
+          portal.redirectUrl = location;
+          portal.portalUrl = location;
+          portal.requiresAuth = true;
+          result.portals.push_back(portal);
+          result.portalsFound++;
+          result.success = true;
+          logPortal(portal);
+          http.end();
+          break;
+        }
+
+        // Unexpected content for connectivity test
+        if (httpCode == 200) {
+          String payload = http.getString();
+
+          // Check for portal indicators in HTML
+          if (payload.indexOf("login") >= 0 ||
+              payload.indexOf("password") >= 0 ||
+              payload.indexOf("authenticate") >= 0) {
+            portal.portalUrl = testUrl;
+            portal.requiresAuth = true;
+            result.portals.push_back(portal);
+            result.portalsFound++;
+            result.success = true;
+            logPortal(portal);
+            http.end();
+            break;
+          }
+        }
+      }
+
       http.end();
-      break;
     }
 
-    http.end();
-    delay(HTTP_TEST_DELAY_MS);
+    delay(100);
   }
 
   result.logFile = PORTAL_LOG_FILE;

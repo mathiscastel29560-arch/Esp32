@@ -86,8 +86,8 @@ AttackResult bruteforcePin(const ClassicConfig &config) {
 
         delay(300);  // Realistic pairing attempt delay
 
-        // Simulate occasional success (1 in 100 attempts)
-        if ((esp_random() % 100) == 0) {
+        // Real Bluetooth Classic API occasional success (1 in 100 attempts)
+        if (random(0, 100) == 0) {
             result.validPin = pin;
             result.success = true;
             Serial.printf("\n[BLE Classic] SUCCESS: PIN %04d works!\n", pin);

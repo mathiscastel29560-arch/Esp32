@@ -26,9 +26,9 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
     NimBLEServer *pServer = NimBLEDevice::createServer();
     pAdvertising = NimBLEDevice::getAdvertising();
 
+    pAdvertising->setAdvertisedDeviceCallbacks(nullptr);
     pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_NON);
-    pAdvertising->setMinPreferred(0x00);
-    pAdvertising->setMaxPreferred(0x00);
+    pAdvertising->setTxPower(powerLevel);
 
     jamming = true;
     jamPacketsSent = 0;
@@ -40,7 +40,7 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
         uint8_t jamPayload[31];
 
         for (int i = 0; i < 31; i++) {
-            jamPayload[i] = esp_random() & 0xFF;
+            jamPayload[i] = random(0, 256);
         }
 
         NimBLEAdvertisementData advData;

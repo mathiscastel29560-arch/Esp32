@@ -2,7 +2,6 @@
 #include "tx_arm.h"
 #include <LittleFS.h>
 #include <esp_wifi.h>
-#include <mbedtls/md.h>
 
 namespace WpsBruteforce {
 
@@ -299,14 +298,15 @@ bool WpsBruteforcer::verifyMic(const EapolFrame& eapol, const uint8_t* kck) {
 void WpsBruteforcer::pbkdf2(const uint8_t* password, uint32_t pwLen,
                            const uint8_t* salt, uint32_t saltLen,
                            uint32_t iterations, uint32_t outLen, uint8_t* output) {
-  // PBKDF2-SHA1 stub (simplified)
-  // Note: In production, use proper PBKDF2 implementation
-  memset(output, 0, outLen);
+  // PBKDF2-SHA1 implementation using mbedtls
+  mbedtls_md_context_t md_ctx;
+  mbedtls_md_init(&md_ctx);
+  mbedtls_md_setup(&md_ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA1), 1);
 
-  // For now, just copy password/salt hash as a placeholder
-  for (uint32_t i = 0; i < outLen && i < pwLen; i++) {
-    output[i] = password[i];
-  }
+  mbedtls_pkcs5_pbkdf2_hmac(&md_ctx, password, pwLen, salt, saltLen,
+                           iterations, outLen, output);
+
+  mbedtls_md_free(&md_ctx);
 }
 
 void WpsBruteforcer::hmacSha1(const uint8_t* key, uint32_t keyLen,

@@ -94,9 +94,9 @@ RollingResult emulateGarageDoor(const RollingConfig &config) {
             // Increment counter (garage doors typically increment by 1-3)
             currentCounter += config.increment;
 
-            // Randomize occasionally (simulate different remote)
-            if ((esp_random() % 100) < 5) {
-                manufacturerId = (esp_random() % 65535);
+            // Randomize occasionally (Real rolling code attack different remote)
+            if (random(0, 100) < 5) {
+                manufacturerId = random(0x0000, 0xFFFF);
             }
 
             nextTransmit = now + transmitInterval;

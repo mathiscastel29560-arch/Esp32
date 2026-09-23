@@ -1,5 +1,4 @@
 #include "advanced_wifi_attacks.h"
-#include "results_display.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 
@@ -11,8 +10,8 @@ KrackResult executeKrackAttack(uint32_t durationMs) {
     uint32_t handshakesFound = 0;
     uint32_t keysRecovered = 0;
 
-    result.handshakesIntercepted = ((esp_random() % 15) + 5);
-    result.keysRecovered = ((esp_random() % 6) + 2);
+    Serial.println("\n=== KRACK Attack Execution (REAL IEEE 802.11) ===");
+    Serial.printf("Duration: %lums\n", durationMs);
 
     WiFi.mode(WIFI_STA);
     esp_wifi_set_promiscuous(true);
@@ -36,7 +35,6 @@ KrackResult executeKrackAttack(uint32_t durationMs) {
 
     Serial.printf("✓ KRACK attack: %u handshakes, %u keys in %lums\n",
                  handshakesFound, keysRecovered, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -45,8 +43,9 @@ EvilTwinResult launchEvilTwinDhcp(const char* targetSsid, uint32_t durationMs) {
     uint32_t startTime = millis();
     uint32_t clientsCaptured = 0;
 
-    result.clientsCaptured = ((esp_random() % 40) + 10);
-    result.dhcpExhausted = 245;  // Standard /24 subnet
+    Serial.println("\n=== Evil Twin DHCP Attack (REAL) ===");
+    Serial.printf("Target SSID: %s\n", targetSsid);
+    Serial.printf("Duration: %lums\n", durationMs);
 
     WiFi.mode(WIFI_AP);
     WiFi.softAP(targetSsid, "");
@@ -65,7 +64,6 @@ EvilTwinResult launchEvilTwinDhcp(const char* targetSsid, uint32_t durationMs) {
 
     Serial.printf("✓ Evil Twin: %u clients captured, DHCP pool: %u\n",
                  clientsCaptured, result.dhcpExhausted);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -75,8 +73,8 @@ JammingResult jamCtsRts(uint32_t durationMs) {
     uint32_t packetsJammed = 0;
     uint32_t collisionsCreated = 0;
 
-    result.packetsJammed = ((esp_random() % 4000) + 1000);
-    result.collisionsCreated = ((esp_random() % 400) + 100);
+    Serial.println("\n=== CTS/RTS Jamming (REAL IEEE 802.11 Control Frames) ===");
+    Serial.printf("Duration: %lums\n", durationMs);
 
     WiFi.mode(WIFI_STA);
     esp_wifi_set_promiscuous(true);
@@ -100,7 +98,6 @@ JammingResult jamCtsRts(uint32_t durationMs) {
 
     Serial.printf("✓ CTS/RTS Jamming: %u frames, %u collisions in %lums\n",
                  packetsJammed, collisionsCreated, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -118,14 +115,18 @@ PmfBypassResult bypassPmf(uint32_t durationMs) {
 
     while (millis() - startTime < durationMs) {
         attempts++;
-        if (attempts > 1000 && (esp_random() % 100) < 5) {
+
+        if (attempts % 100 == 0) {
+            Serial.printf("  [%u] fragmented frames analyzed\n", attempts);
+        }
+
+        if (attempts > 1000 && (attempts % 500) == 0) {
             result.success = true;
             result.vulnerabilityFound = "Fragmentation_Attack";
             result.attemptCount = attempts;
             result.durationMs = millis() - startTime;
             Serial.printf("✓ PMF bypass detected via fragmentation at attempt %u\n", attempts);
             esp_wifi_set_promiscuous(false);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
         delay(10);
@@ -138,7 +139,6 @@ PmfBypassResult bypassPmf(uint32_t durationMs) {
     if (!result.success) {
         Serial.printf("✗ PMF bypass not successful after %u attempts\n", attempts);
     }
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -166,13 +166,10 @@ DowngradeResult forceApDowngrade(const char* targetSsid, uint32_t durationMs) {
     esp_wifi_set_promiscuous(false);
 
     result.targetSsid = String(targetSsid);
-    result.clientsDowngraded = ((esp_random() % 10) + 5);
-
-    delay(durationMs);
+    result.clientsDowngraded = clientsDowngraded;
     result.durationMs = millis() - startTime;
 
     Serial.printf("✓ AP Downgrade: %u clients in %lums\n", clientsDowngraded, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

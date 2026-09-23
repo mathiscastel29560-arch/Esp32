@@ -34,10 +34,8 @@ RevealResult revealHiddenNetworks(uint32_t durationMs) {
 
     uint32_t startTime = millis();
     auto networks = WifiTools::scan();
-
-    uint32_t totalNetworks = networks.size();
-    uint32_t hiddenCount = 0;
-
+    
+    // Real hidden SSID detection by checking for hidden SSIDs
     for (const auto &net : networks) {
         // Real detection: empty SSID or all nulls
         if (net.ssid.length() == 0 ||
