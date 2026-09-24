@@ -4,6 +4,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 #include <vector>
 
 namespace SmartLockScanner {
@@ -69,6 +70,13 @@ ScanResult scanSmartLocks(uint32_t durationMs) {
                 String lock_info = String(vuln.vendor) + ":" + net.ssid;
                 AuditLog::instance().logDeviceFound("SmartLockScanner", lock_info.c_str());
 
+                // Persist lock discovery result
+                String device_json = "{\"tool\":\"SmartLockScanner\",\"type\":\"WiFi\",\"vendor\":\"" +
+                                    String(vuln.vendor) + "\",\"ssid\":\"" + net.ssid +
+                                    "\",\"rssi\":" + String(net.rssi) +
+                                    ",\"vulnerability\":\"" + String(vuln.vulnerability) + "\"}";
+                ToolResultPersistence::instance().storeDeviceResult("SmartLockScanner", device_json.c_str());
+
                 Serial.printf("  [FOUND] %s @ %s\n", vuln.vendor, net.ssid.c_str());
                 Serial.printf("         RSSI: %d dBm | Port: %s\n", net.rssi, vuln.default_port);
                 Serial.printf("         Endpoint: %s\n", vuln.known_endpoint);
@@ -116,6 +124,14 @@ ScanResult scanSmartLocks(uint32_t durationMs) {
                     String ble_lock_info = String(vuln.vendor) + ":" + device.name;
                     AuditLog::instance().logDeviceFound("SmartLockScanner", ble_lock_info.c_str());
 
+                    // Persist BLE lock discovery
+                    String ble_json = "{\"tool\":\"SmartLockScanner\",\"type\":\"BLE\",\"vendor\":\"" +
+                                     String(vuln.vendor) + "\",\"device\":\"" + device.name +
+                                     "\",\"address\":\"" + device.address +
+                                     "\",\"rssi\":" + String(device.rssi) +
+                                     ",\"vulnerability\":\"Bluetooth spoofing/MITM\"}";
+                    ToolResultPersistence::instance().storeDeviceResult("SmartLockScanner", ble_json.c_str());
+
                     Serial.printf("  [FOUND] %s (BLE)\n", vuln.vendor);
                     Serial.printf("         Device: %s | RSSI: %d dBm\n",
                                  device.name.c_str(), device.rssi);
@@ -152,6 +168,13 @@ ScanResult scanSmartLocks(uint32_t durationMs) {
 
     String result_str = String(result.locksFound) + "_locks";
     AuditLog::instance().logToolStop("SmartLockScanner", (result.locksFound > 0), result_str.c_str());
+
+    // Persist scan summary
+    String summary_json = "{\"tool\":\"SmartLockScanner\",\"locks_found\":" + String(result.locksFound) +
+                         ",\"wifi_locks\":" + String(wifiLocksFound) +
+                         ",\"ble_locks\":" + String(bleLocksFound) +
+                         ",\"total_vulnerable\":" + String(result.locksFound) + "}";
+    ToolResultPersistence::instance().storeToolResult("SmartLockScanner", summary_json.c_str());
 
     return result;
 }
