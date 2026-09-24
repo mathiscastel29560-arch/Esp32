@@ -3,6 +3,7 @@
 #include "zwave_scanner.h"
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 #include <vector>
 
 namespace ZwaveScanner {
@@ -22,6 +23,8 @@ ZwaveStats getZwaveStats();
 ScanResult scanZwaveNetwork(uint32_t durationMs) {
     ScanResult result = {false, 0, 0, -100, 1};
     discoveredNodes.clear();
+
+    AuditLog::instance().logToolStart("ZwaveScanner", "duration_ms");
 
     Serial.println("\n=== Z-Wave Network Scanner (REAL Protocol) ===");
     Serial.printf("Home ID: 0x%08X\n", ZWAVE_HOME_ID);
@@ -104,6 +107,9 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
             discoveredNodes.push_back(node);
             nodeCount++;
 
+            String device_info = String(node.nodeId) + ":" + node.deviceType + ":" + node.manufacturer;
+            AuditLog::instance().logDeviceFound("ZwaveScanner", device_info.c_str());
+
             Serial.printf("  [Node %u] %s (%s) RSSI: %d dBm Sec: %s GenericType: 0x%02X\n",
                          node.nodeId, node.deviceType.c_str(),
                          node.manufacturer.c_str(), node.rssi,
@@ -126,6 +132,9 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.strongestRssi = strongestRssi;
     result.controllerNode = 1;
+
+    String result_str = String(nodeCount) + "_nodes";
+    AuditLog::instance().logToolStop("ZwaveScanner", result.success, result_str.c_str());
 
     Serial.printf("✓ Scan complete: Found %u nodes in %lums\n", nodeCount, result.durationMs);
 
@@ -179,6 +188,9 @@ const ZwaveNode* getDiscoveredNodes(uint32_t& outCount) {
 
 InjectionResult injectZwaveCommands(uint8_t targetNode, uint32_t durationMs, const char* cmdType) {
     InjectionResult result = {false, 0, 0, ""};
+
+    String params = String("node=") + String(targetNode) + ",type=" + String(cmdType);
+    AuditLog::instance().logToolStart("ZwaveInjection", params.c_str());
 
     Serial.printf("\n=== Z-Wave Command Injection (REAL Frames) ===\n");
     Serial.printf("Target Node: %u\n", targetNode);
@@ -241,6 +253,9 @@ InjectionResult injectZwaveCommands(uint8_t targetNode, uint32_t durationMs, con
     result.durationMs = millis() - startTime;
     result.commandType = type;
 
+    String result_str = String(commandsSent) + "_commands";
+    AuditLog::instance().logToolStop("ZwaveInjection", result.success, result_str.c_str());
+
     Serial.printf("✓ Injection complete: %u Z-Wave frames sent\n", commandsSent);
 
     return result;
@@ -248,6 +263,8 @@ InjectionResult injectZwaveCommands(uint8_t targetNode, uint32_t durationMs, con
 
 SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs) {
     SecurityBypassResult result = {false, 0, 0, ""};
+
+    AuditLog::instance().logToolStart("ZwaveSecurityBypass", "duration_ms");
 
     const char* vulnerabilities[] = {
         "S0_KEY_RECOVERY", "S2_NONCE_REUSE", "UNENCRYPTED_INCLUSION",
@@ -269,6 +286,8 @@ SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs) {
             if (attempts > 500 && (esp_random() % 100) < 3) {
                 result.success = true;
                 result.vulnerabilityFound = vulnerabilities[(esp_random() % 5)];
+                String vuln_details = String("vuln=") + result.vulnerabilityFound;
+                AuditLog::instance().logAttack("ZwaveSecurityBypass", vuln_details.c_str(), true);
                 break;
             }
         }
@@ -281,11 +300,16 @@ SecurityBypassResult bypassZwaveSecurity(uint32_t durationMs) {
         Serial.printf("✗ No vulnerabilities detected in %u attempts\n", attempts);
     }
 
+    String result_str = result.success ? String(result.vulnerabilityFound) : "no_vuln";
+    AuditLog::instance().logToolStop("ZwaveSecurityBypass", result.success, result_str.c_str());
+
     return result;
 }
 
 KeyRecoveryResult recoverZwaveNetworkKey(uint32_t durationMs) {
     KeyRecoveryResult result = {false, "", 0};
+
+    AuditLog::instance().logToolStart("ZwaveKeyRecovery", "duration_ms");
 
     uint32_t startTime = millis();
     uint32_t framesAnalyzed = 0;
@@ -303,6 +327,8 @@ KeyRecoveryResult recoverZwaveNetworkKey(uint32_t durationMs) {
                     (esp_random() % 4294967295), (esp_random() % 4294967295));
             result.networkKey = String(keyBuf);
             result.success = true;
+            String key_details = String("key=") + result.networkKey;
+            AuditLog::instance().logAttack("ZwaveKeyRecovery", key_details.c_str(), true);
             break;
         }
     }
@@ -313,6 +339,9 @@ KeyRecoveryResult recoverZwaveNetworkKey(uint32_t durationMs) {
         Serial.printf("✗ Key recovery failed after analyzing %u frames\n", framesAnalyzed);
         Serial.println("  Requires: proximity to insecure inclusion, S0 network, or captured handshake");
     }
+
+    String result_str = result.success ? "key_recovered" : "no_key";
+    AuditLog::instance().logToolStop("ZwaveKeyRecovery", result.success, result_str.c_str());
 
     return result;
 }

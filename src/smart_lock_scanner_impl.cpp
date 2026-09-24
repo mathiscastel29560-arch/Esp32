@@ -3,6 +3,7 @@
 #include "ble_tools.h"
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 #include <vector>
 
 namespace SmartLockScanner {
@@ -18,6 +19,8 @@ struct SmartLockVulnerability {
 
 ScanResult scanSmartLocks(uint32_t durationMs) {
     ScanResult result{0, {}};
+
+    AuditLog::instance().logToolStart("SmartLockScanner", "duration_ms");
 
     Serial.println("\n=== Smart Lock Exploit Scanner (Real Vulnerabilities) ===");
     Serial.printf("Duration: %lu ms\n\n", durationMs);
@@ -63,6 +66,9 @@ ScanResult scanSmartLocks(uint32_t durationMs) {
                 result.locksFound++;
                 wifiLocksFound++;
 
+                String lock_info = String(vuln.vendor) + ":" + net.ssid;
+                AuditLog::instance().logDeviceFound("SmartLockScanner", lock_info.c_str());
+
                 Serial.printf("  [FOUND] %s @ %s\n", vuln.vendor, net.ssid.c_str());
                 Serial.printf("         RSSI: %d dBm | Port: %s\n", net.rssi, vuln.default_port);
                 Serial.printf("         Endpoint: %s\n", vuln.known_endpoint);
@@ -107,6 +113,9 @@ ScanResult scanSmartLocks(uint32_t durationMs) {
                     result.locksFound++;
                     bleLocksFound++;
 
+                    String ble_lock_info = String(vuln.vendor) + ":" + device.name;
+                    AuditLog::instance().logDeviceFound("SmartLockScanner", ble_lock_info.c_str());
+
                     Serial.printf("  [FOUND] %s (BLE)\n", vuln.vendor);
                     Serial.printf("         Device: %s | RSSI: %d dBm\n",
                                  device.name.c_str(), device.rssi);
@@ -140,6 +149,9 @@ ScanResult scanSmartLocks(uint32_t durationMs) {
             Serial.printf("    Try: admin/admin, admin/12345, root/root\n");
         }
     }
+
+    String result_str = String(result.locksFound) + "_locks";
+    AuditLog::instance().logToolStop("SmartLockScanner", (result.locksFound > 0), result_str.c_str());
 
     return result;
 }

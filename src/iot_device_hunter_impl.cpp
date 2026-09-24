@@ -2,12 +2,15 @@
 #include "wifi_tools.h"
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 
 namespace IoTDeviceHunter {
 
 HuntResult huntDevices(uint32_t durationMs) {
     HuntResult result{0, {}};
-    
+
+    AuditLog::instance().logToolStart("IoTDeviceHunter", "duration_ms");
+
     Serial.println("\n=== IoT Device Hunter ===");
     Serial.println("Scanning for common IoT devices...");
     
@@ -51,13 +54,19 @@ HuntResult huntDevices(uint32_t durationMs) {
             DetectedDevice dev{vendor, devType, net.rssi, "WiFi", millis()};
             result.devices.push_back(dev);
             result.devicesFound++;
-            
-            Serial.println("  [IoT] " + vendor + " - " + devType + " (" + 
+
+            String device_info = String(vendor) + ":" + devType + ":" + net.ssid;
+            AuditLog::instance().logDeviceFound("IoTDeviceHunter", device_info.c_str());
+
+            Serial.println("  [IoT] " + vendor + " - " + devType + " (" +
                          net.ssid + ") RSSI:" + String(net.rssi));
         }
     }
     
     Serial.println("✓ Found " + String(result.devicesFound) + " IoT devices");
+
+    String result_str = String(result.devicesFound) + "_devices";
+    AuditLog::instance().logToolStop("IoTDeviceHunter", (result.devicesFound > 0), result_str.c_str());
 
     std::vector<String> displayLines;
     if (result.devicesFound > 0) {

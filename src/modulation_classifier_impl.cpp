@@ -1,6 +1,7 @@
 #include "modulation_classifier.h"
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 #include <cmath>
 #include <vector>
 
@@ -25,6 +26,8 @@ struct ModulationSignature {
 ClassificationResult classifyModulation(uint32_t durationMs) {
     ClassificationResult result = {true, "Unknown", "Unclassified", 0, 0};
     uint32_t startTime = millis();
+
+    AuditLog::instance().logToolStart("ModulationClassifier", "duration_ms");
 
     Serial.println("\n=== Real Modulation Classification (Spectral Analysis) ===");
     Serial.printf("Analysis Duration: %lu ms\n\n", durationMs);
@@ -139,6 +142,9 @@ ClassificationResult classifyModulation(uint32_t durationMs) {
     displayLines.push_back("Confidence: " + String((int)(result.confidence * 100)) + "%");
     displayLines.push_back("Bitrate: " + String(estimateBitrate()) + " bps");
     displayLines.push_back("BW: " + String(estimateSignalBandwidth(), 2) + " MHz");
+
+    String result_str = String(result.modulationType) + "_" + String((int)(result.confidence * 100)) + "%";
+    AuditLog::instance().logToolStop("ModulationClassifier", result.success, result_str.c_str());
 
     return result;
 }

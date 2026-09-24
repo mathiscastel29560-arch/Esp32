@@ -1,6 +1,7 @@
 #include "subghz_protocol_analyzer.h"
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 #include <vector>
 #include <algorithm>
 
@@ -21,6 +22,9 @@ ProtocolAnalysis analyzeSignal(const std::vector<uint16_t> &pulses) {
     ProtocolAnalysis analysis{"Unknown", 0, "Unknown", (uint32_t)pulses.size(), 0.0f};
 
     if (pulses.empty()) return analysis;
+
+    String params = String("pulses=") + String(pulses.size());
+    AuditLog::instance().logToolStart("SubghzAnalyzer", params.c_str());
 
     Serial.println("\n=== Real Sub-GHz Protocol Analyzer ===");
     Serial.printf("Analyzing %u pulse edges...\n\n", pulses.size());
@@ -142,6 +146,9 @@ ProtocolAnalysis analyzeSignal(const std::vector<uint16_t> &pulses) {
         displayLines.push_back("Pulse: " + String(avgPulse) + " µs");
         displayLines.push_back("Pulses: " + String(pulses.size()));
     }
+
+    String result_str = String(analysis.protocolName) + "_" + String((int)(analysis.confidence * 100)) + "%";
+    AuditLog::instance().logToolStop("SubghzAnalyzer", analysis.confidence > 0.5f, result_str.c_str());
 
     return analysis;
 }

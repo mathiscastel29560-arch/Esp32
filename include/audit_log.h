@@ -61,7 +61,7 @@ public:
 
         // Write to daily log file
         String filename = "/logs/audit/audit_" + String(getDay()) + ".csv";
-        File file = LittleFS.open(filename, "a");
+        fs::File file = LittleFS.open(filename, "a");
 
         if (file) {
             file.println(event);
@@ -138,7 +138,7 @@ public:
         Serial.println("\n========== AUDIT REPORT ==========");
         Serial.println("Time,Type,Module,FreeHeap,Details");
 
-        File file = LittleFS.open(filename, "r");
+        fs::File file = LittleFS.open(filename, "r");
         while (file.available()) {
             String line = file.readStringUntil('\n');
             Serial.println(line);
@@ -150,14 +150,14 @@ public:
 
     // List audit files
     void listAuditFiles() {
-        File root = LittleFS.open("/logs/audit");
+        fs::File root = LittleFS.open("/logs/audit");
         if (!root) {
             Serial.println("[AuditLog] Audit directory not found");
             return;
         }
 
         Serial.println("[AuditLog] Audit files:");
-        File file = root.openNextFile();
+        fs::File file = root.openNextFile();
         uint32_t total_size = 0;
         while (file) {
             if (!file.isDirectory()) {
@@ -174,13 +174,13 @@ public:
 
     // Clear old audit logs (keep last N days)
     void clearOldLogs(uint8_t keep_days = 7) {
-        File root = LittleFS.open("/logs/audit");
+        fs::File root = LittleFS.open("/logs/audit");
         if (!root) return;
 
         uint8_t today = getDay();
         uint8_t count = 0;
 
-        File file = root.openNextFile();
+        fs::File file = root.openNextFile();
         while (file) {
             String name = file.name();
             // Parse day from filename "audit_N.csv"
