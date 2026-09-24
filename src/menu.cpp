@@ -102,6 +102,7 @@
 #include "active_tool_monitor.h"
 #include "alert_system.h"
 #include "recent_results_tracker.h"
+#include "export_manager.h"
 #include <vector>
 #include <set>
 
@@ -373,8 +374,13 @@ std::vector<String> loggingMenuItems() {
         "⚔️  View Attack Results",
         "💾 Storage Statistics",
         "🗑️  Cleanup Old Logs",
-        "📄 Export Audit Logs (CSV)",
-        "📄 Export Tool Results (CSV)",
+        "📄 Export: Audit Logs (CSV)",
+        "📄 Export: Tool Results (CSV)",
+        "📄 Export: Devices (CSV)",
+        "📄 Export: Attacks (CSV)",
+        "📈 Generate Daily Report",
+        "📈 Generate Monthly Report",
+        "📂 List Export Files",
         "🔙 Back",
     };
 }
@@ -1452,10 +1458,27 @@ void runLoggingAction(int idx) {
             LogViewerMenu::instance().cleanupOldLogs();
             break;
         case 6: // Export Audit Logs (CSV)
-            LogViewerMenu::instance().exportAuditLogs();
+            ExportManager::instance().exportAuditLogsCSV();
             break;
         case 7: // Export Tool Results (CSV)
-            LogViewerMenu::instance().exportToolResults();
+            ExportManager::instance().exportToolResultsCSV();
+            break;
+        case 8: // Export Devices (CSV)
+            ExportManager::instance().exportDevicesCSV();
+            break;
+        case 9: // Export Attacks (CSV)
+            ExportManager::instance().exportAttacksCSV();
+            break;
+        case 10: // Generate Daily Report
+            ExportManager::instance().generateDailySummary();
+            showResult("Daily Report", "✓ Report generated\nCheck /results/ directory");
+            break;
+        case 11: // Generate Monthly Report
+            ExportManager::instance().generateMonthlySummary();
+            showResult("Monthly Report", "✓ Report generated\nCheck /results/ directory");
+            break;
+        case 12: // List Export Files
+            ExportManager::instance().listExportFiles();
             break;
     }
 }
