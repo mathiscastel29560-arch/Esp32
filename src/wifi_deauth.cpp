@@ -99,10 +99,11 @@ DeauthResult nuclearOption(uint32_t durationMs) {
         // Switch channel periodically
         if (now >= nextChannelSwitch) {
             uint8_t ch = channels[channelIdx % 14];
-            esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
-            channelIdx++;
-            nextChannelSwitch = now + 100;
-            result.channelsTested++;
+            if (esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE) == ESP_OK) {
+                channelIdx++;
+                nextChannelSwitch = now + 100;
+                result.channelsTested++;
+            }
         }
 
         // Send deauth to broadcast address (affects all clients)
@@ -161,7 +162,11 @@ DeauthResult broadcastDeauth(const DeauthConfig &config) {
 
     Serial.printf("[WiFi Deauth] Broadcast deauth on channel %d\n", config.targetChannel);
 
-    esp_wifi_set_channel(config.targetChannel, WIFI_SECOND_CHAN_NONE);
+    if (esp_wifi_set_channel(config.targetChannel, WIFI_SECOND_CHAN_NONE) != ESP_OK) {
+        result.error = "Failed to set channel";
+        g_attacking = false;
+        return result;
+    }
 
     uint32_t startTime = millis();
     uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -235,11 +240,12 @@ DeauthResult channelSweep(const DeauthConfig &config) {
 
         if (now >= nextSwitch) {
             uint8_t ch = channels[channelIdx % 14];
-            esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
-            Serial.printf("[WiFi Deauth] Channel %d\n", ch);
-            channelIdx++;
-            nextSwitch = now + durationPerChannel;
-            result.channelsTested++;
+            if (esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE) == ESP_OK) {
+                Serial.printf("[WiFi Deauth] Channel %d\n", ch);
+                channelIdx++;
+                nextSwitch = now + durationPerChannel;
+                result.channelsTested++;
+            }
         }
 
         uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -282,7 +288,11 @@ DeauthResult targeted(const DeauthConfig &config) {
     g_attacking = true;
     g_packetCount = 0;
 
-    esp_wifi_set_channel(config.targetChannel, WIFI_SECOND_CHAN_NONE);
+    if (esp_wifi_set_channel(config.targetChannel, WIFI_SECOND_CHAN_NONE) != ESP_OK) {
+        result.error = "Failed to set channel";
+        g_attacking = false;
+        return result;
+    }
 
     uint32_t startTime = millis();
 
