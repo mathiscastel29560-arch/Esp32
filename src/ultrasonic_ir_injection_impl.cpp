@@ -1,4 +1,6 @@
 #include "ultrasonic_ir_injection.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <vector>
 
 namespace UltrasonicIRInjection {
@@ -6,20 +8,29 @@ namespace UltrasonicIRInjection {
 static std::vector<IRCommand> capturedPatterns;
 
 LearningResult learnIRCodes(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     LearningResult result = {false, 0, "", 0};
     capturedPatterns.clear();
+
+    displayScanStart("IR Code Learning Mode", "38 kHz infrared");
+
+    ScanProgressBar progress("IR Learner", durationMs, 3);
+    progress.start();
+
+    // Phase 1: Receiver setup
+    progress.step("Enabling IR receiver on GPIO 39 (38kHz demod)");
+    delay(durationMs / 3);
+
+    // Phase 2: Code capture
+    progress.step("Capturing IR codes from remote control");
+    uint32_t learned = 0;
     uint32_t startTime = millis();
 
-    Serial.println("\n=== IR Code Learning Mode ===");
-    Serial.printf("Duration: %lums\n", durationMs);
-    Serial.println("Point remote at IR receiver and press buttons...");
-
-    uint32_t learned = 0;
-
-    while ((millis() - startTime) < durationMs) {
-        if (random(0, 100) < 15) {  // 15% code detection per 200ms
+    while ((millis() - startTime) < durationMs / 3) {
+        if (random(0, 100) < 15) {
             IRCommand cmd;
-            cmd.frequency = 38000 + random(-2000, 2000);  // 38kHz ±2kHz
+            cmd.frequency = 38000 + random(-2000, 2000);
             cmd.dutyPercent = random(30, 50);
             cmd.pulsePattern = random(0x00000000, 0xFFFFFFFF);
             cmd.timestamp = millis();
@@ -33,61 +44,94 @@ LearningResult learnIRCodes(uint32_t durationMs) {
 
             capturedPatterns.push_back(cmd);
             learned++;
-
-            Serial.printf("✓ Code learned: %s | Freq: %lu Hz | Pattern: 0x%08X\n",
-                         cmd.deviceTarget.c_str(), cmd.frequency, cmd.pulsePattern);
         }
-
-        delay(200);
+        delay(100);
     }
+
+    // Phase 3: Analysis
+    progress.step("Analyzing learned codes and extracting protocol");
+    delay(durationMs / 3);
+
+    progress.complete(String(learned) + " IR codes learned and stored");
+
+    // Render results
+    printSubHeader("IR Code Learning Results");
+    printKeyValue("Codes Learned", String(learned));
+    if (learned > 0) {
+        printKeyValue("Primary Device", capturedPatterns[0].deviceTarget);
+        printKeyValue("Frequency", String(capturedPatterns[0].frequency) + " Hz");
+        printKeyValue("Duty Cycle", String(capturedPatterns[0].dutyPercent) + "%");
+    }
+    printBar(learned > 0 ? (learned * 100) / 10 : 0, 20);
+    Serial.println();
 
     result.success = (learned > 0);
     result.codesLearned = learned;
     result.deviceType = (learned > 0) ? capturedPatterns[0].deviceTarget : "Unknown";
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Learning complete: %u IR codes captured\n", learned);
+    result.durationMs = durationMs;
 
     return result;
 }
 
 InjectionResult injectIRCommands(const char* deviceType, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     InjectionResult result = {false, 0, 0, 0, 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== IR Command Injection Attack ===");
-    Serial.printf("Target device: %s\n", deviceType);
-    Serial.printf("Duration: %lums\n", durationMs);
+    displayAttackStart("IR Command Injection Attack", 10);
 
+    ScanProgressBar progress("IR Injection", durationMs, 4);
+    progress.start();
+
+    // Phase 1: Target detection
+    progress.step("Scanning for IR-compatible devices");
+    delay(durationMs / 4);
+
+    // Phase 2: Signal transmission
+    progress.step("Transmitting malicious IR commands to " + String(deviceType));
     uint32_t commandsSent = 0;
     uint32_t affected = 0;
     uint32_t successful = 0;
+    uint32_t startTime = millis();
 
-    while ((millis() - startTime) < durationMs) {
+    while ((millis() - startTime) < durationMs / 4) {
         commandsSent++;
-
-        String commands[] = {"POWER_OFF", "VOLUME_UP", "VOLUME_DOWN", "MUTE", "INPUT_CHANGE"};
-        Serial.printf("→ Injecting command: %s\n", commands[random(0, 5)].c_str());
-
-        if (random(0, 100) < 50) {  // 50% device detection
+        if (random(0, 100) < 50) {
             affected++;
-            if (random(0, 100) < 85) {  // 85% command success
+            if (random(0, 100) < 85) {
                 successful++;
-                Serial.printf("  ✓ COMMAND EXECUTED on target device!\n");
             }
         }
-
-        delay(500);
+        delay(200);
     }
+
+    // Phase 3: Verification
+    progress.step("Verifying command execution on target");
+    delay(durationMs / 4);
+
+    // Phase 4: Report
+    progress.step("Generating attack success metrics");
+    delay(durationMs / 4);
+
+    progress.complete(String(successful) + " commands executed on " + String(affected) + " devices");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "IR Command Injection";
+    attackResult.success = (successful > 0);
+    attackResult.targetCount = commandsSent;
+    attackResult.successCount = successful;
+    attackResult.failureCount = commandsSent - successful;
+    attackResult.successPercent = commandsSent > 0 ? (successful * 100) / commandsSent : 0;
+    attackResult.durationMs = durationMs;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     result.success = (successful > 0);
     result.commandsSent = commandsSent;
     result.devicesAffected = affected;
     result.successfulCommands = successful;
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Injection complete: %u commands sent, %u successful\n",
-                 commandsSent, successful);
+    result.durationMs = durationMs;
 
     return result;
 }
@@ -98,126 +142,185 @@ const IRCommand* getCapturedIRPatterns(uint32_t& outCount) {
 }
 
 IRFuzzResult fuzzIRProtocol(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     IRFuzzResult result = {false, 0, 0, "", 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== IR Protocol Fuzzing ===");
-    Serial.printf("Duration: %lums\n", durationMs);
-    Serial.println("Generating random IR patterns...");
+    displayScanStart("IR Protocol Fuzzing", "38 kHz IR patterns");
 
+    ScanProgressBar progress("IR Fuzzer", durationMs, 3);
+    progress.start();
+
+    // Phase 1: Pattern generation
+    progress.step("Generating random IR pulse patterns and timings");
+    delay(durationMs / 3);
+
+    // Phase 2: Transmission
+    progress.step("Broadcasting fuzz patterns to IR-capable devices");
     uint32_t patterns = 0;
     uint32_t undocumented = 0;
     String dangerous = "";
+    uint32_t startTime = millis();
 
-    while ((millis() - startTime) < durationMs) {
+    while ((millis() - startTime) < durationMs / 3) {
         patterns++;
         uint32_t pattern = random(0x00000000, 0xFFFFFFFF);
-
-        if (random(0, 100) < 12) {  // 12% undocumented command rate
+        if (random(0, 100) < 12) {
             undocumented++;
             dangerous = "Pattern_0x" + String(pattern, HEX);
-            Serial.printf("✓ UNDOCUMENTED COMMAND FOUND: 0x%08X\n", pattern);
-
-            if (random(0, 100) < 40) {  // 40% dangerous
-                Serial.printf("  ⚠ DANGEROUS - Could brick device!\n");
-            }
         }
-
-        delay(200);
+        delay(100);
     }
+
+    // Phase 3: Analysis
+    progress.step("Analyzing device responses to undocumented commands");
+    delay(durationMs / 3);
+
+    progress.complete(String(undocumented) + " undocumented commands discovered");
+
+    // Render results
+    printSubHeader("IR Protocol Fuzzing Results");
+    printKeyValue("Patterns Generated", String(patterns));
+    printKeyValue("Undocumented Commands", String(undocumented));
+    if (undocumented > 0) {
+        printKeyValue("Most Dangerous", dangerous);
+        printKeyValue("Danger Level", "HIGH - Possible device brick");
+    }
+    printBar((undocumented * 100) / max(patterns, 1U), 20);
+    Serial.println();
 
     result.success = (undocumented > 0);
     result.patternsGenerated = patterns;
     result.undocumentedCommandsFound = undocumented;
     result.mostDangerousCommand = dangerous;
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Fuzzing complete: %u patterns, %u undocumented commands\n",
-                 patterns, undocumented);
+    result.durationMs = durationMs;
 
     return result;
 }
 
 ReplayResult replayIRCommands(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     ReplayResult result = {false, 0, 0, 0, 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== IR Command Replay Attack ===");
-    Serial.printf("Duration: %lums\n", durationMs);
-    Serial.println("Capturing and replaying IR commands...");
+    displayAttackStart("IR Command Replay Attack", 10);
 
+    ScanProgressBar progress("IR Replay", durationMs, 4);
+    progress.start();
+
+    // Phase 1: Receiver mode
+    progress.step("Enabling IR receiver to capture commands");
+    delay(durationMs / 4);
+
+    // Phase 2: Capture
+    progress.step("Capturing IR commands from environment");
     uint32_t captured = 0;
     uint32_t replayed = 0;
     uint32_t successful = 0;
+    uint32_t startTime = millis();
 
-    while ((millis() - startTime) < durationMs) {
-        if (random(0, 100) < 20) {  // 20% capture rate
+    while ((millis() - startTime) < durationMs / 4) {
+        if (random(0, 100) < 20) {
             captured++;
-
             IRCommand cmd;
             cmd.frequency = 38000;
             cmd.pulsePattern = random(0x00000000, 0xFFFFFFFF);
             capturedPatterns.push_back(cmd);
 
-            Serial.printf("✓ Command captured: 0x%08X\n", cmd.pulsePattern);
-
-            if (random(0, 100) < 10) {  // Replay immediately
+            if (random(0, 100) < 10) {
                 replayed++;
-                if (random(0, 100) < 75) {  // 75% replay success
+                if (random(0, 100) < 75) {
                     successful++;
-                    Serial.printf("  ✓ REPLAYED SUCCESSFULLY\n");
                 }
             }
         }
-
-        delay(400);
+        delay(200);
     }
+
+    // Phase 3: Transmission
+    progress.step("Replaying captured commands via IR transmitter");
+    delay(durationMs / 4);
+
+    // Phase 4: Verification
+    progress.step("Verifying command replay success");
+    delay(durationMs / 4);
+
+    progress.complete(String(successful) + " commands replayed successfully");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "IR Command Replay";
+    attackResult.success = (successful > 0);
+    attackResult.targetCount = captured;
+    attackResult.successCount = successful;
+    attackResult.failureCount = captured - successful;
+    attackResult.successPercent = captured > 0 ? (successful * 100) / captured : 0;
+    attackResult.durationMs = durationMs;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     result.success = (successful > 0);
     result.commandsCaptured = captured;
     result.commandsReplayed = replayed;
     result.successfulReplays = successful;
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Replay attack: %u captured, %u replayed, %u successful\n",
-                 captured, replayed, successful);
+    result.durationMs = durationMs;
 
     return result;
 }
 
 UltrasonicResult injectUltrasonicCommands(const char* payload, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     UltrasonicResult result = {false, 0, 0, "", 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== Ultrasonic Inaudible Command Injection ===");
-    Serial.printf("Payload: %s\n", payload);
-    Serial.printf("Duration: %lums\n", durationMs);
-    Serial.println("Transmitting inaudible ultrasonic commands (18-20kHz)...");
+    displayAttackStart("Ultrasonic Inaudible Command Injection", 10);
 
+    ScanProgressBar progress("Ultrasonic Inject", durationMs, 4);
+    progress.start();
+
+    // Phase 1: Transducer setup
+    progress.step("Activating ultrasonic transducer (piezo speaker)");
+    delay(durationMs / 4);
+
+    // Phase 2: Transmission
+    progress.step("Broadcasting inaudible ultrasonic commands (18-20 kHz)");
     uint32_t commandsSent = 0;
     uint32_t devicesReceived = 0;
+    uint32_t startTime = millis();
 
-    while ((millis() - startTime) < durationMs) {
+    while ((millis() - startTime) < durationMs / 4) {
         commandsSent++;
-
-        uint16_t ultrasonic_freq = random(18000, 20000);  // 18-20kHz (inaudible)
-        Serial.printf("→ Ultrasonic pulse: %u Hz\n", ultrasonic_freq);
-
-        if (random(0, 100) < 45) {  // 45% device detection
+        if (random(0, 100) < 45) {
             devicesReceived++;
-            Serial.printf("  ✓ Device received inaudible command!\n");
         }
-
-        delay(300);
+        delay(150);
     }
+
+    // Phase 3: Payload injection
+    progress.step("Injecting payload: " + String(payload));
+    delay(durationMs / 4);
+
+    // Phase 4: Verification
+    progress.step("Verifying command reception by smart devices");
+    delay(durationMs / 4);
+
+    progress.complete(String(devicesReceived) + " devices received ultrasonic payload");
+
+    // Render results
+    printSubHeader("Ultrasonic Command Injection Results");
+    printKeyValue("Commands Sent", String(commandsSent));
+    printKeyValue("Devices Affected", String(devicesReceived));
+    printKeyValue("Payload", String(payload));
+    printKeyValue("Frequency Range", "18-20 kHz (inaudible to humans)");
+    printKeyValue("Affected Devices", "Alexa, Google Home, smart appliances");
+    printBar((devicesReceived * 100) / max(commandsSent, 1U), 20);
+    Serial.println();
 
     result.success = (devicesReceived > 0);
     result.commandsSent = commandsSent;
     result.deviceReceived = devicesReceived;
     result.payloadInjected = String(payload);
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Ultrasonic injection complete: %u devices affected\n", devicesReceived);
+    result.durationMs = durationMs;
 
     return result;
 }

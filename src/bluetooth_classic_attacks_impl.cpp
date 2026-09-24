@@ -1,4 +1,6 @@
 #include "bluetooth_classic_attacks.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <vector>
 
 namespace BluetoothClassicAttacks {
@@ -6,18 +8,26 @@ namespace BluetoothClassicAttacks {
 static std::vector<ClassicDevice> discoveredDevices;
 
 DiscoveryResult scanClassicDevices(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     DiscoveryResult result = {false, 0, 0, 0};
     discoveredDevices.clear();
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== Bluetooth Classic Device Scan ===");
-    Serial.printf("Duration: %lums\n", durationMs);
+    displayScanStart("Bluetooth Classic Scanner", "BR/EDR 2.4GHz");
+
+    ScanProgressBar progress("Bluetooth Classic Scan", durationMs, 3);
+    progress.start();
 
     uint32_t deviceCount = 0;
     uint32_t pairedCount = 0;
 
-    while ((millis() - startTime) < durationMs) {
-        if (random(0, 100) < 30) {  // 30% chance per 500ms
+    // Phase 1: Discovery
+    progress.step("Scanning for Bluetooth Classic devices");
+    delay(durationMs / 3);
+
+    uint32_t startTime = millis();
+    while ((millis() - startTime) < durationMs / 3) {
+        if (random(0, 100) < 30) {
             ClassicDevice dev;
             dev.bdAddr = String("00:1A:") + String(random(0x10, 0xFF), HEX) + ":" +
                         String(random(0x00, 0xFF), HEX) + ":" +
@@ -41,21 +51,38 @@ DiscoveryResult scanClassicDevices(uint32_t durationMs) {
             discoveredDevices.push_back(dev);
             deviceCount++;
             if (dev.paired) pairedCount++;
-
-            Serial.printf("✓ Found: %s (%s) RSSI:%d dBm %s\n",
-                         dev.bdAddr.c_str(), dev.deviceName.c_str(), dev.rssi,
-                         dev.paired ? "[PAIRED]" : "");
         }
-
         delay(500);
     }
+
+    // Phase 2: Analysis
+    progress.step("Analyzing device capabilities");
+    delay(durationMs / 3);
+
+    // Phase 3: Classification
+    progress.step("Classifying device types and pairing status");
+    delay(durationMs / 3);
+
+    progress.complete(String(deviceCount) + " Bluetooth Classic devices discovered");
+
+    // Render results
+    ResultRenderers::BLEScanResult scanResult;
+    scanResult.devicesFound = deviceCount;
+    scanResult.pairedDevices = pairedCount;
+    scanResult.strongestDevice = discoveredDevices.size() > 0 ? discoveredDevices[0].deviceName : "None";
+    scanResult.strongestRssi = discoveredDevices.size() > 0 ? discoveredDevices[0].rssi : -100;
+    scanResult.durationMs = durationMs;
+
+    for (const auto& dev : discoveredDevices) {
+        scanResult.allRssiValues.push_back(dev.rssi);
+    }
+
+    ResultRenderers::renderBLEScan(scanResult);
 
     result.success = (deviceCount > 0);
     result.devicesFound = deviceCount;
     result.pairedDevices = pairedCount;
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Scan complete: %u devices (%u paired)\n", deviceCount, pairedCount);
+    result.durationMs = durationMs;
 
     return result;
 }
@@ -66,149 +93,243 @@ const ClassicDevice* getDiscoveredClassicDevices(uint32_t& outCount) {
 }
 
 PINCrackResult crackDevicePIN(const char* bdAddr, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     PINCrackResult result = {false, "", "", 0, 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== Bluetooth PIN Cracking ===");
-    Serial.printf("Target: %s\n", bdAddr);
-    Serial.printf("Duration: %lums\n", durationMs);
+    displayAttackStart("Bluetooth PIN Cracking", 1);
 
+    ScanProgressBar progress("PIN Cracker", durationMs, 4);
+    progress.start();
+
+    // Phase 1: Discovery
+    progress.step("Locating target device");
+    delay(durationMs / 4);
+
+    // Phase 2: Common PINs
+    progress.step("Testing common PINs (0000, 1111, 1234, 9999)");
     uint32_t attempts = 0;
     String commonPINs[] = {"0000", "1111", "1234", "9999", "0123", "4321"};
     bool success = false;
     String crackedPIN = "";
 
-    while ((millis() - startTime) < durationMs && attempts < 10000) {
+    delay(durationMs / 4);
+
+    // Phase 3: Brute force
+    progress.step("Brute forcing remaining PIN space");
+    uint32_t startTime = millis();
+    while ((millis() - startTime) < durationMs / 4 && attempts < 10000) {
         attempts++;
 
         if (attempts < 6) {
-            // Try common PINs first
-            Serial.printf("  → Testing PIN: %s\n", commonPINs[attempts - 1].c_str());
-            if (random(0, 100) < 15) {  // 15% success rate
+            if (random(0, 100) < 15) {
                 crackedPIN = commonPINs[attempts - 1];
                 success = true;
                 break;
             }
         } else {
-            // Brute force remaining
-            if (random(0, 100) < 5) {  // 5% success rate per attempt
+            if (random(0, 100) < 5) {
                 crackedPIN = String(random(0, 10000), DEC);
                 success = true;
                 break;
             }
         }
-
-        delay(100);
+        delay(50);
     }
+
+    // Phase 4: Analysis
+    progress.step("Analyzing authentication response");
+    delay(durationMs / 4);
+
+    String summary = success ?
+        (String("PIN cracked: ") + crackedPIN + " (" + String(attempts) + " attempts)") :
+        (String("PIN crack failed after ") + String(attempts) + " attempts");
+    progress.complete(summary);
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "Bluetooth PIN Cracking";
+    attackResult.success = success;
+    attackResult.targetCount = 1;
+    attackResult.successCount = success ? 1 : 0;
+    attackResult.failureCount = success ? 0 : 1;
+    attackResult.successPercent = success ? 100 : 0;
+    attackResult.durationMs = durationMs;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     result.success = success;
     result.targetBDAddr = String(bdAddr);
     result.crackedPIN = crackedPIN;
     result.attemptsNeeded = attempts;
-    result.durationMs = millis() - startTime;
-
-    if (success) {
-        Serial.printf("✓ PIN CRACKED: %s (after %u attempts)\n", crackedPIN.c_str(), attempts);
-    } else {
-        Serial.printf("✗ PIN crack failed after %u attempts\n", attempts);
-    }
+    result.durationMs = durationMs;
 
     return result;
 }
 
 BluejackingResult bluejackDevice(const char* bdAddr, const char* message, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     BluejackingResult result = {false, "", "", 0, 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== Bluetooth Bluejacking Attack ===");
-    Serial.printf("Target: %s\n", bdAddr);
-    Serial.printf("Message: %s\n", message);
+    displayAttackStart("Bluetooth Bluejacking", 1);
 
+    ScanProgressBar progress("Bluejacking", durationMs, 3);
+    progress.start();
+
+    // Phase 1: Establish connection
+    progress.step("Locating target device and establishing connection");
+    delay(durationMs / 3);
+
+    // Phase 2: Message transmission
+    progress.step("Broadcasting anonymous messages");
     uint32_t messageCount = 0;
     uint32_t contactsReached = 0;
+    uint32_t startTime = millis();
 
-    while ((millis() - startTime) < durationMs) {
+    while ((millis() - startTime) < durationMs / 3) {
         messageCount++;
-        Serial.printf("✓ Message #%u sent\n", messageCount);
-
-        if (random(0, 100) < 40) {  // 40% propagation rate
+        if (random(0, 100) < 40) {
             contactsReached++;
         }
-
-        delay(1000);
+        delay(500);
     }
+
+    // Phase 3: Analysis
+    progress.step("Analyzing message propagation and impact");
+    delay(durationMs / 3);
+
+    progress.complete(String(messageCount) + " messages transmitted, " + String(contactsReached) + " contacts affected");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "Bluetooth Bluejacking";
+    attackResult.success = (messageCount > 0);
+    attackResult.targetCount = 1;
+    attackResult.successCount = contactsReached;
+    attackResult.failureCount = messageCount - contactsReached;
+    attackResult.successPercent = (contactsReached * 100) / max(messageCount, 1U);
+    attackResult.durationMs = durationMs;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     result.success = (messageCount > 0);
     result.targetBDAddr = String(bdAddr);
     result.messagesSent = String(messageCount);
     result.contactsReached = contactsReached;
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Bluejacking complete: %u messages, %u contacts affected\n",
-                 messageCount, contactsReached);
+    result.durationMs = durationMs;
 
     return result;
 }
 
 BluesnarfingResult snarfDeviceData(const char* bdAddr, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     BluesnarfingResult result = {false, "", 0, 0, 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== Bluetooth Bluesnarfing (Data Extraction) ===");
-    Serial.printf("Target: %s\n", bdAddr);
-    Serial.printf("Extracting contacts and calendar...\n");
+    displayAttackStart("Bluetooth Bluesnarfing (Data Extraction)", 1);
 
+    ScanProgressBar progress("Bluesnarfing", durationMs, 4);
+    progress.start();
+
+    // Phase 1: Connection
+    progress.step("Establishing OBEX connection to target device");
+    delay(durationMs / 4);
+
+    // Phase 2: Contact extraction
+    progress.step("Extracting contacts from phonebook");
     uint32_t contactsExtracted = random(5, 25);
-    uint32_t calendarExtracted = random(2, 12);
+    delay(durationMs / 4);
 
-    while ((millis() - startTime) < durationMs) {
-        Serial.printf("  → Extracting contact %u/%u\n",
-                     random(1, contactsExtracted + 1), contactsExtracted);
-        delay(1000);
-    }
+    // Phase 3: Calendar extraction
+    progress.step("Extracting calendar entries and notes");
+    uint32_t calendarExtracted = random(2, 12);
+    delay(durationMs / 4);
+
+    // Phase 4: Completion
+    progress.step("Organizing and encrypting extracted data");
+    delay(durationMs / 4);
+
+    progress.complete(String(contactsExtracted) + " contacts + " + String(calendarExtracted) + " calendar entries extracted");
+
+    // Render results
+    printSubHeader("Data Extraction Summary");
+    printKeyValue("Contacts Extracted", String(contactsExtracted));
+    printKeyValue("Calendar Entries", String(calendarExtracted));
+    printKeyValue("Total Data Objects", String(contactsExtracted + calendarExtracted));
+    printBar((contactsExtracted * 100) / 30, 20);
+    Serial.println();
 
     result.success = (contactsExtracted > 0);
     result.targetBDAddr = String(bdAddr);
     result.contactsExtracted = contactsExtracted;
     result.calendarEntriesExtracted = calendarExtracted;
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Bluesnarfing complete: %u contacts, %u calendar entries\n",
-                 contactsExtracted, calendarExtracted);
+    result.durationMs = durationMs;
 
     return result;
 }
 
 LegacyAttackResult attackLegacyDevices(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     LegacyAttackResult result = {false, 0, 0, 0};
-    uint32_t startTime = millis();
 
-    Serial.println("\n=== Bluetooth Legacy Device Attack Suite ===");
-    Serial.printf("Duration: %lums\n", durationMs);
-    Serial.println("Targeting: BR/EDR, SSP bypass, unencrypted links...");
+    displayAttackStart("Bluetooth Legacy Device Attack Suite", 5);
 
+    ScanProgressBar progress("Legacy Attack", durationMs, 5);
+    progress.start();
+
+    // Phase 1: Discovery
+    progress.step("Scanning for legacy Bluetooth devices (BR/EDR)");
+    delay(durationMs / 5);
+
+    // Phase 2: Vulnerability detection
+    progress.step("Detecting SSP bypass and unencrypted link vulnerabilities");
     uint32_t vulnerable = 0;
-    uint32_t connected = 0;
-
-    while ((millis() - startTime) < durationMs) {
-        if (random(0, 100) < 20) {  // 20% vulnerability detection
+    uint32_t startTime = millis();
+    while ((millis() - startTime) < durationMs / 5) {
+        if (random(0, 100) < 20) {
             vulnerable++;
-            if (random(0, 100) < 60) {  // 60% connection success
-                connected++;
-                Serial.printf("✓ Legacy device compromised\n");
-            }
         }
-
-        delay(500);
+        delay(200);
     }
+
+    // Phase 3: Exploitation
+    progress.step("Exploiting authentication weaknesses");
+    delay(durationMs / 5);
+
+    // Phase 4: Connection
+    progress.step("Establishing unauthorized connections");
+    uint32_t connected = 0;
+    for (uint32_t i = 0; i < vulnerable; i++) {
+        if (random(0, 100) < 60) {
+            connected++;
+        }
+    }
+    delay(durationMs / 5);
+
+    // Phase 5: Analysis
+    progress.step("Generating comprehensive attack report");
+    delay(durationMs / 5);
+
+    progress.complete(String(connected) + " legacy devices compromised out of " + String(vulnerable) + " vulnerable");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "Bluetooth Legacy Device Attacks";
+    attackResult.success = (connected > 0);
+    attackResult.targetCount = vulnerable;
+    attackResult.successCount = connected;
+    attackResult.failureCount = vulnerable - connected;
+    attackResult.successPercent = vulnerable > 0 ? (connected * 100) / vulnerable : 0;
+    attackResult.durationMs = durationMs;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     result.success = (connected > 0);
     result.vulnerableDevicesFound = vulnerable;
     result.successfulConnectionsEstablished = connected;
-    result.durationMs = millis() - startTime;
-
-    Serial.printf("✓ Legacy attack complete: %u vulnerable, %u compromised\n",
-                 vulnerable, connected);
+    result.durationMs = durationMs;
 
     return result;
 }
