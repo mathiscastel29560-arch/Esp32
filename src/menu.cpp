@@ -98,6 +98,7 @@
 #include "rfid_protocol_fuzzer.h"
 #include "ultrasonic_ir_injection.h"
 #include "result_renderers.h"
+#include "log_viewer_menu.h"
 #include <vector>
 #include <set>
 
@@ -118,6 +119,7 @@ enum State {
     CALIBRATION_SUBMENU,
     ABOUT_SUBMENU,
     NETWORK_SUBMENU,
+    LOGGING_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
     HARDWARE_TEST_SELECT,
@@ -158,6 +160,7 @@ std::vector<String> mainMenuItems() {
         "🔧 Calibration",
         "ℹ️  About",
         "🌐 Network",
+        "📊 Logs & Results",
         "❓ Help",
     };
 }
@@ -338,6 +341,20 @@ std::vector<String> iotMenuItems() {
         "🌐 Generic Packet Tools",
         "🌐 Advanced WiFi Attacks ⚠️",
         "🌐 Default Creds Scanner ⚠️",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> loggingMenuItems() {
+    return {
+        "📋 View Audit Logs",
+        "📊 View Tool Results",
+        "📱 View Device Discoveries",
+        "⚔️  View Attack Results",
+        "💾 Storage Statistics",
+        "🗑️  Cleanup Old Logs",
+        "📄 Export Audit Logs (CSV)",
+        "📄 Export Tool Results (CSV)",
         "🔙 Back",
     };
 }
@@ -1354,6 +1371,35 @@ void runNetworkAction(int idx) {
     }
 }
 
+void runLoggingAction(int idx) {
+    switch (idx) {
+        case 0: // View Audit Logs
+            LogViewerMenu::instance().viewAuditLogs();
+            break;
+        case 1: // View Tool Results
+            LogViewerMenu::instance().viewToolResults();
+            break;
+        case 2: // View Device Discoveries
+            LogViewerMenu::instance().viewDeviceResults();
+            break;
+        case 3: // View Attack Results
+            LogViewerMenu::instance().viewAttackResults();
+            break;
+        case 4: // Storage Statistics
+            LogViewerMenu::instance().viewStorageStats();
+            break;
+        case 5: // Cleanup Old Logs
+            LogViewerMenu::instance().cleanupOldLogs();
+            break;
+        case 6: // Export Audit Logs (CSV)
+            LogViewerMenu::instance().exportAuditLogs();
+            break;
+        case 7: // Export Tool Results (CSV)
+            LogViewerMenu::instance().exportToolResults();
+            break;
+    }
+}
+
 String drawBatteryBar(uint8_t percent) {
     String bar = "";
     uint8_t filled = percent / 10;
@@ -1526,7 +1572,8 @@ void loop() {
                     case 9: g_state = CALIBRATION_SUBMENU; break;
                     case 10: g_state = ABOUT_SUBMENU; break;
                     case 11: g_state = NETWORK_SUBMENU; break;
-                    case 12: g_state = HELP_SUBMENU; break;
+                    case 12: g_state = LOGGING_SUBMENU; break;
+                    case 13: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1713,6 +1760,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "NETWORK");
             break;
 
+        case LOGGING_SUBMENU:
+            items = loggingMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 12;
+                } else {
+                    runLoggingAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "LOGS & RESULTS");
+            break;
+
         case HELP_SUBMENU:
             items = helpMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1720,7 +1782,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 12;
+                    g_selection = 13;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
