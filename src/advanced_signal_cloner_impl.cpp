@@ -64,7 +64,7 @@ CloneResult cloneSignal(const CloneParams& params) {
         }
 
         cc1101.sleep();
-        delete mutableData;
+        delete[] mutableData;
         result.radioUsed = "CC1101";
 
     } else if (useNRF24) {

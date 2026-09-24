@@ -65,29 +65,31 @@ void generateRawSignal(float lat, float lon) {
 
     // Transmit spoofed GPS via BLE advertisement
     NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-    if (pAdvertising) {
-        uint8_t gps_payload[31];
-        // Encode lat/lon into payload
-        uint16_t lat_encoded = (uint16_t)((lat + 90.0f) * 100);
-        uint16_t lon_encoded = (uint16_t)((lon + 180.0f) * 100);
-
-        gps_payload[0] = (lat_encoded >> 8) & 0xFF;
-        gps_payload[1] = lat_encoded & 0xFF;
-        gps_payload[2] = (lon_encoded >> 8) & 0xFF;
-        gps_payload[3] = lon_encoded & 0xFF;
-
-        for (int i = 4; i < 31; i++) {
-            gps_payload[i] = esp_random() % 256;
-        }
-
-        NimBLEAdvertisementData advData;
-        advData.setFlags(0x06);
-        advData.addData(std::string((const char*)gps_payload, 31));
-        pAdvertising->setAdvertisementData(advData);
-        pAdvertising->start();
-        delayMicroseconds(500);
-        pAdvertising->stop();
+    if (!pAdvertising) {
+        return; // BLE not initialized
     }
+
+    uint8_t gps_payload[31];
+    // Encode lat/lon into payload
+    uint16_t lat_encoded = (uint16_t)((lat + 90.0f) * 100);
+    uint16_t lon_encoded = (uint16_t)((lon + 180.0f) * 100);
+
+    gps_payload[0] = (lat_encoded >> 8) & 0xFF;
+    gps_payload[1] = lat_encoded & 0xFF;
+    gps_payload[2] = (lon_encoded >> 8) & 0xFF;
+    gps_payload[3] = lon_encoded & 0xFF;
+
+    for (int i = 4; i < 31; i++) {
+        gps_payload[i] = esp_random() % 256;
+    }
+
+    NimBLEAdvertisementData advData;
+    advData.setFlags(0x06);
+    advData.addData(std::string((const char*)gps_payload, 31));
+    pAdvertising->setAdvertisementData(advData);
+    pAdvertising->start();
+    delayMicroseconds(500);
+    pAdvertising->stop();
 
     // Also transmit via WiFi raw frame
     uint8_t wifi_gps[40];

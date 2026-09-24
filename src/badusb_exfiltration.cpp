@@ -27,6 +27,12 @@ UsbResult BadUsb::executePayload(const UsbConfig& config) {
   NimBLEDevice::init("ESP32-Exfil");
   NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
 
+  if (!pAdvertising) {
+    result.success = false;
+    isRunning_ = false;
+    return result;
+  }
+
   uint32_t deadline = startTime + config.durationMs;
 
   while (isRunning_ && (int32_t)(millis() - deadline) < 0) {

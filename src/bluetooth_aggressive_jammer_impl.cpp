@@ -59,6 +59,11 @@ JamResult jamBluetooth(uint32_t durationMs) {
     NimBLEServer *pServer = NimBLEDevice::createServer();
     g_pAdvertising = NimBLEDevice::getAdvertising();
 
+    if (!g_pAdvertising) {
+        progress.complete("Failed to initialize BLE advertising");
+        return result;
+    }
+
     g_pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_NON);
     g_pAdvertising->setMinPreferred(0x00);
     g_pAdvertising->setMaxPreferred(0x00);

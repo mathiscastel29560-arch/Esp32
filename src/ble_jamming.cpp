@@ -26,6 +26,11 @@ JamResult startJamming(uint32_t durationMs, uint8_t powerLevel) {
     NimBLEServer *pServer = NimBLEDevice::createServer();
     pAdvertising = NimBLEDevice::getAdvertising();
 
+    if (!pAdvertising) {
+        result.error = "✗ Failed to get BLE advertising object";
+        return result;
+    }
+
     pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_NON);
     pAdvertising->setMinPreferred(0x00);
     pAdvertising->setMaxPreferred(0x00);

@@ -262,6 +262,12 @@ SpamResult spam(const SpamConfig &config) {
                     g_pAdvertising = NimBLEDevice::getAdvertising();
                 }
 
+                if (!g_pAdvertising) {
+                    result.error = "Failed to initialize BLE advertising";
+                    g_spamActive = false;
+                    break;
+                }
+
                 NimBLEAdvertisementData advData;
                 advData.setFlags(0x06);
                 advData.addData(std::string((const char *)payload, payloadLen));
