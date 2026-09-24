@@ -4,6 +4,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace {
 Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);

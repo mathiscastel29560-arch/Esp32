@@ -4,6 +4,7 @@
 #include <esp_wifi.h>
 #include <vector>
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace WiFiPacketSniffer {
 

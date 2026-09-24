@@ -3,6 +3,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace SmarthomeHijacker {
 

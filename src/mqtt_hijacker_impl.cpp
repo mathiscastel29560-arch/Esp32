@@ -6,6 +6,7 @@
 #include <WiFiClient.h>
 #include "results_display.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace MqttHijacker {
 

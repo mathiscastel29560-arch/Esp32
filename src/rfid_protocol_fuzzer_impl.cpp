@@ -3,6 +3,7 @@
 #include "result_renderers.h"
 #include <vector>
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace RFIDProtocolFuzzer {
 

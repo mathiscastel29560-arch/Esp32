@@ -8,6 +8,7 @@
 #include <NimBLEDevice.h>
 #include <esp_wifi.h>
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace {
 volatile bool g_spoofActive = false;

@@ -6,6 +6,7 @@
 #include <BLEScan.h>
 #include <vector>
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace BLEPassiveSniffer {
 

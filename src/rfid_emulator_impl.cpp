@@ -4,6 +4,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 #define PN532_I2C_ADDRESS 0x24
 #define PN532_CMD_INJUMP 0x09
