@@ -88,6 +88,10 @@
 #include "subghz_frequency_scanner.h"
 #include "subghz_fuzzing_engine.h"
 #include "default_creds_scanner.h"
+#include "wifi_packet_sniffer.h"
+#include "ble_passive_sniffer.h"
+#include "subghz_protocol_decoder.h"
+#include "obd2_scanner.h"
 #include <vector>
 #include <set>
 
