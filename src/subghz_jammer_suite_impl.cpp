@@ -1,9 +1,12 @@
 #include "subghz_jammer_suite.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include "tx_arm.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include "config.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <RadioLib.h>
 
 namespace {
@@ -83,7 +86,6 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -95,7 +97,6 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
     if (initCC1101(433.92f) != RADIOLIB_ERR_NONE) {
         Serial.println("✗ CC1101 initialization failed");
         g_jamActive = false;
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -123,7 +124,6 @@ JamResult jamSubghzDevices(uint32_t durationMs) {
                  result.jamPacketsCount, elapsed);
     Serial.println("⚠️  433.92 MHz ISM band disrupted (garage doors, RF remotes, etc.)");
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

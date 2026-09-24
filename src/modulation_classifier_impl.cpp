@@ -1,5 +1,6 @@
 #include "modulation_classifier.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <cmath>
 #include <vector>
 
@@ -138,14 +139,6 @@ ClassificationResult classifyModulation(uint32_t durationMs) {
     displayLines.push_back("Confidence: " + String((int)(result.confidence * 100)) + "%");
     displayLines.push_back("Bitrate: " + String(estimateBitrate()) + " bps");
     displayLines.push_back("BW: " + String(estimateSignalBandwidth(), 2) + " MHz");
-
-    ResultsDisplay::showResult("Modulation", {
-        "Modulation Classification",
-        String(result.modulationType),
-        (int)(result.confidence * 100),
-        displayLines,
-        ResultsDisplay::ResultType::INFO
-    });
 
     return result;
 }

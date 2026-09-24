@@ -1,6 +1,7 @@
 #include "iot_device_hunter.h"
 #include "wifi_tools.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace IoTDeviceHunter {
 
@@ -68,14 +69,6 @@ HuntResult huntDevices(uint32_t durationMs) {
     } else {
         displayLines.push_back("No IoT devices found");
     }
-
-    ResultsDisplay::showResult("IoT Hunter", {
-        "IoT Device Discovery",
-        String(result.devicesFound) + " device(s)",
-        100,
-        displayLines,
-        result.devicesFound > 0 ? ResultsDisplay::ResultType::SCAN_RESULT : ResultsDisplay::ResultType::INFO
-    });
 
     return result;
 }

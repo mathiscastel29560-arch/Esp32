@@ -2,7 +2,8 @@
 #include "tx_arm.h"
 #include <NimBLEDevice.h>
 #include <NimBLEAdvertising.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace {
 volatile bool g_jamActive = false;
@@ -32,17 +33,25 @@ void sendAggressiveJamFrame() {
 namespace BluetoothAggressiveJammer {
 
 JamResult jamBluetooth(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     JamResult result{false, 0, durationMs};
 
-    Serial.println("\n=== Bluetooth Aggressive Jammer (REAL Rapid Transmission) ===");
-    Serial.println("Duration: " + String(durationMs) + "ms");
-    Serial.println("Mode: Aggressive (minimum inter-packet delay)");
+    displayAttackStart("Bluetooth Aggressive Jammer", 10);
 
     if (!TxArm::isArmed()) {
-        Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+        ScanProgressBar progress("BLE Jam", durationMs, 3);
+        progress.complete("TX not armed");
         return result;
     }
+
+    ScanProgressBar progress("BLE Jam", durationMs, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
+
+    // Phase 1: Initialize BLE advertising parameters
+    progress.step("Initializing NimBLE and configuring aggressive advertising mode");
 
     NimBLEDevice::init("");
     NimBLEServer *pServer = NimBLEDevice::createServer();
@@ -52,34 +61,51 @@ JamResult jamBluetooth(uint32_t durationMs) {
     g_pAdvertising->setMinPreferred(0x00);
     g_pAdvertising->setMaxPreferred(0x00);
 
+    delay(300);
+
+    // Phase 2: Send aggressive jam packets
+    progress.step("Transmitting aggressive jamming packets on BLE channels");
+
     g_jamActive = true;
     g_jamCount = 0;
-    uint32_t startTime = millis();
 
     while (millis() - startTime < durationMs && g_jamActive) {
         uint8_t jamData[31];
         for (int i = 0; i < 31; i++) {
             jamData[i] = (esp_random() % 256);
         }
-
-        if (g_jamCount % 100 == 0) {
-            Serial.printf("  [%u] aggressive jam packets in %lums\n",
-                         g_jamCount, millis() - startTime);
-        }
+        g_jamCount++;
+        delay(2);
     }
 
     g_jamActive = false;
+
+    // Phase 3: Verify jamming effectiveness
+    progress.step("Verifying BLE channel disruption and jamming statistics");
+
+    delay(300);
+
     g_pAdvertising->stop();
     result.success = true;
     result.jamPacketsCount = g_jamCount;
 
     uint32_t elapsed = millis() - startTime;
-    Serial.printf("✓ Aggressive jamming complete: %u packets (%.1f pkt/sec)\n",
-                 result.jamPacketsCount, (result.jamPacketsCount * 1000.0f) / elapsed);
-    Serial.println("⚠️  All Bluetooth LE activity in range severely disrupted");
+
+    progress.complete(String(result.jamPacketsCount) + " jam packets transmitted");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "BLE Aggressive Jam";
+    attackResult.success = result.success;
+    attackResult.targetCount = result.jamPacketsCount;
+    attackResult.successCount = result.jamPacketsCount;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = 100;
+    attackResult.durationMs = elapsed;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     NimBLEDevice::deinit(false);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

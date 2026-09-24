@@ -3,7 +3,8 @@
 #include "config.h"
 #include "tx_arm.h"
 #include <RF24.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace {
 RF24 radio(PIN_NRF24_CE, PIN_NRF24_CS);
@@ -66,7 +67,6 @@ ReplayResult replayPacket(const PacketCapture &packet, uint8_t repeatCount) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -93,7 +93,6 @@ ReplayResult replayPacket(const PacketCapture &packet, uint8_t repeatCount) {
 
     Serial.println("✓ Replayed " + String(result.packetsSent) + "/" + String(result.replayCount) + " packets");
     
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

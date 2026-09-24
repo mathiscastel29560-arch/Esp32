@@ -1,23 +1,40 @@
 #include "signal_decoder.h"
 #include "rf_signal_recorder.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace SignalDecoder {
 
 DecodedSignal decodeSignal() {
+    using namespace ToolOutputHelper;
+
     DecodedSignal result = {false, "UNKNOWN", "UNKNOWN", 0, 0, 0, ""};
+
+    displayScanStart("Signal Decoder", "RF Signal Analysis");
+
+    ScanProgressBar progress("Decode", 3000, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
+
+    // Phase 1: Retrieve and validate captured RF data
+    progress.step("Retrieving captured RF signal data from buffer");
 
     uint32_t dataLen = 0;
     const uint8_t* data = RfSignalRecorder::getCapturedData(dataLen);
 
     if (!data || dataLen < 8) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+        progress.complete("No valid signal data available");
         return result;
     }
 
+    delay(300);
+
+    // Phase 2: Analyze signal encoding and modulation type
+    progress.step("Analyzing signal encoding, modulation, and bit patterns");
+
     result.success = true;
 
-    // Analyze encoding
     if (detectManchester()) {
         result.format = "Manchester";
     } else if (detectNRZ()) {
@@ -26,7 +43,6 @@ DecodedSignal decodeSignal() {
         result.format = "OOK";
     }
 
-    // Detect bit repetition
     uint8_t bitRep = detectBitRepetition();
     if (bitRep == 1) {
         result.modulationType = "ASK";
@@ -36,27 +52,44 @@ DecodedSignal decodeSignal() {
         result.modulationType = "GFSK";
     }
 
-    // Estimate bitrate
-    result.estimatedBitrate = 2400 * bitRep;  // Base 2400 bps, scaled by repetition
+    result.estimatedBitrate = 2400 * bitRep;
 
-    // Find pattern
     PatternMatch pattern = findRepeatingPattern();
     result.patternLength = pattern.length;
 
-    // Decode to hex with bounds checking
+    delay(300);
+
+    // Phase 3: Decode to hex and estimate parameters
+    progress.step("Decoding signal data and estimating frequency characteristics");
+
     char hexBuf[513] = {0};
     uint32_t maxBytes = (dataLen < 256) ? dataLen : 256;
     for (uint32_t i = 0; i < maxBytes; i++) {
         size_t remaining = sizeof(hexBuf) - (i * 2);
-        if (remaining < 3) break;  // Need 2 chars + null terminator
+        if (remaining < 3) break;
         snprintf(hexBuf + (i * 2), remaining, "%02X", data[i]);
     }
     result.decodedData = String(hexBuf);
-
-    // Estimate frequency spread (for FSK)
     result.estimatedFrequency = estimateFrequencySpread();
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    delay(300);
+
+    uint32_t elapsed = millis() - startTime;
+
+    progress.complete("Signal decoded: " + String(result.format) + " (" + String(result.modulationType) + ")");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "Signal Decoder";
+    attackResult.success = result.success;
+    attackResult.targetCount = dataLen;
+    attackResult.successCount = result.success ? dataLen : 0;
+    attackResult.failureCount = result.success ? 0 : 1;
+    attackResult.successPercent = result.success ? 100 : 0;
+    attackResult.durationMs = elapsed;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
+
     return result;
 }
 

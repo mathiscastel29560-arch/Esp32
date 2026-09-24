@@ -1,7 +1,8 @@
 #include "ble_advanced_attack_suite.h"
 #include "tx_arm.h"
 #include <BLEDevice.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace {
 volatile bool g_attackActive = false;
@@ -19,7 +20,6 @@ AttackResult attackBLE(uint32_t durationMs, const String &method) {
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -72,7 +72,6 @@ AttackResult attackBLE(uint32_t durationMs, const String &method) {
 
     Serial.println("✓ Complete: " + String(g_attackCount) + " packets");
     BLEDevice::deinit(false);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

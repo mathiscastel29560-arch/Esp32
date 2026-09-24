@@ -2,7 +2,8 @@
 #include "config.h"
 #include <RadioLib.h>
 #include <RF24.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace RfSignalRecorder {
 
@@ -31,7 +32,6 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
         CC1101 cc1101(&cc1101Module);
 
         if (cc1101.begin(433.0) != RADIOLIB_ERR_NONE) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
 
@@ -67,7 +67,6 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
         RF24 nrf24(PIN_NRF24_CE, PIN_NRF24_CS);
 
         if (!nrf24.begin()) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
 
@@ -108,7 +107,6 @@ RecordingResult recordSignals(float frequencyMHz, uint32_t durationMs, const cha
     lastFrequency = frequencyMHz;
     lastDurationMs = result.durationMs;
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

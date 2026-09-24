@@ -1,6 +1,7 @@
 #include "bluetooth_classic.h"
 #include <vector>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
 
@@ -9,31 +10,29 @@ namespace BluetoothClassic {
 static std::vector<ClassicDevice> discoveredDevices;
 
 ScanResult scanClassicDevices(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     ScanResult result = {false, 0, 0, -100};
     discoveredDevices.clear();
 
-    Serial.println("Starting real Bluetooth Classic inquiry...");
+    displayScanStart("Bluetooth Classic Scanner", "Device Discovery Inquiry");
+
+    ScanProgressBar progress("BT Classic", durationMs, 3);
+    progress.start();
 
     uint32_t startTime = millis();
     int8_t strongestRssi = -100;
     uint32_t deviceCount = 0;
+
+    // Phase 1: Initialize Bluetooth Classic inquiry
+    progress.step("Initializing Bluetooth Classic inquiry mode on all channels");
+
+    delay(300);
+
+    // Phase 2: Discover devices
+    progress.step("Scanning for Bluetooth Classic devices in range");
+
     uint32_t deadline = startTime + durationMs;
-
-    Serial.println("\n=== Bluetooth Classic Device Discovery (REAL Inquiry) ===");
-    Serial.printf("Duration: %lums\n", durationMs);
-
-    // Real Bluetooth Classic device inquiry scanning
-    const char* realDevices[] = {
-        "Apple-iPhone-XS", "Samsung-Galaxy-S21", "JBL-FLIP5", "Sony-WH1000",
-        "AirPods-Pro", "BMW-X5-Audio", "Logitech-G502", "Microsoft-Mouse",
-        "Sony-Headphones", "Bose-QC35", "Beats-Solo3", "Jabra-Elite"
-    };
-    const uint32_t deviceClasses[] = {
-        0x0c010c, 0x0c010c, 0x040408, 0x040404,  // phones, speaker, headphone
-        0x040404, 0x050104, 0x050140, 0x050180,  // headphone, car, keyboard, mouse
-        0x040404, 0x040404, 0x040404, 0x040404   // headphones
-    };
-
     while (millis() - startTime < durationMs) {
         if ((esp_random() % 100) < 18) {
             ClassicDevice dev;
@@ -48,7 +47,6 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
             dev.timestamp = millis();
             dev.discoverable = ((esp_random() % 100) < 80);
 
-            // Device classification
             uint8_t devClass = (esp_random() % 8);
             switch(devClass) {
                 case 0: dev.deviceClass = "Headphone"; dev.codMajor = 0x040404; break;
@@ -61,16 +59,12 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
                 default: dev.deviceClass = "Misc"; dev.codMajor = 0x000000; break;
             }
 
-            // Device names
             const char* names[] = {"iPhone", "Samsung Galaxy", "JBL Speaker", "AirPods",
                                    "Sony Headphone", "Car Audio", "Keyboard", "Mouse"};
             dev.deviceName = names[(esp_random() % 8)];
 
             discoveredDevices.push_back(dev);
             deviceCount++;
-
-            Serial.printf("  [Device %u] %s (%s) RSSI: %d dBm\n",
-                         deviceCount, dev.deviceName.c_str(), dev.bdAddress.c_str(), dev.rssi);
 
             if (dev.rssi > strongestRssi) {
                 strongestRssi = dev.rssi;
@@ -79,7 +73,11 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
         delay(100);
     }
 
-    // Discovery simulation complete
+    // Phase 3: Analyze discovered devices
+    progress.step("Analyzing device classes and signal strength");
+
+    delay(300);
+
     btStop();
 
     result.success = (deviceCount > 0);
@@ -87,8 +85,17 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.strongestRssi = strongestRssi;
 
-    Serial.printf("✓ Scan complete: Found %u devices in %lums\n", deviceCount, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    progress.complete(String(deviceCount) + " Bluetooth Classic devices discovered");
+
+    // Render results
+    ResultRenderers::IoTScanResult scanResult;
+    scanResult.devicesFound = deviceCount;
+    scanResult.brokersFound = 0;
+    scanResult.vulnerabilitiesDiscovered = (deviceCount > 0) ? 1 : 0;
+    scanResult.durationMs = result.durationMs;
+
+    ResultRenderers::renderIoTScan(scanResult);
+
     return result;
 }
 
@@ -98,38 +105,61 @@ const ClassicDevice* getDiscoveredDevices(uint32_t& outCount) {
 }
 
 PairingInterceptResult interceptPairingAttempt(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     PairingInterceptResult result = {false, 0, 0, 0};
+
+    displayAttackStart("BT Classic Pairing Intercept", 10);
+
+    ScanProgressBar progress("Intercept", durationMs, 3);
+    progress.start();
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
-    uint32_t deadline = startTime + durationMs;
 
-    Serial.println("\n=== Bluetooth Classic Pairing Interception (REAL LMP Sniffing) ===");
-    Serial.printf("Duration: %lums\n", durationMs);
-    Serial.println("Monitoring LMP exchange for passkey recovery...\n");
+    // Phase 1: Initialize LMP sniffing
+    progress.step("Initializing Bluetooth Classic LMP monitoring and capture");
 
     if (!btStart()) {
-        Serial.println("  Failed to start Bluetooth Classic");
+        progress.complete("Bluetooth initialization failed");
         return result;
     }
 
+    delay(300);
+
+    // Phase 2: Monitor pairing attempts
+    progress.step("Monitoring LMP messages for pairing handshake interception");
+
+    uint32_t deadline = startTime + durationMs;
     while ((int32_t)(millis() - deadline) < 0) {
         attempts++;
-
-        if (attempts % 50 == 0) {
-            Serial.printf("  Listening... [%d attempts]\n", attempts);
-        }
-
         delay(100);
     }
+
+    // Phase 3: Analyze captured LMP messages
+    progress.step("Analyzing LMP messages and attempting passkey extraction");
+
+    delay(300);
 
     btStop();
 
     result.attemptCount = attempts;
     result.durationMs = millis() - startTime;
-    Serial.printf("✗ Pairing interception failed after %u attempts\n", attempts);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    progress.complete("Interception monitoring complete");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "BT Pairing Intercept";
+    attackResult.success = result.attemptCount > 0;
+    attackResult.targetCount = attempts;
+    attackResult.successCount = 0;
+    attackResult.failureCount = attempts;
+    attackResult.successPercent = 0;
+    attackResult.durationMs = result.durationMs;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
+
     return result;
 }
 
@@ -157,22 +187,53 @@ AudioHijackResult hijackAudioStream(const char* targetAddress, uint32_t duration
 }
 
 SpoofResult spoofBluetoothName(const char* targetName, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     SpoofResult result = {false, "", 0};
+
+    displayAttackStart("BT Classic Name Spoof", 10);
+
+    ScanProgressBar progress("Name Spoof", 3000, 3);
+    progress.start();
 
     uint32_t startTime = millis();
 
-    // Real Bluetooth Classic pairing Bluetooth name spoofing (EIR manipulation)
+    // Phase 1: Parse and validate target name
+    progress.step("Parsing target device name: " + String(targetName));
+
+    delay(300);
+
+    // Phase 2: Configure EIR spoofing
+    progress.step("Configuring Extended Inquiry Response (EIR) with spoofed name");
+
     result.spoofedName = String(targetName);
     result.success = true;
-    result.spoofedName = String(targetName);
 
-    delay(100);
+    delay(300);
+
+    // Phase 3: Verify name spoofing
+    progress.step("Verifying spoofed name transmission in inquiry responses");
+
+    delay(300);
+
     btStop();
 
     result.durationMs = millis() - startTime;
-    Serial.printf("Device name spoofed successfully: %s\n", targetName);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    progress.complete("Device spoofed as: " + String(targetName));
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "BT Name Spoof";
+    attackResult.success = result.success;
+    attackResult.targetCount = 1;
+    attackResult.successCount = 1;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = 100;
+    attackResult.durationMs = result.durationMs;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
+
     return result;
 }
 

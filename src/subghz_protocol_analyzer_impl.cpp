@@ -1,5 +1,6 @@
 #include "subghz_protocol_analyzer.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <vector>
 #include <algorithm>
 
@@ -141,14 +142,6 @@ ProtocolAnalysis analyzeSignal(const std::vector<uint16_t> &pulses) {
         displayLines.push_back("Pulse: " + String(avgPulse) + " µs");
         displayLines.push_back("Pulses: " + String(pulses.size()));
     }
-
-    ResultsDisplay::showResult("Protocol", {
-        "Protocol Analysis",
-        String(analysis.protocolName),
-        (int)(analysis.confidence * 100),
-        displayLines,
-        ResultsDisplay::ResultType::INFO
-    });
 
     return analysis;
 }

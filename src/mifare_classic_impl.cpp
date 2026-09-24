@@ -1,7 +1,8 @@
 #include "mifare_classic.h"
 #include "drivers/pn532_driver.h"
 #include "hardware.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <Wire.h>
 
 #define PN532_I2C_ADDRESS 0x24
@@ -20,7 +21,6 @@ ReadResult readMifareCard(uint32_t durationMs) {
 
     if (!Hardware::isPN532Ready()) {
         result.sectorData = "Error: PN532 not initialized";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -33,7 +33,6 @@ ReadResult readMifareCard(uint32_t durationMs) {
     if (!PN532Driver::scanCard(card)) {
         result.sectorData = "Error: No card detected";
         result.durationMs = millis() - startTime;
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -65,7 +64,6 @@ ReadResult readMifareCard(uint32_t durationMs) {
     result.success = true;
     result.durationMs = millis() - startTime;
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -73,7 +71,6 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
     KeyRecoveryResult result = {false, "", 0, 0};
 
     if (!Hardware::isPN532Ready()) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -102,7 +99,6 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
     PN532Driver::Card card;
     if (!PN532Driver::scanCard(card)) {
         result.durationMs = millis() - startTime;
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -119,7 +115,6 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
                 result.attemptCount = attempts;
                 result.durationMs = millis() - startTime;
                 Serial.printf("✓ Key found: %s at attempt %u\n", result.keyFound.c_str(), attempts);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
                 return result;
             }
         }
@@ -130,7 +125,6 @@ KeyRecoveryResult recoverMifareKeys(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     Serial.printf("✗ Key recovery failed after %u attempts\n", attempts);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -138,7 +132,6 @@ CloneResult cloneMifareCard(const char* sourceUid, uint32_t durationMs) {
     CloneResult result = {false, "", "", 0};
 
     if (!Hardware::isPN532Ready()) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -151,7 +144,6 @@ CloneResult cloneMifareCard(const char* sourceUid, uint32_t durationMs) {
     PN532Driver::Card targetCard;
     if (!PN532Driver::scanCard(targetCard)) {
         result.durationMs = millis() - startTime;
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -184,7 +176,6 @@ CloneResult cloneMifareCard(const char* sourceUid, uint32_t durationMs) {
 
     result.durationMs = millis() - startTime;
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

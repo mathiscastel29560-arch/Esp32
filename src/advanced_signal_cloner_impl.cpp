@@ -4,7 +4,8 @@
 #include "config.h"
 #include <RadioLib.h>
 #include <RF24.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace AdvancedSignalCloner {
 
@@ -20,12 +21,10 @@ CloneResult cloneSignal(const CloneParams& params) {
     const uint8_t* data = RfSignalRecorder::getCapturedData(dataLen);
 
     if (!data || dataLen == 0) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (!validateSignal()) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -43,7 +42,6 @@ CloneResult cloneSignal(const CloneParams& params) {
         CC1101 cc1101(&cc1101Module);
 
         if (cc1101.begin(params.frequency) != RADIOLIB_ERR_NONE) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
 
@@ -72,7 +70,6 @@ CloneResult cloneSignal(const CloneParams& params) {
         RF24 nrf24(PIN_NRF24_CE, PIN_NRF24_CS);
 
         if (!nrf24.begin()) {
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
             return result;
         }
 
@@ -107,7 +104,6 @@ CloneResult cloneSignal(const CloneParams& params) {
         totalTransmitTime += result.durationMs;
     }
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

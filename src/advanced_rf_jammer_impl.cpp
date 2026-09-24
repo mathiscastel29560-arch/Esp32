@@ -1,9 +1,12 @@
 #include "advanced_rf_jammer.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include "tx_arm.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include "config.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <RadioLib.h>
 
 namespace {
@@ -89,7 +92,6 @@ JamResult jamRFSignals(const String &frequency, uint32_t durationMs, const Strin
 
     if (!TxArm::isArmed()) {
         Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -105,7 +107,6 @@ JamResult jamRFSignals(const String &frequency, uint32_t durationMs, const Strin
     if (initCC1101Advanced(targetFreq) != RADIOLIB_ERR_NONE) {
         Serial.println("✗ CC1101 initialization failed");
         g_jamActive = false;
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -143,7 +144,6 @@ JamResult jamRFSignals(const String &frequency, uint32_t durationMs, const Strin
                  (result.jamPacketsCount * 1000.0f) / elapsed);
     Serial.printf("⚠️  RF spectrum around %.2f MHz jammed\n", targetFreq);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

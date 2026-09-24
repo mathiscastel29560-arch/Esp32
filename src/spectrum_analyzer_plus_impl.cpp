@@ -1,6 +1,7 @@
 #include "spectrum_analyzer_plus.h"
 #include <vector>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace SpectrumAnalyzerPlus {
 
@@ -61,7 +62,6 @@ ScanResult analyzeSpectrum(float startFreq, float endFreq, uint32_t durationMs) 
 
     Serial.printf("✓ Spectrum analysis: %u peaks detected, dominant: %.1f MHz (%d dBm)\n",
                  peakCount, dominantFreq, dominantAmp);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -97,7 +97,6 @@ PatternResult detectSignalPattern(uint32_t durationMs) {
     Serial.printf("✓ Pattern detected: %s (length: %u, reps: %u)\n",
                  result.patternType, result.patternLength, result.repetitions);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

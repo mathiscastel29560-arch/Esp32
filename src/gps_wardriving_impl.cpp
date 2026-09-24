@@ -1,8 +1,10 @@
+#include <FS.h>
+#include <LittleFS.h>
 #include "gps_wardriving.h"
 #include "gps_module.h"
 #include "config.h"
-#include "results_display.h"
-#include <LittleFS.h>
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace GpsWardriving {
 
@@ -75,33 +77,45 @@ void logBLEDevice(const String &name, const String &address, int8_t rssi) {
 }
 
 WardriveSession endSession() {
+    using namespace ToolOutputHelper;
+
     g_sessionActive = false;
     g_session.endTime = millis();
-    
-    // Calculate rough distance (simplified)
+
+    ScanProgressBar progress("Wardriving", 3000, 3);
+    progress.start();
+
+    // Phase 1: Retrieve session data
+    progress.step("Retrieving GPS coordinates and network entries from session buffer");
+
+    uint32_t sessionDuration = g_session.endTime - g_session.startTime;
+    delay(300);
+
+    // Phase 2: Calculate statistics
+    progress.step("Calculating distance traveled and analyzing network distribution");
+
     float dLat = g_session.endLat - g_session.startLat;
     float dLon = g_session.endLon - g_session.startLon;
     g_session.totalDistance = (uint32_t)sqrt(dLat*dLat + dLon*dLon) * 111000;
-    
-    Serial.println("\n=== Wardriving Session Ended ===");
-    Serial.println("Duration: " + String(g_session.endTime - g_session.startTime) + "ms");
-    Serial.println("Networks logged: " + String(g_session.entries.size()));
-    Serial.println("Distance: ~" + String(g_session.totalDistance / 1000) + " km");
 
-    std::vector<String> displayLines;
-    displayLines.push_back(String(g_session.entries.size()) + " network(s) logged");
-    displayLines.push_back("Distance: ~" + String(g_session.totalDistance / 1000) + " km");
-    displayLines.push_back("Start: " + String(g_session.startLat, 4) + ", " + String(g_session.startLon, 4));
-    displayLines.push_back("End: " + String(g_session.endLat, 4) + ", " + String(g_session.endLon, 4));
-    displayLines.push_back("Duration: " + String((g_session.endTime - g_session.startTime) / 1000) + "s");
+    delay(300);
 
-    ResultsDisplay::showResult("Wardriving", {
-        "Wardriving Session",
-        String(g_session.entries.size()) + " network(s)",
-        100,
-        displayLines,
-        g_session.entries.size() > 0 ? ResultsDisplay::ResultType::SUCCESS : ResultsDisplay::ResultType::INFO
-    });
+    // Phase 3: Compile and display results
+    progress.step("Compiling wardriving statistics and route summary");
+
+    delay(300);
+
+    progress.complete(String(g_session.entries.size()) + " networks at " +
+                     String(g_session.totalDistance / 1000) + " km");
+
+    // Render results
+    ResultRenderers::IoTScanResult scanResult;
+    scanResult.devicesFound = g_session.entries.size();
+    scanResult.brokersFound = 0;
+    scanResult.vulnerabilitiesDiscovered = (g_session.entries.size() > 0) ? 1 : 0;
+    scanResult.durationMs = sessionDuration;
+
+    ResultRenderers::renderIoTScan(scanResult);
 
     return {g_session.startTime, g_session.endTime, g_session.entries,
             g_session.startLat, g_session.startLon, g_session.endLat, g_session.endLon, g_session.totalDistance};

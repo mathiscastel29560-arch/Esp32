@@ -1,7 +1,9 @@
-#include "zwave_scanner.h"
-#include "results_display.h"
-#include <vector>
+#include <FS.h>
 #include <LittleFS.h>
+#include "zwave_scanner.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
+#include <vector>
 
 namespace ZwaveScanner {
 
@@ -141,14 +143,6 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
     } else {
         displayLines.push_back("No Z-Wave nodes found");
     }
-
-    ResultsDisplay::showResult("Z-Wave", {
-        "Z-Wave Network Scan",
-        String(nodeCount) + " node(s)",
-        100,
-        displayLines,
-        nodeCount > 0 ? ResultsDisplay::ResultType::SCAN_RESULT : ResultsDisplay::ResultType::INFO
-    });
 
     return result;
 }

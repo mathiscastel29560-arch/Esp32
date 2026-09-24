@@ -3,7 +3,8 @@
 #include "drivers/cc1101_driver.h"
 #include "hardware.h"
 #include <set>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace TPMSSpoofer {
 
@@ -18,7 +19,6 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
 
     if (!Hardware::isCC1101Ready()) {
         result.error = "CC1101 not initialized";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -82,7 +82,6 @@ TPMSResult captureTPMSSensors(uint32_t captureDurationMs, uint32_t frequency) {
     }
 
     CC1101Driver::setTX(true);  // Return to TX mode
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -93,13 +92,11 @@ TPMSResult spoofTPMSLow(const TPMSConfig& config) {
 
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (!Hardware::isCC1101Ready()) {
         result.error = "CC1101 not initialized";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -145,7 +142,6 @@ TPMSResult spoofTPMSLow(const TPMSConfig& config) {
         result.error = "Spoofing failed";
     }
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -156,13 +152,11 @@ TPMSResult spoofTPMSHigh(const TPMSConfig& config) {
 
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (!Hardware::isCC1101Ready()) {
         result.error = "CC1101 not initialized";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -208,7 +202,6 @@ TPMSResult spoofTPMSHigh(const TPMSConfig& config) {
         result.error = "Spoofing failed";
     }
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -219,13 +212,11 @@ TPMSResult replayTPMSFrame(const TPMSConfig& config, const TPMSSensor& targetSen
 
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (!Hardware::isCC1101Ready()) {
         result.error = "CC1101 not initialized";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -261,7 +252,6 @@ TPMSResult replayTPMSFrame(const TPMSConfig& config, const TPMSSensor& targetSen
     result.durationMs = millis() - startTime;
     result.attackDescription = String("Replay: ") + String(result.framesTransmitted) + " duplicate frames";
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -272,13 +262,11 @@ TPMSResult fuzzyTPMSFrames(const TPMSConfig& config) {
 
     if (!TxArm::isArmed()) {
         result.error = "TX not armed";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
     if (!Hardware::isCC1101Ready()) {
         result.error = "CC1101 not initialized";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
         return result;
     }
 
@@ -309,7 +297,6 @@ TPMSResult fuzzyTPMSFrames(const TPMSConfig& config) {
     result.durationMs = millis() - startTime;
     result.attackDescription = "Fuzzing: Sent malformed TPMS frames";
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
@@ -333,7 +320,6 @@ TPMSResult analyzeTPMSData(const std::vector<TPMSSensor>& sensors) {
     }
 
     result.attackDescription = String("Analyzed ") + String(sensors.size()) + " TPMS sensors";
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
