@@ -134,10 +134,11 @@ bool exportToKML(const String &filename, const WardriveSession &session) {
         Serial.println("✗ LittleFS mount failed");
         return false;
     }
-    
+
     File f = LittleFS.open(filename, "w");
     if (!f) {
         Serial.println("✗ Cannot open file");
+        LittleFS.end();
         return false;
     }
     
@@ -163,6 +164,7 @@ bool exportToKML(const String &filename, const WardriveSession &session) {
     f.println("</kml>");
     
     f.close();
+    LittleFS.end();
     Serial.println("✓ KML export complete!");
     return true;
 }
