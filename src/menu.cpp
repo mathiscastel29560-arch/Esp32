@@ -92,6 +92,11 @@
 #include "ble_passive_sniffer.h"
 #include "subghz_protocol_decoder.h"
 #include "nfc_relay_attacker.h"
+#include "bluetooth_classic_attacks.h"
+#include "imsi_catcher.h"
+#include "keyless_entry_relay.h"
+#include "rfid_protocol_fuzzer.h"
+#include "ultrasonic_ir_injection.h"
 #include <vector>
 #include <set>
 
