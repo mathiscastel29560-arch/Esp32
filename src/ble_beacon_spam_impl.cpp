@@ -56,8 +56,13 @@ namespace BLEBeaconSpam {
 SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
     SpamResult result{false, 0, durationMs, beaconType};
 
-    Serial.println("\n=== BLE Beacon Spam ===");
-    Serial.println("Type: " + beaconType);
+    Serial.println("\n=== BLE Beacon Spam (REAL Advertisement Flooding) ===");
+    Serial.printf("Type: %s | Duration: %lums\n", beaconType.c_str(), durationMs);
+
+    if (!TxArm::isArmed()) {
+        result.success = false;
+        return result;
+    }
     Serial.println("Duration: " + String(durationMs) + "ms");
 
     if (!TxArm::isArmed()) {

