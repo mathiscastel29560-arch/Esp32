@@ -5,6 +5,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace {
 Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);
@@ -133,6 +134,16 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
 
     String result_str = String(result.signalsGenerated) + "_signals";
     AuditLog::instance().logToolStop("JammingGenerator", result.success, result_str.c_str());
+
+    // Persist jamming result
+    String jam_json = "{\"tool\":\"JammingGenerator\",\"noise_type\":\"" + result.noiseType +
+                     "\",\"success\":" + String(result.success ? "true" : "false") +
+                     ",\"signals_generated\":" + String(result.signalsGenerated) +
+                     ",\"duration_ms\":" + String(result.durationMs) +
+                     ",\"frequency\":\"433.92 MHz\"}";
+    ToolResultPersistence::instance().storeAttackResult("JammingGenerator",
+                                                       result.noiseType.c_str(),
+                                                       jam_json.c_str());
 
     return result;
 }
