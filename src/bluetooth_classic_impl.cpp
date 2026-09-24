@@ -5,6 +5,7 @@
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace BluetoothClassic {
 
@@ -96,6 +97,12 @@ ScanResult scanClassicDevices(uint32_t durationMs) {
     scanResult.durationMs = result.durationMs;
 
     ResultRenderers::renderIoTScan(scanResult);
+
+    // Persist scan result
+    String bt_json = "{\"tool\":\"BluetoothClassic\",\"devices_found\":" + String(deviceCount) +
+                    ",\"strongest_rssi\":" + String(strongestRssi) +
+                    ",\"duration_ms\":" + String(result.durationMs) + "}";
+    ToolResultPersistence::instance().storeToolResult("BluetoothClassic", bt_json.c_str());
 
     return result;
 }

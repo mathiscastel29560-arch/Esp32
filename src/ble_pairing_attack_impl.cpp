@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstring>
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace BLEPairingAttack {
 
