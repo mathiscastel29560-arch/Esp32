@@ -99,6 +99,9 @@
 #include "ultrasonic_ir_injection.h"
 #include "result_renderers.h"
 #include "log_viewer_menu.h"
+#include "active_tool_monitor.h"
+#include "alert_system.h"
+#include "recent_results_tracker.h"
 #include <vector>
 #include <set>
 
@@ -120,6 +123,7 @@ enum State {
     ABOUT_SUBMENU,
     NETWORK_SUBMENU,
     LOGGING_SUBMENU,
+    STATUS_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
     HARDWARE_TEST_SELECT,
@@ -161,6 +165,7 @@ std::vector<String> mainMenuItems() {
         "ℹ️  About",
         "🌐 Network",
         "📊 Logs & Results",
+        "🔴 Status & Alerts",
         "❓ Help",
     };
 }
@@ -341,6 +346,21 @@ std::vector<String> iotMenuItems() {
         "🌐 Generic Packet Tools",
         "🌐 Advanced WiFi Attacks ⚠️",
         "🌐 Default Creds Scanner ⚠️",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> statusMenuItems() {
+    String activeStatus = "🟢 No Active Tool";
+    if (ActiveToolMonitor::instance().isToolRunning()) {
+        activeStatus = "🔴 " + ActiveToolMonitor::instance().getStatus().toolName + " Running";
+    }
+
+    return {
+        activeStatus,
+        "📈 Recent Results",
+        "🔔 System Alerts (" + String(AlertSystem::instance().getUnacknowledgedCount()) + ")",
+        "⚙️  Tool Statistics",
         "🔙 Back",
     };
 }
@@ -1371,6 +1391,46 @@ void runNetworkAction(int idx) {
     }
 }
 
+void runStatusAction(int idx) {
+    switch (idx) {
+        case 0: { // Active Tool Status
+            if (ActiveToolMonitor::instance().isToolRunning()) {
+                const auto& status = ActiveToolMonitor::instance().getStatus();
+                showResult("Active Tool",
+                          "Tool: " + status.toolName + "\n" +
+                          "Status: " + status.status + "\n" +
+                          "Progress: " + String(status.progress) + "%\n" +
+                          "Events: " + String(status.eventCount) + "\n" +
+                          "Elapsed: " + ActiveToolMonitor::instance().getElapsedFormatted());
+            } else {
+                showResult("Active Tool", "No tool currently running");
+            }
+            break;
+        }
+        case 1: { // Recent Results
+            RecentResultsTracker::instance().displayRecent(5);
+            break;
+        }
+        case 2: { // System Alerts
+            AlertSystem::instance().displayUnacknowledged();
+            break;
+        }
+        case 3: { // Tool Statistics
+            uint32_t total = RecentResultsTracker::instance().getTotalResults();
+            uint32_t success = RecentResultsTracker::instance().getSuccessCount();
+            uint32_t failure = RecentResultsTracker::instance().getFailureCount();
+            uint8_t rate = RecentResultsTracker::instance().getSuccessRate();
+
+            String stats = "Total Executions: " + String(total) + "\n" +
+                          "Successful: " + String(success) + " ✅\n" +
+                          "Failed: " + String(failure) + " ❌\n" +
+                          "Success Rate: " + String(rate) + "%";
+            showResult("Tool Statistics", stats);
+            break;
+        }
+    }
+}
+
 void runLoggingAction(int idx) {
     switch (idx) {
         case 0: // View Audit Logs
@@ -1573,7 +1633,8 @@ void loop() {
                     case 10: g_state = ABOUT_SUBMENU; break;
                     case 11: g_state = NETWORK_SUBMENU; break;
                     case 12: g_state = LOGGING_SUBMENU; break;
-                    case 13: g_state = HELP_SUBMENU; break;
+                    case 13: g_state = STATUS_SUBMENU; break;
+                    case 14: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1760,6 +1821,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "NETWORK");
             break;
 
+        case STATUS_SUBMENU:
+            items = statusMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 13;
+                } else {
+                    runStatusAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "STATUS & ALERTS");
+            break;
+
         case LOGGING_SUBMENU:
             items = loggingMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1782,7 +1858,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 13;
+                    g_selection = 14;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
