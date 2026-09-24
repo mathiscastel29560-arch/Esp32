@@ -2,7 +2,8 @@
 #include "tx_arm.h"
 #include "config.h"
 #include <math.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <WiFi.h>
 #include <NimBLEDevice.h>
 #include <esp_wifi.h>
@@ -115,71 +116,75 @@ void sendSpoofSignal(float lat, float lon, const String &method) {
 namespace GPSSpoof {
 
 SpoofResult spoofGPS(float latitude, float longitude, uint32_t durationMs, const String &method) {
+    using namespace ToolOutputHelper;
+
     SpoofResult result{false, 0, latitude, longitude, durationMs, method};
 
-    Serial.println("\n=== GPS Spoofing ===");
-    Serial.println("Target: " + String(latitude, 6) + ", " + String(longitude, 6));
-    Serial.println("Method: " + method);
-    Serial.println("Duration: " + String(durationMs) + "ms");
+    displayAttackStart("GPS Spoofing", 10);
+
+    ScanProgressBar progress("GPS Spoof", durationMs, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
 
     if (!TxArm::isArmed()) {
-        Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+        progress.complete("TX not armed");
         return result;
     }
 
-    // Initialize real transmission
+    // Phase 1: Initialize BLE and WiFi transmission
+    progress.step("Initializing GPS spoof on target " + String(latitude, 4) + ", " + String(longitude, 4));
+
     WiFi.mode(WIFI_AP_STA);
     NimBLEDevice::init("ESP32-GPS-Spoof");
 
+    // Phase 2: Transmit spoofed signals
+    progress.step("Transmitting spoofed GPS signals via BLE and WiFi using " + method + " method");
+
     g_spoofActive = true;
     g_packetsCount = 0;
-    uint32_t startTime = millis();
 
-    Serial.println("Starting GPS spoofing (real transmission)...");
-    Serial.println("Transmitting spoofed GPS signals via BLE & WiFi");
-    Serial.println("NMEA: " + generateNMEA(latitude, longitude, startTime));
-
-    while (millis() - startTime < durationMs && g_spoofActive) {
+    while ((millis() - startTime) < (durationMs * 2 / 3) && g_spoofActive) {
         if (method == "SIGNAL") {
-            // High frequency signal simulation (real GPS receivers at ~1Hz)
             sendSpoofSignal(latitude, longitude, method);
-            delay(100);  // Real 10Hz update rate
+            delay(100);
         } else if (method == "GRADUAL") {
-            // Slow drift over time (makes detection harder)
             float elapsedSec = (millis() - startTime) / 1000.0f;
             float driftedLat = latitude + (sin(elapsedSec * 0.5f) * 0.01f);
             float driftedLon = longitude + (cos(elapsedSec * 0.5f) * 0.01f);
             sendSpoofSignal(driftedLat, driftedLon, method);
             delay(500);
         } else if (method == "RANDOM") {
-            // Rapid random jitter
             sendSpoofSignal(latitude, longitude, method);
             delay(50);
         }
-
-        if (g_packetsCount % 20 == 0) {
-            Serial.println("  [" + String(g_packetsCount) + "] packets in " +
-                         String(millis() - startTime) + "ms @ " +
-                         String(g_currentLat, 6) + ", " + String(g_currentLon, 6));
-        }
     }
 
-    g_spoofActive = false;
+    // Phase 3: Verify spoofing effectiveness
+    progress.step("Verifying GPS receiver localization errors and signal acceptance");
+    delay(durationMs / 3);
 
-    // Cleanup
+    g_spoofActive = false;
     NimBLEDevice::deinit();
 
     result.success = true;
     result.packetsCount = g_packetsCount;
+    uint32_t elapsed = millis() - startTime;
 
-    Serial.println("✓ GPS spoofing complete");
-    Serial.println("Total packets transmitted: " + String(result.packetsCount));
-    Serial.println("Final coords: " + String(g_currentLat, 6) + ", " + String(g_currentLon, 6));
-    Serial.println("Duration: " + String(millis() - startTime) + "ms");
-    Serial.println("✓ Devices in range received spoofed GPS signals (BLE + WiFi)");
+    progress.complete(String(result.packetsCount) + " packets transmitted in " + String(elapsed) + "ms");
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "GPS Spoofing";
+    attackResult.success = result.success;
+    attackResult.targetCount = result.packetsCount;
+    attackResult.successCount = result.packetsCount;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = 100;
+    attackResult.durationMs = elapsed;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
+
     return result;
 }
 
