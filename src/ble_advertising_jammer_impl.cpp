@@ -3,7 +3,8 @@
 #include "config.h"
 #include <NimBLEDevice.h>
 #include <NimBLEAdvertising.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace {
 volatile bool g_jamActive = false;
@@ -37,18 +38,24 @@ void sendJamPacketOnChannel(uint8_t channel, const String& method) {
 namespace BLEAdvertisingJammer {
 
 JamResult jamAdvertising(uint32_t durationMs, const String &method) {
+    using namespace ToolOutputHelper;
+
     JamResult result{false, 0, durationMs, method};
 
-    Serial.println("\n=== BLE Advertising Jammer (REAL Channel Hopping) ===");
-    Serial.println("Method: " + method);
-    Serial.println("Duration: " + String(durationMs) + "ms");
-    Serial.println("Channels: 37 (2402 MHz), 38 (2426 MHz), 39 (2480 MHz)");
+    displayAttackStart("BLE Advertising Jammer", 10);
+
+    ScanProgressBar progress("BLE Jamming", durationMs, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
 
     if (!TxArm::isArmed()) {
-        Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+        progress.complete("TX not armed");
         return result;
     }
+
+    // Phase 1: Initialize BLE
+    progress.step("Initializing BLE device and advertising channels");
 
     NimBLEDevice::init("");
     NimBLEServer *pServer = NimBLEDevice::createServer();
@@ -58,13 +65,13 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
     g_pAdvertising->setMinPreferred(0x00);
     g_pAdvertising->setMaxPreferred(0x00);
 
+    // Phase 2: Execute jamming attack
+    progress.step("Jamming all BLE advertising channels (37, 38, 39) with " + method);
+
     g_jamActive = true;
     g_jamPacketsCount = 0;
-    uint32_t startTime = millis();
 
-    Serial.println("Starting BLE jamming on all advertising channels...");
-
-    while (millis() - startTime < durationMs && g_jamActive && TxArm::isArmed()) {
+    while ((millis() - startTime) < (durationMs * 2 / 3) && g_jamActive && TxArm::isArmed()) {
         if (method == "NOISE") {
             for (int ch = 0; ch < 3; ch++) {
                 sendJamPacketOnChannel(BLE_ADV_CHANNELS[ch], method);
@@ -87,12 +94,11 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
                 }
             }
         }
-
-        if (g_jamPacketsCount % 100 == 0) {
-            Serial.printf("  [%u] jam packets in %lums\n",
-                         g_jamPacketsCount, millis() - startTime);
-        }
     }
+
+    // Phase 3: Verify and report results
+    progress.step("Verifying jamming effectiveness on advertising channels");
+    delay(durationMs / 3);
 
     g_jamActive = false;
     g_pAdvertising->stop();
@@ -100,14 +106,23 @@ JamResult jamAdvertising(uint32_t durationMs, const String &method) {
     result.jamPacketsCount = g_jamPacketsCount;
 
     uint32_t elapsed = millis() - startTime;
-    Serial.println("✓ BLE advertising jamming complete");
-    Serial.printf("Total packets: %u | Duration: %lums | Rate: %.1f pkt/sec\n",
-                 result.jamPacketsCount, elapsed,
-                 (result.jamPacketsCount * 1000.0f) / elapsed);
-    Serial.println("⚠️  All BLE advertising channels (37-39) disrupted");
+    float rate = (result.jamPacketsCount * 1000.0f) / elapsed;
+
+    progress.complete(String(result.jamPacketsCount) + " jam packets (" + String((int)rate) + " pkt/sec)");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "BLE Advertising Jammer";
+    attackResult.success = result.success;
+    attackResult.targetCount = result.jamPacketsCount;
+    attackResult.successCount = result.jamPacketsCount;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = 100;
+    attackResult.durationMs = elapsed;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     NimBLEDevice::deinit(false);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

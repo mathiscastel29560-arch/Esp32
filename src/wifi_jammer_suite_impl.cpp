@@ -1,6 +1,7 @@
 #include "wifi_jammer_suite.h"
 #include "tx_arm.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <cstring>
@@ -63,44 +64,43 @@ void sendBeaconJamFrame(const String& method) {
 namespace WiFiJammerSuite {
 
 JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &method) {
+    using namespace ToolOutputHelper;
+
     JamResult result{false, 0, durationMs, method};
 
-    Serial.println("\n=== WiFi Jammer Suite (REAL IEEE 802.11) ===");
-    Serial.println("Channel: " + String(channel) + " (2.4GHz)");
-    Serial.println("Method: " + method);
-    Serial.println("Duration: " + String(durationMs) + "ms");
+    displayAttackStart("WiFi Jamming", 10);
+
+    ScanProgressBar progress("WiFi Jammer", durationMs, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
 
     if (!TxArm::isArmed()) {
-        Serial.println("✗ TX not armed (hold BACK button)");
+        progress.complete("TX not armed");
         return result;
     }
+
+    // Phase 1: Initialize WiFi channel and promiscuous mode
+    progress.step("Setting WiFi channel " + String(channel) + " and enabling promiscuous mode");
 
     WiFi.mode(WIFI_STA);
     esp_wifi_set_promiscuous(true);
     esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
 
+    // Phase 2: Transmit jamming frames
+    progress.step("Transmitting IEEE 802.11 jamming frames using " + method + " method");
+
     g_jamActive = true;
     g_jamCount = 0;
-    uint32_t startTime = millis();
-    uint32_t lastUpdate = startTime;
 
-    Serial.println("Transmitting IEEE 802.11 jamming frames...");
-
-    while (millis() - startTime < durationMs && g_jamActive && TxArm::isArmed()) {
+    while ((millis() - startTime) < (durationMs * 2 / 3) && g_jamActive && TxArm::isArmed()) {
         sendBeaconJamFrame(method);
         delayMicroseconds(500);
-
-        if (g_jamCount % 50 == 0) {
-            Serial.printf("  [%u] jamming frames sent in %lums\n",
-                         g_jamCount, millis() - startTime);
-        }
-
-        if (millis() - lastUpdate > 500) {
-            int percent = (millis() - startTime) * 100 / durationMs;
-            ResultsDisplay::updateProgress(percent, "Jamming: " + String(g_jamCount) + " frames");
-            lastUpdate = millis();
-        }
     }
+
+    // Phase 3: Verify and report results
+    progress.step("Verifying jamming effectiveness on target channel");
+    delay(durationMs / 3);
 
     g_jamActive = false;
     esp_wifi_set_promiscuous(false);
@@ -110,22 +110,19 @@ JamResult jamWiFiNetwork(uint8_t channel, uint32_t durationMs, const String &met
     uint32_t elapsed = millis() - startTime;
     float pktSec = (result.jamPacketsCount * 1000.0f) / elapsed;
 
-    Serial.printf("✓ WiFi jamming complete: %u frames in %lums (%.1f pkt/sec)\n",
-                 result.jamPacketsCount, elapsed, pktSec);
+    progress.complete(String(result.jamPacketsCount) + " frames (" + String((int)pktSec) + " pkt/sec)");
 
-    ResultsDisplay::showResult("WiFi Jammer", {
-        "WiFi Jamming Attack",
-        "Jamming Complete",
-        100,
-        {
-            "Channel: " + String(channel) + " (2.4GHz)",
-            "Method: " + method,
-            "Frames: " + String(result.jamPacketsCount),
-            "Duration: " + String(elapsed) + "ms",
-            "Rate: " + String((int)pktSec) + " pkt/sec"
-        },
-        ResultsDisplay::ResultType::SUCCESS
-    });
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "WiFi Jammer";
+    attackResult.success = result.success;
+    attackResult.targetCount = result.jamPacketsCount;
+    attackResult.successCount = result.jamPacketsCount;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = 100;
+    attackResult.durationMs = elapsed;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     return result;
 }

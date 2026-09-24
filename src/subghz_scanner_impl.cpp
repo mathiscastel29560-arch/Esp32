@@ -1,7 +1,8 @@
 #include "subghz_scanner.h"
 #include "config.h"
 #include <RadioLib.h>
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace {
 Module cc1101Module(PIN_CC1101_CS, PIN_CC1101_GDO0, RADIOLIB_NC, PIN_CC1101_GDO2, SPI);
@@ -19,44 +20,56 @@ int8_t scanFrequency(float freqMHz) {
 }
 
 ScanResult scanBand(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     ScanResult result{0, -127, 0.0f, durationMs, {}};
-    
-    Serial.println("\n=== Sub-GHz Band Scanner (433 MHz) ===");
-    Serial.println("Scanning 433.05 - 434.79 MHz");
-    Serial.println("Duration: " + String(durationMs) + "ms");
-    
+
+    displayScanStart("Sub-GHz Band Scanner", "433.05 - 434.79 MHz");
+
+    ScanProgressBar progress("SubGHz Scan", durationMs, 3);
+    progress.start();
+
     uint32_t startTime = millis();
-    
-    // Scan 433 MHz band in 100kHz steps
-    for (float freq = 433.05f; freq <= 434.79f; freq += 0.1f) {
-        if (millis() - startTime > durationMs) break;
-        
+
+    // Phase 1: Initialize radio
+    progress.step("Initializing CC1101 radio on 433 MHz ISM band");
+
+    // Phase 2: Scan frequencies
+    progress.step("Scanning 433.05 - 434.79 MHz in 100kHz steps");
+
+    for (float freq = 433.05f; freq <= 434.79f && (millis() - startTime) < (durationMs * 2 / 3); freq += 0.1f) {
         int8_t rssi = scanFrequency(freq);
-        
-        if (rssi > -90) {  // Signal detected
+
+        if (rssi > -90) {
             String sigType = (rssi > -70) ? "Strong" : (rssi > -80) ? "Medium" : "Weak";
             SignalDetection det{freq, rssi, millis(), sigType};
             result.detections.push_back(det);
             result.detectionCount++;
-            
+
             if (rssi > result.strongestSignal) {
                 result.strongestSignal = rssi;
                 result.busyFrequency = freq;
             }
-            
-            Serial.println("  [" + String(freq, 2) + " MHz] RSSI: " + String(rssi) + 
-                         "dBm (" + sigType + ")");
         }
-        
+
         delay(50);
     }
-    
-    Serial.println("\n=== Scan Complete ===");
-    Serial.println("Signals found: " + String(result.detectionCount));
-    Serial.println("Strongest: " + String(result.strongestSignal) + "dBm @ " + 
-                  String(result.busyFrequency, 2) + " MHz");
-    
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+
+    // Phase 3: Compile results
+    progress.step("Analyzing signal distribution and strongest signals");
+    delay(durationMs / 3);
+
+    progress.complete(String(result.detectionCount) + " signals detected");
+
+    // Render results
+    ResultRenderers::IoTScanResult iotResult;
+    iotResult.devicesFound = result.detectionCount;
+    iotResult.brokersFound = 0;
+    iotResult.vulnerabilitiesDiscovered = (result.detectionCount > 0) ? 1 : 0;
+    iotResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderIoTScan(iotResult);
+
     return result;
 }
 

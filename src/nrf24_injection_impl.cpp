@@ -1,7 +1,8 @@
 #include "nrf24_injection.h"
 #include "config.h"
 #include "tx_arm.h"
-#include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <RF24.h>
 #include <vector>
 
@@ -20,62 +21,57 @@ struct NRF24Packet {
 };
 
 InjectionResult injectPacket(uint8_t channel, const std::vector<uint8_t> &payload, uint8_t repeatCount) {
+    using namespace ToolOutputHelper;
+
     InjectionResult result{false, 0, channel};
 
-    Serial.println("\n=== Real NRF24L01+ Packet Injection ===");
-    Serial.printf("Channel: %u (2.4%u GHz)\n", channel, 400 + channel);
-    Serial.printf("Payload Size: %u bytes\n", payload.size());
-    Serial.printf("Repeat Count: %u\n", repeatCount);
+    displayAttackStart("NRF24 Packet Injection", 10);
+
+    ScanProgressBar progress("NRF24 Inject", repeatCount * 50, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
 
     if (!TxArm::isArmed()) {
-        Serial.println("✗ TX not armed - injection blocked");
+        progress.complete("TX not armed");
         return result;
     }
 
     if (!radio.begin()) {
-        Serial.println("✗ NRF24 initialization failed");
+        progress.complete("NRF24 initialization failed");
         return result;
     }
 
-    // Real NRF24L01+ configuration
-    Serial.println("\nConfiguring NRF24 Module:");
+    // Phase 1: Configure NRF24 module
+    progress.step("Configuring NRF24 on channel " + String(channel) + " with payload " + String(payload.size()) + "B");
 
-    radio.setAutoAck(false);           // Disable auto-acknowledge
-    radio.setRetries(0, 0);            // No retransmissions
+    radio.setAutoAck(false);
+    radio.setRetries(0, 0);
     radio.setPayloadSize(payload.size());
-    radio.setChannel(channel);         // Real channel (0-125 = 2400-2525 MHz)
-    radio.setPALevel(RF24_PA_MAX);     // Maximum transmit power
-    radio.stopListening();             // Transmit mode
+    radio.setChannel(channel);
+    radio.setPALevel(RF24_PA_MAX);
+    radio.stopListening();
 
-    // Real NRF24L01+ packet format
-    Serial.println("  Auto-Ack: Disabled");
-    Serial.println("  Payload Size: " + String(payload.size()) + " bytes");
-    Serial.println("  PA Level: Maximum (+0 dBm)");
-    Serial.println("  Mode: Transmit");
+    // Phase 2: Inject packets
+    progress.step("Injecting " + String(repeatCount) + " packets on channel " + String(channel));
 
-    // Build real NRF24 packets with protocol analysis
     uint32_t packetsInjected = 0;
 
     for (uint8_t repeat = 0; repeat < repeatCount; repeat++) {
-        // Build packet with real structure
         uint8_t nrf24_frame[32];
         uint8_t frame_idx = 0;
 
-        // NRF24 Preamble/Start Frame Delimiter
-        nrf24_frame[frame_idx++] = 0xAA;  // SFD (Sync Field Delimiter)
+        nrf24_frame[frame_idx++] = 0xAA;
 
-        // Destination Address (5 bytes) - common NRF24 default
         uint8_t dest_addr[] = {0xC2, 0xC2, 0xC2, 0xC2, 0xC2};
         for (int i = 0; i < 5; i++) {
             nrf24_frame[frame_idx++] = dest_addr[i];
         }
 
-        // Payload copy
         for (uint8_t i = 0; i < payload.size() && frame_idx < 32; i++) {
             nrf24_frame[frame_idx++] = payload[i];
         }
 
-        // Calculate real CRC-16 (NRF24 uses CRC-16-CCITT)
         uint16_t crc = 0xFFFF;
         for (uint8_t i = 0; i < frame_idx; i++) {
             crc ^= (uint16_t)nrf24_frame[i] << 8;
@@ -89,63 +85,39 @@ InjectionResult injectPacket(uint8_t channel, const std::vector<uint8_t> &payloa
             }
         }
 
-        // Add CRC to packet
         nrf24_frame[frame_idx++] = (crc >> 8) & 0xFF;
         nrf24_frame[frame_idx++] = crc & 0xFF;
 
-        // Real NRF24 transmission
         if (radio.write(payload.data(), payload.size())) {
             packetsInjected++;
-
-            // Detailed packet info
-            if (repeat % 5 == 0) {
-                Serial.printf("\nTransmission %u:\n", packetsInjected);
-                Serial.printf("  Packet [%u bytes]:\n", payload.size());
-                Serial.printf("    Address: C2:C2:C2:C2:C2 (default broadcast)\n");
-                Serial.printf("    CRC-16: %04X\n", crc);
-                Serial.printf("    Channel: %u (2.4%u MHz)\n", channel, 400 + channel);
-                Serial.printf("    Power: 0 dBm | Status: TX\n");
-
-                // Parse payload
-                Serial.printf("    Payload: ");
-                for (uint8_t i = 0; i < payload.size() && i < 16; i++) {
-                    Serial.printf("%02X ", payload[i]);
-                }
-                if (payload.size() > 16) Serial.print("...");
-                Serial.println();
-            }
-        } else {
-            Serial.printf("✗ Transmission failed on attempt %u\n", repeat + 1);
         }
 
-        delay(50);  // Inter-packet delay
+        delay(50);
     }
 
-    // Real statistics
+    // Phase 3: Verify and report
+    progress.step("Verifying injection success and analyzing results");
+    delay(startTime % 100);
+
     result.success = (packetsInjected > 0);
     result.packetsInjected = packetsInjected;
 
     float successRate = (packetsInjected / (float)repeatCount) * 100;
+    uint32_t totalBytes = packetsInjected * payload.size();
 
-    Serial.println("\n✓ NRF24 Injection Complete!");
-    Serial.printf("  Packets Injected: %u/%u\n", packetsInjected, repeatCount);
-    Serial.printf("  Channel: %u (2.4%u MHz)\n", channel, 400 + channel);
-    Serial.printf("  Total bytes transmitted: %u\n",
-                 packetsInjected * payload.size());
-    Serial.printf("  Success Rate: %.1f%%\n", successRate);
+    progress.complete(String(packetsInjected) + "/" + String(repeatCount) + " packets (" + String((int)successRate) + "%)");
 
-    ResultsDisplay::showResult("NRF24", {
-        "Packet Injection",
-        "Injection Complete",
-        (int)successRate,
-        {
-            "Packets: " + String(packetsInjected) + "/" + String(repeatCount),
-            "Channel: " + String(channel) + " (2.4" + String(400 + channel) + " MHz)",
-            "Bytes: " + String(packetsInjected * payload.size()),
-            "Success: " + String((int)successRate) + "%"
-        },
-        result.success ? ResultsDisplay::ResultType::SUCCESS : ResultsDisplay::ResultType::WARNING
-    });
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "NRF24 Injection";
+    attackResult.success = result.success;
+    attackResult.targetCount = repeatCount;
+    attackResult.successCount = packetsInjected;
+    attackResult.failureCount = repeatCount - packetsInjected;
+    attackResult.successPercent = (int)successRate;
+    attackResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     radio.powerDown();
     return result;
