@@ -51,6 +51,9 @@ namespace JammingSignalGenerator {
 JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
     using namespace ToolOutputHelper;
 
+    String params = "type=" + noiseType + ",duration=" + String(durationMs);
+    AuditLog::instance().logToolStart("JammingGenerator", params.c_str());
+
     JamResult result{false, 0, durationMs, noiseType};
 
     displayAttackStart("Jamming Signal Generator", 10);
@@ -58,6 +61,7 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
     if (!TxArm::isArmed()) {
         ScanProgressBar progress("Signal Gen", durationMs, 3);
         progress.complete("TX not armed");
+        AuditLog::instance().logToolStop("JammingGenerator", false, "tx_not_armed");
         return result;
     }
 
@@ -71,11 +75,13 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
 
     if (radio.begin(433.92f) != RADIOLIB_ERR_NONE) {
         progress.complete("Radio init failed");
+        AuditLog::instance().logToolStop("JammingGenerator", false, "radio_init_failed");
         return result;
     }
     radio.setOOK(true);
     if (radio.transmitDirectAsync() != RADIOLIB_ERR_NONE) {
         progress.complete("Transmit setup failed");
+        AuditLog::instance().logToolStop("JammingGenerator", false, "transmit_setup_failed");
         return result;
     }
     pinMode(PIN_CC1101_GDO0, OUTPUT);
@@ -124,6 +130,9 @@ JamResult generateJammingSignal(uint32_t durationMs, const String &noiseType) {
     attackResult.durationMs = elapsed;
 
     ResultRenderers::renderAttackSuccess(attackResult);
+
+    String result_str = String(result.signalsGenerated) + "_signals";
+    AuditLog::instance().logToolStop("JammingGenerator", result.success, result_str.c_str());
 
     return result;
 }

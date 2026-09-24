@@ -20,6 +20,9 @@ struct BLEAdvertData {
 SpoofResult spoofBLEAddress(const String &targetDevice, const String &newMAC) {
     using namespace ToolOutputHelper;
 
+    String params = "target=" + targetDevice + ",mac=" + newMAC;
+    AuditLog::instance().logToolStart("BLESpoof", params.c_str());
+
     SpoofResult result{false, "", newMAC, targetDevice};
 
     displayAttackStart("BLE Address Spoofing", 10);
@@ -105,6 +108,9 @@ SpoofResult spoofBLEAddress(const String &targetDevice, const String &newMAC) {
     attackResult.durationMs = elapsed;
 
     ResultRenderers::renderAttackSuccess(attackResult);
+
+    String result_str = result.success ? "spoof_success" : "spoof_failed";
+    AuditLog::instance().logToolStop("BLESpoof", result.success, result_str.c_str());
 
     return result;
 }

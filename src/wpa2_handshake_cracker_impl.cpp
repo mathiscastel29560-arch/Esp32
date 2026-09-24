@@ -117,6 +117,9 @@ namespace WPA2HandshakeCracker {
 CrackResult captureAndCrack(const String &targetSSID, uint32_t timeoutMs) {
     using namespace ToolOutputHelper;
 
+    String params = "ssid=" + targetSSID;
+    AuditLog::instance().logToolStart("WPA2Cracker", params.c_str());
+
     CrackResult result{false, false, targetSSID, "", 0};
 
     displayAttackStart("WPA2 Handshake Cracker", 10);
@@ -171,9 +174,13 @@ CrackResult captureAndCrack(const String &targetSSID, uint32_t timeoutMs) {
         attackResult.durationMs = elapsed;
         ResultRenderers::renderAttackSuccess(attackResult);
 
-        return dictionaryAttack(targetSSID, PASSWORD_COUNT);
+        CrackResult dict_result = dictionaryAttack(targetSSID, PASSWORD_COUNT);
+        String result_str = dict_result.success ? "password_cracked" : "crack_failed";
+        AuditLog::instance().logToolStop("WPA2Cracker", dict_result.success, result_str.c_str());
+        return dict_result;
     } else {
         progress.complete("Handshake capture timeout");
+        AuditLog::instance().logToolStop("WPA2Cracker", false, "capture_timeout");
         return result;
     }
 }
