@@ -97,6 +97,7 @@
 #include "keyless_entry_relay.h"
 #include "rfid_protocol_fuzzer.h"
 #include "ultrasonic_ir_injection.h"
+#include "result_renderers.h"
 #include <vector>
 #include <set>
 
