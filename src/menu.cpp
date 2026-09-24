@@ -104,6 +104,8 @@
 #include "recent_results_tracker.h"
 #include "export_manager.h"
 #include "dashboard_analytics.h"
+#include "tool_history.h"
+#include "quick_access.h"
 #include <vector>
 #include <set>
 
@@ -126,6 +128,7 @@ enum State {
     NETWORK_SUBMENU,
     LOGGING_SUBMENU,
     DASHBOARD_SUBMENU,
+    HISTORY_SUBMENU,
     STATUS_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
@@ -169,6 +172,7 @@ std::vector<String> mainMenuItems() {
         "🌐 Network",
         "📊 Logs & Results",
         "📈 Dashboard",
+        "🕐 History & Shortcuts",
         "🔴 Status & Alerts",
         "❓ Help",
     };
@@ -350,6 +354,16 @@ std::vector<String> iotMenuItems() {
         "🌐 Generic Packet Tools",
         "🌐 Advanced WiFi Attacks ⚠️",
         "🌐 Default Creds Scanner ⚠️",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> historyMenuItems() {
+    return {
+        "📋 View Execution History",
+        "⭐ Quick Access Shortcuts",
+        "🔄 Recent Tool Executions",
+        "📊 Execution Statistics",
         "🔙 Back",
     };
 }
@@ -1413,6 +1427,37 @@ void runNetworkAction(int idx) {
     }
 }
 
+void runHistoryAction(int idx) {
+    switch (idx) {
+        case 0: // View Execution History
+            ToolHistory::instance().displayHistory(10);
+            break;
+
+        case 1: // Quick Access Shortcuts
+            QuickAccess::instance().displayShortcuts();
+            break;
+
+        case 2: { // Recent Tool Executions
+            auto recent = RecentResultsTracker::instance().getRecent(5);
+            if (recent.empty()) {
+                showResult("Recent Executions", "No recent executions");
+            } else {
+                String details = "";
+                for (size_t i = 0; i < recent.size() && i < 3; i++) {
+                    details += recent[i].toolName + " - ";
+                    details += String(recent[i].itemsFound) + " items\n";
+                }
+                showResult("Recent Executions", details);
+            }
+            break;
+        }
+
+        case 3: // Execution Statistics
+            ToolHistory::instance().displayStatistics();
+            break;
+    }
+}
+
 void runDashboardAction(int idx) {
     static const char* categories[] = {"WiFi", "BLE", "RF", "IoT", "Misc"};
     static const uint32_t category_counts[] = {25, 18, 12, 8, 5};
@@ -1716,8 +1761,9 @@ void loop() {
                     case 11: g_state = NETWORK_SUBMENU; break;
                     case 12: g_state = LOGGING_SUBMENU; break;
                     case 13: g_state = DASHBOARD_SUBMENU; break;
-                    case 14: g_state = STATUS_SUBMENU; break;
-                    case 15: g_state = HELP_SUBMENU; break;
+                    case 14: g_state = HISTORY_SUBMENU; break;
+                    case 15: g_state = STATUS_SUBMENU; break;
+                    case 16: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1919,6 +1965,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "DASHBOARD");
             break;
 
+        case HISTORY_SUBMENU:
+            items = historyMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 14;
+                } else {
+                    runHistoryAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "HISTORY & SHORTCUTS");
+            break;
+
         case STATUS_SUBMENU:
             items = statusMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1926,7 +1987,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 13;
+                    g_selection = 15;
                 } else {
                     runStatusAction(g_selection);
                 }
@@ -1956,7 +2017,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 15;
+                    g_selection = 16;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
