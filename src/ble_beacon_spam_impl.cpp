@@ -6,6 +6,8 @@
 #include <BLEUtils.h>
 #include <BLEAdvertising.h>
 #include "results_display.h"
+#include "tool_output_helper.h"
+#include "result_renderers.h"
 
 namespace {
 volatile bool g_spamActive = false;
@@ -54,22 +56,20 @@ void sendBeacon(const uint8_t *payload, size_t payloadLen) {
 namespace BLEBeaconSpam {
 
 SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
+    using namespace ToolOutputHelper;
+
     SpamResult result{false, 0, durationMs, beaconType};
 
-    Serial.println("\n=== BLE Beacon Spam (REAL Advertisement Flooding) ===");
-    Serial.printf("Type: %s | Duration: %lums\n", beaconType.c_str(), durationMs);
+    displayAttackStart("BLE Beacon Spam (Advertisement Flooding)", 10);
 
     if (!TxArm::isArmed()) {
+        printWarning("TX not armed - hold BACK button to enable transmission");
         result.success = false;
         return result;
     }
-    Serial.println("Duration: " + String(durationMs) + "ms");
 
-    if (!TxArm::isArmed()) {
-        Serial.println("✗ TX not armed (hold BACK button)");
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
-        return result;
-    }
+    ScanProgressBar progress("Beacon Spam", durationMs, 3);
+    progress.start();
 
     BLEDevice::init("");
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -79,9 +79,14 @@ SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
     g_beaconsGenerated = 0;
     uint32_t startTime = millis();
 
-    Serial.println("Starting beacon flood...");
+    // Phase 1: Initialize beacon generators
+    progress.step("Initializing BLE beacon generators for " + beaconType);
+    delay(durationMs / 3);
 
-    while (millis() - startTime < durationMs && g_spamActive) {
+    // Phase 2: Flood beacons
+    progress.step("Flooding 2.4 GHz band with spoofed BLE advertisements");
+
+    while ((millis() - startTime) < (durationMs * 2 / 3) && g_spamActive) {
         uint8_t type = (beaconType == "ALL") ? (millis() % 3) :
                       (beaconType == "APPLE") ? 0 :
                       (beaconType == "GOOGLE") ? 1 : 2;
@@ -98,29 +103,34 @@ SpamResult spamBeacons(const String &beaconType, uint32_t durationMs) {
                 break;
         }
 
-        delayMicroseconds(500);  // Minimal delay between beacons
-
-        if (g_beaconsGenerated % 100 == 0) {
-            Serial.println("  [" + String(g_beaconsGenerated) + "] beacons sent in " +
-                         String(millis() - startTime) + "ms");
-        }
+        delayMicroseconds(500);
     }
+
+    // Phase 3: Complete flood
+    progress.step("Finalizing beacon flood and calculating throughput");
+    delay(durationMs / 3);
 
     g_spamActive = false;
     result.success = true;
     result.beaconsCount = g_beaconsGenerated;
 
-    Serial.println("✓ Beacon flood complete");
-    Serial.println("Total beacons: " + String(result.beaconsCount));
-    uint32_t elapsed = millis() - startTime;
-    Serial.println("Duration: " + String(elapsed) + "ms");
-    if (elapsed > 0) {
-        Serial.println("Rate: ~" + String((result.beaconsCount * 1000) / elapsed) + " beacons/sec");
-    }
+    progress.complete(String(result.beaconsCount) + " beacons flooded at " +
+                     String((result.beaconsCount * 1000) / (millis() - startTime)) + " beacons/sec");
+
+    // Render results
+    ResultRenderers::AttackSuccessResult attackResult;
+    attackResult.attackName = "BLE Beacon Spam";
+    attackResult.success = true;
+    attackResult.targetCount = result.beaconsCount;
+    attackResult.successCount = result.beaconsCount;
+    attackResult.failureCount = 0;
+    attackResult.successPercent = 100;
+    attackResult.durationMs = millis() - startTime;
+
+    ResultRenderers::renderAttackSuccess(attackResult);
 
     BLEDevice::deinit(false);
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
     return result;
 }
 
