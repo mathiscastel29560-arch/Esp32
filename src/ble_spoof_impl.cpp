@@ -4,6 +4,7 @@
 #include "result_renderers.h"
 #include <NimBLEDevice.h>
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace BLESpoof {
 
@@ -111,6 +112,14 @@ SpoofResult spoofBLEAddress(const String &targetDevice, const String &newMAC) {
 
     String result_str = result.success ? "spoof_success" : "spoof_failed";
     AuditLog::instance().logToolStop("BLESpoof", result.success, result_str.c_str());
+
+    // Persist spoof result
+    String spoof_json = "{\"tool\":\"BLESpoof\",\"target\":\"" + targetDevice +
+                       "\",\"original_mac\":\"" + result.originalMAC +
+                       "\",\"spoof_mac\":\"" + result.spoofedMAC +
+                       "\",\"success\":" + String(result.success ? "true" : "false") +
+                       ",\"duration_ms\":" + String(elapsed) + "}";
+    ToolResultPersistence::instance().storeAttackResult("BLESpoof", targetDevice.c_str(), spoof_json.c_str());
 
     return result;
 }

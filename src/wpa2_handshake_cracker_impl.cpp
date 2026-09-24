@@ -5,6 +5,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 
 namespace {
 const char* COMMON_PASSWORDS[] = {
@@ -277,6 +278,14 @@ CrackResult dictionaryAttack(const String &ssid, uint32_t attemptLimit) {
     attackResult.durationMs = elapsed;
 
     ResultRenderers::renderAttackSuccess(attackResult);
+
+    // Persist attack result
+    String attack_json = "{\"tool\":\"WPA2Cracker\",\"ssid\":\"" + ssid +
+                        "\",\"success\":" + String(result.success ? "true" : "false") +
+                        ",\"attempts\":" + String(result.attemptsCount) +
+                        ",\"password\":\"" + (result.success ? result.password : "none") +
+                        "\",\"duration_ms\":" + String(elapsed) + "}";
+    ToolResultPersistence::instance().storeToolResult("WPA2Cracker", attack_json.c_str());
 
     return result;
 }
