@@ -4,6 +4,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include "audit_log.h"
+#include "tool_result_persistence.h"
 #include <vector>
 
 namespace ZwaveScanner {
@@ -110,6 +111,14 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
             String device_info = String(node.nodeId) + ":" + node.deviceType + ":" + node.manufacturer;
             AuditLog::instance().logDeviceFound("ZwaveScanner", device_info.c_str());
 
+            // Persist device result
+            String device_json = "{\"tool\":\"ZwaveScanner\",\"node_id\":" + String(node.nodeId) +
+                                ",\"device_type\":\"" + node.deviceType +
+                                "\",\"manufacturer\":\"" + node.manufacturer +
+                                "\",\"rssi\":" + String(node.rssi) +
+                                ",\"security_level\":" + String(node.securityLevel) + "}";
+            ToolResultPersistence::instance().storeDeviceResult("ZwaveScanner", device_json.c_str());
+
             Serial.printf("  [Node %u] %s (%s) RSSI: %d dBm Sec: %s GenericType: 0x%02X\n",
                          node.nodeId, node.deviceType.c_str(),
                          node.manufacturer.c_str(), node.rssi,
@@ -135,6 +144,13 @@ ScanResult scanZwaveNetwork(uint32_t durationMs) {
 
     String result_str = String(nodeCount) + "_nodes";
     AuditLog::instance().logToolStop("ZwaveScanner", result.success, result_str.c_str());
+
+    // Persist scan results
+    String result_json = "{\"tool\":\"ZwaveScanner\",\"success\":" + String(result.success ? "true" : "false") +
+                         ",\"nodes_found\":" + String(nodeCount) +
+                         ",\"strongest_rssi\":" + String(strongestRssi) +
+                         ",\"duration_ms\":" + String(result.durationMs) + "}";
+    ToolResultPersistence::instance().storeToolResult("ZwaveScanner", result_json.c_str());
 
     Serial.printf("✓ Scan complete: Found %u nodes in %lums\n", nodeCount, result.durationMs);
 
