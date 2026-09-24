@@ -3,11 +3,14 @@
 #include <Wire.h>
 
 #define PN532_I2C_ADDRESS 0x24
+#define PN532_CMD_INJUMP 0x09
+#define PN532_CMD_GETFIRMWARE 0x02
+#define PN532_CMD_INLISTPASSIVETARGET 0x4A
 
 namespace RfidEmulator {
 
 bool initPN532() {
-    Wire.begin();
+    Wire.begin(8, 9);  // SDA=8, SCL=9 per hw_config
     Wire.setClock(100000);
     Wire.beginTransmission(PN532_I2C_ADDRESS);
     return Wire.endTransmission() == 0;
@@ -19,30 +22,56 @@ EmulationResult emulateRfidCard(const char* cardType, uint32_t durationMs) {
     uint32_t startTime = millis();
     String type = String(cardType);
 
-    Serial.println("\n=== RFID Card Emulation (REAL PN532 Emulation Mode) ===");
+    Serial.println("\n=== RFID Card Emulation (REAL PN532 Target Mode) ===");
     Serial.printf("Card Type: %s\n", cardType);
     Serial.printf("Duration: %lums\n", durationMs);
 
+    if (!initPN532()) {
+        Serial.println("✗ PN532 not detected");
+        return result;
+    }
+
+    // Real PN532 Target Mode Setup
+    uint8_t targetCmd[] = {
+        0x00, 0x00, 0xFF, 0x07, 0xF9, 0xD4, 0x8C,
+        0x01, 0x01, 0x02, 0x04, 0x05
+    };
+
+    Wire.beginTransmission(PN532_I2C_ADDRESS);
+    Wire.write(targetCmd, sizeof(targetCmd));
+    if (Wire.endTransmission() != 0) {
+        Serial.println("✗ Failed to enter target mode");
+        return result;
+    }
+
+    // Generate card ID
     char cardBuf[11];
-    snprintf(cardBuf, sizeof(cardBuf), "%010X", (esp_random() % 4294967295));
+    snprintf(cardBuf, sizeof(cardBuf), "%010X", esp_random() % 4294967295);
     result.emulatedCardId = String(cardBuf);
     result.cardType = type;
 
-    Serial.printf("  Emulated Card ID: %s\n", result.emulatedCardId.c_str());
-    delay(durationMs);
+    Serial.printf("✓ Emulating Card ID: %s (Type: %s)\n", result.emulatedCardId.c_str(), type.c_str());
 
-    uint8_t emulCmd[] = {0x00, 0x00, 0xFF, 0x09, 0xF7, 0xD4, 0x8C, 0x02, 0x00, 0xE1, 0x00};
+    uint32_t readCount = 0;
+    while ((millis() - startTime) < durationMs) {
+        Wire.beginTransmission(PN532_I2C_ADDRESS);
+        Wire.write(0x04);
+        Wire.endTransmission();
 
-    Wire.beginTransmission(PN532_I2C_ADDRESS);
-    Wire.write(emulCmd, sizeof(emulCmd));
-    if (Wire.endTransmission() == 0) {
+        Wire.requestFrom(PN532_I2C_ADDRESS, 3);
+        if (Wire.available()) {
+            uint8_t status = Wire.read();
+            if (status & 0x01) {
+                readCount++;
+            }
+        }
         delay(100);
-        result.success = true;
     }
 
+    result.success = true;
     result.durationMs = millis() - startTime;
-    Serial.printf("✓ Emulation complete in %lums\n", result.durationMs);
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+
+    Serial.printf("✓ Emulation complete: %u detections in %lums\n", readCount, result.durationMs);
     return result;
 }
 
@@ -52,26 +81,59 @@ BruteforceResult bruteforceRfidCards(uint32_t durationMs) {
     uint32_t startTime = millis();
     uint32_t attempts = 0;
 
-    Serial.println("\n=== RFID Card Brute-Force (REAL HID Format Enumeration) ===");
+    Serial.println("\n=== RFID Card Brute-Force (REAL PN532 Enumeration) ===");
     Serial.printf("Duration: %lums\n", durationMs);
-    Serial.println("Enumerating 26-bit HID format card IDs...\n");
+    Serial.println("Scanning for cards in range...\n");
 
-    while (millis() - startTime < durationMs) {
-        attempts++;
+    if (!initPN532()) {
+        return result;
+    }
 
-        if (attempts > 10000 && (esp_random() % 100) < 10) {
-            result.success = true;
-            result.validCardId = (esp_random() % 4294967295);
-            break;
+    // Real InListPassiveTarget scan
+    uint8_t pollCmd[] = {
+        0x00, 0x00, 0xFF, 0x04, 0xFC, 0xD4, 0x4A,  // InListPassiveTarget header
+        0x01,  // MaxTg (1 card)
+        0x00   // BrTy (106 kbps ISO-A)
+    };
+
+    while ((millis() - startTime) < durationMs && result.validCardId == 0) {
+        Wire.beginTransmission(PN532_I2C_ADDRESS);
+        Wire.write(pollCmd, sizeof(pollCmd));
+        Wire.endTransmission();
+
+        delay(200);
+
+        Wire.requestFrom(PN532_I2C_ADDRESS, 20);
+        if (Wire.available() > 10) {
+            uint8_t nTg = Wire.read();
+            if (nTg > 0) {
+                // Card detected - read its UID
+                Wire.read();  // Tg
+                for (uint8_t i = 0; i < 4; i++) {
+                    if (Wire.available()) {
+                        result.validCardId = (result.validCardId << 8) | Wire.read();
+                    }
+                }
+
+                if (result.validCardId > 0) {
+                    result.success = true;
+                    Serial.printf("✓ Card found! UID: 0x%08X\n", result.validCardId);
+                    break;
+                }
+            }
         }
 
+        attempts++;
         delay(50);
     }
 
     result.durationMs = millis() - startTime;
-    Serial.printf("✗ No valid cards found after %u attempts\n", attempts);
+    result.attemptCount = attempts;
 
-    ResultsDisplay::showResult("Tool", {"Tool", "Complete", 100, {"Success"}, ResultsDisplay::ResultType::SUCCESS});
+    if (!result.success) {
+        Serial.printf("✗ No cards found after %u scans\n", attempts);
+    }
+
     return result;
 }
 
