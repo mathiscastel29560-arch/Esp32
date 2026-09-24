@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <cstring>
+#include "audit_log.h"
 
 namespace {
 volatile bool g_jamActive = false;

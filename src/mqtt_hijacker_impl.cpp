@@ -5,6 +5,7 @@
 #include <vector>
 #include <WiFiClient.h>
 #include "results_display.h"
+#include "audit_log.h"
 
 namespace MqttHijacker {
 

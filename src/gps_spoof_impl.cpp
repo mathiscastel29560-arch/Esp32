@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #include <NimBLEDevice.h>
 #include <esp_wifi.h>
+#include "audit_log.h"
 
 namespace {
 volatile bool g_spoofActive = false;

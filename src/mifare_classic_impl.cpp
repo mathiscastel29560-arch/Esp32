@@ -4,6 +4,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include <Wire.h>
+#include "audit_log.h"
 
 #define PN532_I2C_ADDRESS 0x24
 

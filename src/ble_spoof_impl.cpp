@@ -3,6 +3,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include <NimBLEDevice.h>
+#include "audit_log.h"
 
 namespace BLESpoof {
 

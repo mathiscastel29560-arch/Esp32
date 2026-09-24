@@ -2,6 +2,7 @@
 #include "tool_output_helper.h"
 #include "result_renderers.h"
 #include <vector>
+#include "audit_log.h"
 
 namespace IMSICatcher {
 

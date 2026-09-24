@@ -3,6 +3,7 @@
 #include "result_renderers.h"
 #include <esp_wifi.h>
 #include <vector>
+#include "audit_log.h"
 
 namespace WiFiPacketSniffer {
 

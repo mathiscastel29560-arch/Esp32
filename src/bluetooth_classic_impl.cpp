@@ -4,6 +4,7 @@
 #include "result_renderers.h"
 #include <esp_bt_device.h>
 #include <esp_gap_bt_api.h>
+#include "audit_log.h"
 
 namespace BluetoothClassic {
 

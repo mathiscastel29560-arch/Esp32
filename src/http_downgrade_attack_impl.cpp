@@ -4,6 +4,7 @@
 #include "result_renderers.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include "audit_log.h"
 
 namespace {
 volatile bool g_downgradeActive = false;

@@ -8,6 +8,7 @@
 #include "results_display.h"
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 
 namespace {
 volatile bool g_spamActive = false;

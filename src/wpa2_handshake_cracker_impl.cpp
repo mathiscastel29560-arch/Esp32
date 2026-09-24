@@ -4,6 +4,7 @@
 #include <mbedtls/md.h>
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 
 namespace {
 const char* COMMON_PASSWORDS[] = {

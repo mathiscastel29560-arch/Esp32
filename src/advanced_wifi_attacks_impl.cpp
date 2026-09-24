@@ -1,6 +1,7 @@
 #include "advanced_wifi_attacks.h"
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 
 namespace AdvancedWifiAttacks {
 

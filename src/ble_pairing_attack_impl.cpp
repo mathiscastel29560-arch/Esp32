@@ -3,6 +3,7 @@
 #include "result_renderers.h"
 #include <vector>
 #include <cstring>
+#include "audit_log.h"
 
 namespace BLEPairingAttack {
 

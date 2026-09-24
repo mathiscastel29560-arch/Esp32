@@ -5,6 +5,7 @@
 #include <RF24.h>
 #include "tool_output_helper.h"
 #include "result_renderers.h"
+#include "audit_log.h"
 
 namespace {
 RF24 radio(PIN_NRF24_CE, PIN_NRF24_CS);
