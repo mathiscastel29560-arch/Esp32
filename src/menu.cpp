@@ -103,6 +103,7 @@
 #include "alert_system.h"
 #include "recent_results_tracker.h"
 #include "export_manager.h"
+#include "dashboard_analytics.h"
 #include <vector>
 #include <set>
 
@@ -124,6 +125,7 @@ enum State {
     ABOUT_SUBMENU,
     NETWORK_SUBMENU,
     LOGGING_SUBMENU,
+    DASHBOARD_SUBMENU,
     STATUS_SUBMENU,
     HELP_SUBMENU,
     RESULT_SCREEN,
@@ -166,6 +168,7 @@ std::vector<String> mainMenuItems() {
         "ℹ️  About",
         "🌐 Network",
         "📊 Logs & Results",
+        "📈 Dashboard",
         "🔴 Status & Alerts",
         "❓ Help",
     };
@@ -347,6 +350,19 @@ std::vector<String> iotMenuItems() {
         "🌐 Generic Packet Tools",
         "🌐 Advanced WiFi Attacks ⚠️",
         "🌐 Default Creds Scanner ⚠️",
+        "🔙 Back",
+    };
+}
+
+std::vector<String> dashboardMenuItems() {
+    return {
+        "📊 Tool Execution Stats",
+        "⏱️  Performance Analysis",
+        "📶 Signal Strength Map",
+        "📡 Channel Distribution",
+        "🎯 Attack Success Rate",
+        "🌐 Network Topology",
+        "💾 Storage Heatmap",
         "🔙 Back",
     };
 }
@@ -1397,6 +1413,49 @@ void runNetworkAction(int idx) {
     }
 }
 
+void runDashboardAction(int idx) {
+    static const char* categories[] = {"WiFi", "BLE", "RF", "IoT", "Misc"};
+    static const uint32_t category_counts[] = {25, 18, 12, 8, 5};
+    static const uint32_t durations[] = {1500, 2300, 1800, 2100, 1900, 2200, 2000, 1700};
+    static const uint32_t channels[] = {5, 8, 12, 3, 15, 2, 10, 7, 4, 6, 9, 1, 8, 2};
+    static const uint32_t frequencies[] = {10, 25, 15, 30, 20, 12, 28, 18, 22, 14, 26, 8, 32, 9};
+
+    switch (idx) {
+        case 0: // Tool Execution Stats
+            DashboardAnalytics::instance().displayDeviceDistribution(categories, category_counts, 5);
+            break;
+
+        case 1: // Performance Analysis
+            DashboardAnalytics::instance().displayPerformanceGraph(durations, 8);
+            break;
+
+        case 2: { // Signal Strength Map
+            Serial.println("\n╔════════════════════════════════════════╗");
+            Serial.println("║       SIGNAL STRENGTH MAP              ║");
+            Serial.println("╠════════════════════════════════════════╣");
+            DashboardAnalytics::instance().visualizeSignalStrength(-45);
+            Serial.println("╚════════════════════════════════════════╝\n");
+            break;
+        }
+
+        case 3: // Channel Distribution
+            DashboardAnalytics::instance().displayChannelAnalysis(channels, 14);
+            break;
+
+        case 4: // Attack Success Rate
+            DashboardAnalytics::instance().displaySuccessRateChart(42, 8);
+            break;
+
+        case 5: // Network Topology
+            DashboardAnalytics::instance().displayNetworkTopology(12, -65);
+            break;
+
+        case 6: // Storage Heatmap
+            DashboardAnalytics::instance().displayFrequencyHeatmap(frequencies, 14);
+            break;
+    }
+}
+
 void runStatusAction(int idx) {
     switch (idx) {
         case 0: { // Active Tool Status
@@ -1656,8 +1715,9 @@ void loop() {
                     case 10: g_state = ABOUT_SUBMENU; break;
                     case 11: g_state = NETWORK_SUBMENU; break;
                     case 12: g_state = LOGGING_SUBMENU; break;
-                    case 13: g_state = STATUS_SUBMENU; break;
-                    case 14: g_state = HELP_SUBMENU; break;
+                    case 13: g_state = DASHBOARD_SUBMENU; break;
+                    case 14: g_state = STATUS_SUBMENU; break;
+                    case 15: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1844,6 +1904,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "NETWORK");
             break;
 
+        case DASHBOARD_SUBMENU:
+            items = dashboardMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 13;
+                } else {
+                    runDashboardAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "DASHBOARD");
+            break;
+
         case STATUS_SUBMENU:
             items = statusMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1881,7 +1956,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 14;
+                    g_selection = 15;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
