@@ -7,7 +7,7 @@
 #include "debug_logger.h"
 #include "results_formatter.h"
 #include "tx_arm.h"
-#include "audit_parameters.h"
+#include "system_settings.h"
 #include "wifi_tools.h"
 #include <WiFi.h>
 #include "ble_tools.h"
@@ -129,7 +129,7 @@ std::vector<String> mainMenuItems() {
         "🌐 IoT/Advanced",
         "⚙️  System",
         "⚙️  Settings",
-        "📋 Audit Params",
+        "🎛️  Paramètres",
         "🧪 Hardware Test",
         "ℹ️  Device Info",
         "🐛 Debug Info",
@@ -214,28 +214,26 @@ std::vector<String> settingsMenuItems() {
 }
 
 std::vector<String> parametersMenuItems() {
-    auto& params = AuditParameters::getInstance();
+    auto& sys = SystemSettings::getInstance();
     return {
-        "⏱️  WiFi Timeout: " + String(params.getWiFiScanTimeout() / 1000) + "s",
-        "⏱️  BLE Timeout: " + String(params.getBLEScanTimeout() / 1000) + "s",
-        "⏱️  RF Timeout: " + String(params.getRFScanTimeout() / 1000) + "s",
-        "📊 Max Results: " + String(params.getMaxResults()),
-        "📡 Max WiFi Networks: " + String(params.getMaxWiFiNetworks()),
-        "🔵 Max BLE Devices: " + String(params.getMaxBLEDevices()),
-        "📶 RSSI Threshold: " + String(params.getRSSIThreshold()) + " dBm",
-        "🔄 Scan Mode: " + String(params.getScanModeString()),
-        "📝 Logging: " + String(params.isLoggingEnabled() ? "ON" : "OFF"),
-        "📤 Auto-Export: " + String(params.isAutoExportEnabled() ? "ON" : "OFF"),
-        "💾 Export HTML: " + String(params.getExportHTML() ? "ON" : "OFF"),
-        "💾 Export JSON: " + String(params.getExportJSON() ? "ON" : "OFF"),
-        "💾 Export CSV: " + String(params.getExportCSV() ? "ON" : "OFF"),
-        "⚙️  Duplicate Detection: " + String(params.isDuplicateDetection() ? "ON" : "OFF"),
-        "🕵️  Stealth Mode: " + String(params.isStealthMode() ? "ON" : "OFF"),
-        "🔄 Freq Hopping: " + String(params.isFrequencyHoppingEnabled() ? "ON" : "OFF"),
-        "🔢 Max Concurrent: " + String(params.getMaxConcurrentAttacks()),
-        "💾 Reset to Defaults",
-        "📊 Show Report",
-        "🔙 Back",
+        "💡 Luminosité: " + String(sys.getBrightness()) + "%",
+        "🔊 Volume: " + String(sys.getVolume()) + "%",
+        "🎨 Contraste: " + String(sys.getContrast()) + "%",
+        "🌗 Inversion: " + String(sys.isColorInversionEnabled() ? "ON" : "OFF"),
+        "⏱️  Timeout écran: " + String(sys.getScreenTimeout()) + "s",
+        "⚡ Mode batterie: " + String(sys.getBatterySavingModeString()),
+        "📶 WiFi power save: " + String(sys.isWiFiPowerSavingEnabled() ? "ON" : "OFF"),
+        "💻 CPU: " + String(sys.getCPUFrequencyString()),
+        "💤 Veille: " + String(sys.isSleepModeEnabled() ? "ON" : "OFF") + " (" + String(sys.getSleepTimeout()) + "s)",
+        "🔒 Auto-lock: " + String(sys.isAutoLockEnabled() ? "ON" : "OFF") + " (" + String(sys.getAutoLockTimeout()) + "s)",
+        "🔔 Buzzer: " + String(sys.isBuzzerEnabled() ? "ON" : "OFF"),
+        "📳 Vibration: " + String(sys.isVibrationEnabled() ? "ON" : "OFF"),
+        "🔵 Bluetooth: " + String(sys.isBluetoothEnabled() ? "ON" : "OFF"),
+        "🔌 Chargement USB: " + String(sys.isUSBChargingEnabled() ? "ON" : "OFF"),
+        "🐛 DEBUG: " + String(sys.isDebugEnabled() ? "ON" : "OFF"),
+        "🔄 Réinitialiser défauts",
+        "📊 Afficher rapport",
+        "🔙 Retour",
     };
 }
 
@@ -1109,144 +1107,120 @@ void runSettingsAction(int idx) {
 }
 
 void runParametersAction(int idx) {
-    auto& params = AuditParameters::getInstance();
-
+    auto& sys = SystemSettings::getInstance();
+    
     switch (idx) {
-        case 0: { // WiFi Timeout
-            uint32_t timeout = params.getWiFiScanTimeout();
-            timeout = (timeout + 5000) % 60001;
-            if (timeout == 0) timeout = 5000;
-            params.setWiFiScanTimeout(timeout);
-            params.saveToNVS();
-            showResult("WiFi Timeout", String(timeout / 1000) + "s");
+        case 0: { // Brightness
+            uint8_t brightness = sys.getBrightness();
+            brightness = (brightness + 10) % 101;
+            sys.setBrightness(brightness);
+            sys.saveToNVS();
+            showResult("Luminosité", String(brightness) + "%");
             break;
         }
-        case 1: { // BLE Timeout
-            uint32_t timeout = params.getBLEScanTimeout();
-            timeout = (timeout + 5000) % 60001;
-            if (timeout == 0) timeout = 5000;
-            params.setBLEScanTimeout(timeout);
-            params.saveToNVS();
-            showResult("BLE Timeout", String(timeout / 1000) + "s");
+        case 1: { // Volume
+            uint8_t volume = sys.getVolume();
+            volume = (volume + 10) % 101;
+            sys.setVolume(volume);
+            sys.saveToNVS();
+            showResult("Volume", String(volume) + "%");
             break;
         }
-        case 2: { // RF Timeout
-            uint32_t timeout = params.getRFScanTimeout();
-            timeout = (timeout + 5000) % 60001;
-            if (timeout == 0) timeout = 5000;
-            params.setRFScanTimeout(timeout);
-            params.saveToNVS();
-            showResult("RF Timeout", String(timeout / 1000) + "s");
+        case 2: { // Contrast
+            uint8_t contrast = sys.getContrast();
+            contrast = (contrast + 10) % 151;
+            if (contrast < 50) contrast = 50;
+            sys.setContrast(contrast);
+            sys.saveToNVS();
+            showResult("Contraste", String(contrast) + "%");
             break;
         }
-        case 3: { // Max Results
-            uint16_t maxRes = params.getMaxResults();
-            maxRes = (maxRes + 10) % 256;
-            if (maxRes < 10) maxRes = 10;
-            params.setMaxResults(maxRes);
-            params.saveToNVS();
-            showResult("Max Results", String(maxRes));
+        case 3: { // Color Inversion
+            sys.setColorInversion(!sys.isColorInversionEnabled());
+            sys.saveToNVS();
+            showResult("Inversion couleur", sys.isColorInversionEnabled() ? "ON" : "OFF");
             break;
         }
-        case 4: { // Max WiFi Networks
-            uint16_t maxWifi = params.getMaxWiFiNetworks();
-            maxWifi = (maxWifi + 5) % 101;
-            if (maxWifi < 5) maxWifi = 5;
-            params.setMaxWiFiNetworks(maxWifi);
-            params.saveToNVS();
-            showResult("Max WiFi Networks", String(maxWifi));
+        case 4: { // Screen Timeout
+            uint16_t timeout = sys.getScreenTimeout();
+            timeout = (timeout == 0) ? 60 : (timeout == 60 ? 180 : (timeout == 180 ? 300 : (timeout == 300 ? 600 : 0)));
+            sys.setScreenTimeout(timeout);
+            sys.saveToNVS();
+            showResult("Timeout écran", timeout == 0 ? "Jamais" : String(timeout) + "s");
             break;
         }
-        case 5: { // Max BLE Devices
-            uint16_t maxBle = params.getMaxBLEDevices();
-            maxBle = (maxBle + 5) % 101;
-            if (maxBle < 5) maxBle = 5;
-            params.setMaxBLEDevices(maxBle);
-            params.saveToNVS();
-            showResult("Max BLE Devices", String(maxBle));
+        case 5: { // Battery Saving Mode
+            SystemSettings::BatterySavingMode mode = sys.getBatterySavingMode();
+            mode = (SystemSettings::BatterySavingMode)((mode + 1) % 3);
+            sys.setBatterySavingMode(mode);
+            sys.saveToNVS();
+            showResult("Mode batterie", String(sys.getBatterySavingModeString()));
             break;
         }
-        case 6: { // RSSI Threshold
-            int8_t rssi = params.getRSSIThreshold();
-            rssi = (rssi + 5);
-            if (rssi > -30) rssi = -100;
-            params.setRSSIThreshold(rssi);
-            params.saveToNVS();
-            showResult("RSSI Threshold", String(rssi) + " dBm");
+        case 6: { // WiFi Power Saving
+            sys.setWiFiPowerSaving(!sys.isWiFiPowerSavingEnabled());
+            sys.saveToNVS();
+            showResult("WiFi power save", sys.isWiFiPowerSavingEnabled() ? "ON" : "OFF");
             break;
         }
-        case 7: { // Scan Mode
-            AuditParameters::ScanMode mode = params.getScanMode();
-            mode = (AuditParameters::ScanMode)((mode + 1) % 3);
-            params.setScanMode(mode);
-            params.saveToNVS();
-            showResult("Scan Mode", String(params.getScanModeString()));
+        case 7: { // CPU Frequency
+            SystemSettings::CPUFrequency freq = sys.getCPUFrequency();
+            freq = (SystemSettings::CPUFrequency)((freq + 1) % 3);
+            sys.setCPUFrequency(freq);
+            sys.saveToNVS();
+            showResult("CPU Fréquence", String(sys.getCPUFrequencyString()));
             break;
         }
-        case 8: { // Logging
-            params.setLoggingEnabled(!params.isLoggingEnabled());
-            params.saveToNVS();
-            showResult("Logging", params.isLoggingEnabled() ? "ON" : "OFF");
+        case 8: { // Sleep Mode
+            sys.setSleepMode(!sys.isSleepModeEnabled());
+            sys.saveToNVS();
+            showResult("Mode veille", sys.isSleepModeEnabled() ? "ON" : "OFF");
             break;
         }
-        case 9: { // Auto-Export
-            params.setAutoExportEnabled(!params.isAutoExportEnabled());
-            params.saveToNVS();
-            showResult("Auto-Export", params.isAutoExportEnabled() ? "ON" : "OFF");
+        case 9: { // Auto-lock
+            sys.setAutoLock(!sys.isAutoLockEnabled());
+            sys.saveToNVS();
+            showResult("Auto-lock", sys.isAutoLockEnabled() ? "ON" : "OFF");
             break;
         }
-        case 10: { // Export HTML
-            params.setExportHTML(!params.getExportHTML());
-            params.saveToNVS();
-            showResult("Export HTML", params.getExportHTML() ? "ON" : "OFF");
+        case 10: { // Buzzer
+            sys.setBuzzer(!sys.isBuzzerEnabled());
+            sys.saveToNVS();
+            showResult("Buzzer", sys.isBuzzerEnabled() ? "ON" : "OFF");
             break;
         }
-        case 11: { // Export JSON
-            params.setExportJSON(!params.getExportJSON());
-            params.saveToNVS();
-            showResult("Export JSON", params.getExportJSON() ? "ON" : "OFF");
+        case 11: { // Vibration
+            sys.setVibration(!sys.isVibrationEnabled());
+            sys.saveToNVS();
+            showResult("Vibration", sys.isVibrationEnabled() ? "ON" : "OFF");
             break;
         }
-        case 12: { // Export CSV
-            params.setExportCSV(!params.getExportCSV());
-            params.saveToNVS();
-            showResult("Export CSV", params.getExportCSV() ? "ON" : "OFF");
+        case 12: { // Bluetooth
+            sys.setBluetooth(!sys.isBluetoothEnabled());
+            sys.saveToNVS();
+            showResult("Bluetooth", sys.isBluetoothEnabled() ? "ON" : "OFF");
             break;
         }
-        case 13: { // Duplicate Detection
-            params.setDuplicateDetection(!params.isDuplicateDetection());
-            params.saveToNVS();
-            showResult("Duplicate Detection", params.isDuplicateDetection() ? "ON" : "OFF");
+        case 13: { // USB Charging
+            sys.setUSBCharging(!sys.isUSBChargingEnabled());
+            sys.saveToNVS();
+            showResult("Chargement USB", sys.isUSBChargingEnabled() ? "ON" : "OFF");
             break;
         }
-        case 14: { // Stealth Mode
-            params.setStealthMode(!params.isStealthMode());
-            params.saveToNVS();
-            showResult("Stealth Mode", params.isStealthMode() ? "ON" : "OFF");
+        case 14: { // DEBUG Mode
+            sys.setDebugMode(!sys.isDebugEnabled());
+            sys.saveToNVS();
+            showResult("Mode DEBUG", sys.isDebugEnabled() ? "ON" : "OFF");
             break;
         }
-        case 15: { // Frequency Hopping
-            params.setFrequencyHopping(!params.isFrequencyHoppingEnabled());
-            params.saveToNVS();
-            showResult("Frequency Hopping", params.isFrequencyHoppingEnabled() ? "ON" : "OFF");
+        case 15: { // Reset to Defaults
+            sys.resetToDefaults();
+            showResult("Réinitialiser", "Tous les paramètres aux défauts");
             break;
         }
-        case 16: { // Max Concurrent
-            uint8_t maxCon = params.getMaxConcurrentAttacks();
-            maxCon = (maxCon % 4) + 1;
-            params.setMaxConcurrentAttacks(maxCon);
-            params.saveToNVS();
-            showResult("Max Concurrent Attacks", String(maxCon));
-            break;
-        }
-        case 17: { // Reset to Defaults
-            params.resetToDefaults();
-            showResult("Reset Parameters", "All set to defaults");
-            break;
-        }
-        case 18: { // Show Report
-            params.printParameters();
-            showResult("Parameters Report", "Printed to serial");
+        case 16: { // Show Report
+            sys.printSettings();
+            showResult("Rapport Paramètres", "Imprimé sur serial");
             break;
         }
     }
