@@ -14,10 +14,9 @@ This document describes the advanced features added to support professional audi
 5. [Alerts System](#alerts-system)
 6. [Scheduled Audits](#scheduled-audits)
 7. [Delta OTA Updates](#delta-ota-updates)
-8. [GPS Integration](#gps-integration)
-9. [Multi-Language Support](#multi-language-support)
-10. [Dark Mode](#dark-mode)
-11. [Data Export](#data-export)
+8. [Multi-Language Support](#multi-language-support)
+9. [Dark Mode](#dark-mode)
+10. [Data Export](#data-export)
 
 ---
 
@@ -228,7 +227,6 @@ enum AlertType {
   ALERT_AUDIT_FAILED,          // Audit execution error
   ALERT_ANOMALY_DETECTED,      // Unusual pattern detected
   ALERT_OVERHEAT,              // Temperature too high
-  ALERT_GPS_LOCK_LOST,         // GPS signal lost
   ALERT_DEVICE_ERROR           // Hardware failure
 };
 ```
@@ -397,64 +395,6 @@ Typical delta updates:
 
 ---
 
-## GPS Integration
-
-**File:** `gps_integration.h/cpp`
-
-Location-based audit tagging with NEO-6M GPS module.
-
-### Features
-
-- Latitude/longitude capture
-- Altitude tracking
-- Satellite count monitoring
-- HDOP accuracy metrics
-- Geo-tagged audit results
-
-### Usage
-
-```cpp
-auto& gps = GPSIntegration::getInstance();
-gps.begin();  // UART1 (RX=18, TX=17, 9600 baud)
-
-// In main loop
-gps.update();
-
-if (gps.hasValidFix()) {
-  auto location = gps.getLocation();
-  printf("Location: %.6f, %.6f ±%.1fm\n",
-    location.latitude, location.longitude,
-    location.accuracy);
-  printf("Satellites: %u, HDOP: %.1f\n",
-    gps.getSatelliteCount(), gps.getHDOP());
-
-  // Use in audit
-  std::string locString = gps.getLocationString();
-}
-```
-
-### Location Struct
-
-```cpp
-struct GPSLocation {
-  float latitude;       // -90.0 to 90.0
-  float longitude;      // -180.0 to 180.0
-  float altitude;       // meters above sea level
-  float accuracy;       // HDOP * ~1.96 in meters
-  uint32_t timestamp;   // Unix timestamp
-  bool isValid;         // False until first fix
-};
-```
-
-### GPS Status
-
-- **No fix**: isValid=false, accuraycy=0
-- **2D fix**: Only lat/lon, altitude=0
-- **3D fix**: All fields valid
-- **DGPS**: Differential correction (when available)
-
----
-
 ## Multi-Language Support
 
 **File:** `i18n_strings.h/cpp`
@@ -617,9 +557,6 @@ void setup() {
   auto& scheduler = ScheduledAudits::getInstance();
   scheduler.begin();
   
-  auto& gps = GPSIntegration::getInstance();
-  gps.begin();
-  
   auto& dashboard = WiFiDashboard::getInstance();
   dashboard.begin(80);
   dashboard.setDarkMode(true);
@@ -633,7 +570,6 @@ void setup() {
 void loop() {
   // Update real-time systems
   alerts.updateMonitoring();
-  gps.update();
   scheduler.checkAndRunDue();
   
   // Handle network
@@ -655,8 +591,8 @@ void loop() {
 | Auth System | +2KB | +8KB | Low |
 | Alerts | +6KB | +10KB | Low |
 | Scheduler | +5KB | +12KB | Low |
-| GPS | +3KB | +6KB | Low |
-| **Total** | **~28KB** | **~71KB** | **Medium** |
+| Delta OTA | +3KB | +6KB | Low |
+| **Total** | **~25KB** | **~65KB** | **Medium** |
 
 Remaining resources: ~4GB RAM, ~15MB Flash
 
@@ -676,13 +612,6 @@ Remaining resources: ~4GB RAM, ~15MB Flash
 - Encryption adds ~5ms per audit log
 - Use background task for large batches
 - Monitor CPU usage with `updateMonitoring()`
-
-### GPS Fix Not Acquired
-
-- Ensure GPS has clear sky view
-- Wait 30-60 seconds for first fix
-- Check UART1 connection (RX=18, TX=17)
-- Verify 9600 baud rate
 
 ### Alert Flood Prevention
 
