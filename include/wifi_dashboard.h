@@ -31,12 +31,23 @@ public:
   // Get access details
   void printAccessInfo() const;
 
+  // Advanced features
+  bool setLanguage(const std::string& lang);  // "en", "fr", "es"
+  void setDarkMode(bool enabled);
+  bool getDarkMode() const { return darkMode; }
+
+  // Export functionality
+  std::string exportAuditsToCSV() const;
+  std::string exportAuditsToJSON() const;
+
 private:
   WiFiDashboard() = default;
 
   bool running = false;
   uint16_t serverPort = 80;
   WebServer* server = nullptr;
+  bool darkMode = false;
+  std::string currentLanguage = "en";
 
   // HTTP handlers
   void handleRoot();
