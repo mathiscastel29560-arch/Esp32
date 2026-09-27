@@ -1,363 +1,312 @@
 #include "results_exporter.h"
-#include "debug_logger.h"
-#include <LittleFS.h>
+#include "logging_system.h"
 #include <ctime>
 
-namespace ResultsExporter {
-
-const char *EXPORT_DIR = "/exports";
-static uint32_t g_exportCount = 0;
-
-void Exporter::begin() {
-    // Create exports directory if needed
-    File dir = LittleFS.open(EXPORT_DIR, "r");
-    if (!dir) {
-        LittleFS.mkdir(EXPORT_DIR);
-    }
-
-    DBG_INFO("ResultsExporter", "Export system initialized");
+ResultsExporter::ResultsExporter() {
+  Logger::getInstance().info("Exporter", "Exporteur résultats initialisé");
 }
 
-String Exporter::generateFilename(const String &prefix) {
-    time_t now = time(nullptr);
-    struct tm *timeinfo = localtime(&now);
-
-    char filename[64];
-    snprintf(filename, sizeof(filename), "/exports/%s_%04d%02d%02d_%02d%02d%02d.json",
-             prefix.c_str(),
-             timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
-             timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-
-    return String(filename);
+void ResultsExporter::writeHTMLHeader(FILE* file, const char* title) {
+  fprintf(file, "<!DOCTYPE html>\n");
+  fprintf(file, "<html lang=\"fr\">\n");
+  fprintf(file, "<head>\n");
+  fprintf(file, "  <meta charset=\"UTF-8\">\n");
+  fprintf(file, "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
+  fprintf(file, "  <title>%s</title>\n", title);
+  fprintf(file, "  <style>\n");
+  fprintf(file, "    body { font-family: Segoe UI, Arial; margin: 20px; background: #f5f5f5; }\n");
+  fprintf(file, "    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }\n");
+  fprintf(file, "    h1 { color: #333; border-bottom: 3px solid #0066cc; padding-bottom: 10px; }\n");
+  fprintf(file, "    h2 { color: #0066cc; margin-top: 30px; }\n");
+  fprintf(file, "    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }\n");
+  fprintf(file, "    .stat-box { background: #f9f9f9; padding: 15px; border-radius: 5px; border-left: 4px solid #0066cc; }\n");
+  fprintf(file, "    .stat-label { font-size: 12px; color: #666; text-transform: uppercase; }\n");
+  fprintf(file, "    .stat-value { font-size: 28px; font-weight: bold; color: #0066cc; }\n");
+  fprintf(file, "    .success { border-left-color: #28a745; color: #28a745; }\n");
+  fprintf(file, "    .warning { border-left-color: #ffc107; color: #ffc107; }\n");
+  fprintf(file, "    .error { border-left-color: #dc3545; color: #dc3545; }\n");
+  fprintf(file, "    table { width: 100%%; border-collapse: collapse; margin-top: 20px; }\n");
+  fprintf(file, "    th { background: #0066cc; color: white; padding: 12px; text-align: left; }\n");
+  fprintf(file, "    td { padding: 10px; border-bottom: 1px solid #ddd; }\n");
+  fprintf(file, "    tr:hover { background: #f9f9f9; }\n");
+  fprintf(file, "    .status-success { color: #28a745; font-weight: bold; }\n");
+  fprintf(file, "    .status-failed { color: #dc3545; font-weight: bold; }\n");
+  fprintf(file, "    .timestamp { color: #666; font-size: 12px; }\n");
+  fprintf(file, "  </style>\n");
+  fprintf(file, "</head>\n");
+  fprintf(file, "<body>\n");
+  fprintf(file, "  <div class=\"container\">\n");
 }
 
-String Exporter::formatTimestamp(uint32_t timestamp) {
-    time_t t = timestamp;
-    struct tm *timeinfo = localtime(&t);
-
-    char buffer[20];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
-    return String(buffer);
+void ResultsExporter::writeHTMLFooter(FILE* file) {
+  fprintf(file, "  </div>\n");
+  fprintf(file, "</body>\n");
+  fprintf(file, "</html>\n");
 }
 
-void Exporter::exportWiFiResults(const std::vector<WiFiResult> &results,
-                                ExportFormat format,
-                                const String &filename) {
-    String exportFile = filename.length() > 0 ? filename : generateFilename("wifi_scan");
+void ResultsExporter::writeAttackStats(FILE* file, Attack* attack) {
+  AttackStatus status = attack->getCurrentStatus();
+  const char* statusStr = "UNKNOWN";
+  const char* statusClass = "warning";
 
-    if (format == FORMAT_JSON) {
-        File file = LittleFS.open(exportFile, "w");
-        if (!file) {
-            DBG_ERROR("ResultsExporter", "Could not create export file");
-            return;
-        }
+  switch (status) {
+    case AttackStatus::SUCCESS:
+      statusStr = "SUCCÈS";
+      statusClass = "success";
+      break;
+    case AttackStatus::PARTIAL:
+      statusStr = "PARTIEL";
+      statusClass = "warning";
+      break;
+    case AttackStatus::FAILED:
+      statusStr = "ÉCHOUÉ";
+      statusClass = "error";
+      break;
+    case AttackStatus::ERROR:
+      statusStr = "ERREUR";
+      statusClass = "error";
+      break;
+    default:
+      break;
+  }
 
-        file.println("{");
-        file.print("  \"timestamp\": \"");
-        file.print(formatTimestamp(time(nullptr)));
-        file.println("\",");
-        file.print("  \"type\": \"wifi_scan\",");
-        file.print("  \"count\": ");
-        file.print(results.size());
-        file.println(",");
-        file.println("  \"networks\": [");
-
-        for (size_t i = 0; i < results.size(); i++) {
-            const auto &r = results[i];
-            file.print("    {");
-            file.print("\"ssid\":\"");
-            file.print(r.ssid);
-            file.print("\",\"rssi\":");
-            file.print(r.rssi);
-            file.print(",\"channel\":");
-            file.print(r.channel);
-            file.print(",\"security\":\"");
-            file.print(r.security);
-            file.print("\",\"bssid\":\"");
-            file.print(r.bssid);
-            file.print("\"}");
-            if (i < results.size() - 1) file.print(",");
-            file.println();
-        }
-
-        file.println("  ]");
-        file.println("}");
-        file.close();
-
-        DBG_INFO("ResultsExporter", "WiFi results exported to " + exportFile);
-    }
-    else if (format == FORMAT_CSV) {
-        File file = LittleFS.open(exportFile.substring(0, exportFile.lastIndexOf('.')) + ".csv", "w");
-        if (!file) {
-            DBG_ERROR("ResultsExporter", "Could not create CSV file");
-            return;
-        }
-
-        file.println("SSID,RSSI,Channel,Security,BSSID");
-        for (const auto &r : results) {
-            file.print(r.ssid);
-            file.print(",");
-            file.print(r.rssi);
-            file.print(",");
-            file.print(r.channel);
-            file.print(",");
-            file.print(r.security);
-            file.print(",");
-            file.println(r.bssid);
-        }
-
-        file.close();
-        DBG_INFO("ResultsExporter", "WiFi results exported as CSV");
-    }
+  fprintf(file, "    <div class=\"stats\">\n");
+  fprintf(file, "      <div class=\"stat-box %s\">\n", statusClass);
+  fprintf(file, "        <div class=\"stat-label\">Statut</div>\n");
+  fprintf(file, "        <div class=\"stat-value\">%s</div>\n", statusStr);
+  fprintf(file, "      </div>\n");
+  fprintf(file, "      <div class=\"stat-box\">\n");
+  fprintf(file, "        <div class=\"stat-label\">Résultats</div>\n");
+  fprintf(file, "        <div class=\"stat-value\">%u</div>\n", attack->getResultCount());
+  fprintf(file, "      </div>\n");
+  fprintf(file, "      <div class=\"stat-box\">\n");
+  fprintf(file, "        <div class=\"stat-label\">Nom Attaque</div>\n");
+  fprintf(file, "        <div class=\"stat-value\" style=\"font-size: 16px;\">%s</div>\n", attack->getName());
+  fprintf(file, "      </div>\n");
+  fprintf(file, "    </div>\n");
 }
 
-void Exporter::exportBLEResults(const std::vector<BLEResult> &results,
-                               ExportFormat format,
-                               const String &filename) {
-    String exportFile = filename.length() > 0 ? filename : generateFilename("ble_scan");
+void ResultsExporter::writeResultsTable(FILE* file, Attack* attack) {
+  if (attack->getResultCount() == 0) {
+    fprintf(file, "    <p style=\"color: #666; font-style: italic;\">Aucun résultat</p>\n");
+    return;
+  }
 
-    if (format == FORMAT_JSON) {
-        File file = LittleFS.open(exportFile, "w");
-        if (!file) {
-            DBG_ERROR("ResultsExporter", "Could not create export file");
-            return;
-        }
+  fprintf(file, "    <table>\n");
+  fprintf(file, "      <thead>\n");
+  fprintf(file, "        <tr>\n");
+  fprintf(file, "          <th>#</th>\n");
+  fprintf(file, "          <th>Description</th>\n");
+  fprintf(file, "          <th>Type</th>\n");
+  fprintf(file, "          <th>RSSI</th>\n");
+  fprintf(file, "          <th>Données</th>\n");
+  fprintf(file, "        </tr>\n");
+  fprintf(file, "      </thead>\n");
+  fprintf(file, "      <tbody>\n");
 
-        file.println("{");
-        file.print("  \"timestamp\": \"");
-        file.print(formatTimestamp(time(nullptr)));
-        file.println("\",");
-        file.print("  \"type\": \"ble_scan\",");
-        file.print("  \"count\": ");
-        file.print(results.size());
-        file.println(",");
-        file.println("  \"devices\": [");
+  for (uint16_t i = 0; i < attack->getResultCount(); i++) {
+    const AttackResult* result = attack->getResult(i);
+    if (!result) continue;
 
-        for (size_t i = 0; i < results.size(); i++) {
-            const auto &r = results[i];
-            file.print("    {");
-            file.print("\"name\":\"");
-            file.print(r.name);
-            file.print("\",\"address\":\"");
-            file.print(r.address);
-            file.print("\",\"rssi\":");
-            file.print(r.rssi);
-            file.print(",\"advdata\":\"");
-            file.print(r.advData);
-            file.print("\"}");
-            if (i < results.size() - 1) file.print(",");
-            file.println();
-        }
-
-        file.println("  ]");
-        file.println("}");
-        file.close();
-
-        DBG_INFO("ResultsExporter", "BLE results exported to " + exportFile);
+    const char* typeStr = "UNKNOWN";
+    switch (result->type) {
+      case ResultType::SCAN:
+        typeStr = "SCAN";
+        break;
+      case ResultType::PACKET:
+        typeStr = "PAQUET";
+        break;
+      case ResultType::CODE:
+        typeStr = "CODE";
+        break;
+      case ResultType::STATUS:
+        typeStr = "STATUT";
+        break;
+      case ResultType::ERROR:
+        typeStr = "ERREUR";
+        break;
     }
-    else if (format == FORMAT_CSV) {
-        File file = LittleFS.open(exportFile.substring(0, exportFile.lastIndexOf('.')) + ".csv", "w");
-        if (!file) return;
 
-        file.println("Name,Address,RSSI,AdvertisementData");
-        for (const auto &r : results) {
-            file.print(r.name);
-            file.print(",");
-            file.print(r.address);
-            file.print(",");
-            file.print(r.rssi);
-            file.print(",");
-            file.println(r.advData);
-        }
+    fprintf(file, "        <tr>\n");
+    fprintf(file, "          <td>%u</td>\n", i + 1);
+    fprintf(file, "          <td>%s</td>\n", result->data);
+    fprintf(file, "          <td>%s</td>\n", typeStr);
+    fprintf(file, "          <td>%d dBm</td>\n", result->rssi);
+    fprintf(file, "          <td>%u bytes</td>\n", result->dataLength);
+    fprintf(file, "        </tr>\n");
+  }
 
-        file.close();
-    }
+  fprintf(file, "      </tbody>\n");
+  fprintf(file, "    </table>\n");
 }
 
-void Exporter::exportRFResults(const std::vector<RFResult> &results,
-                              ExportFormat format,
-                              const String &filename) {
-    String exportFile = filename.length() > 0 ? filename : generateFilename("rf_scan");
+void ResultsExporter::exportAttackToHTML(Attack* attack, const char* filename) {
+  if (!attack) {
+    Serial.println("❌ Attaque null");
+    return;
+  }
 
-    if (format == FORMAT_JSON) {
-        File file = LittleFS.open(exportFile, "w");
-        if (!file) return;
+  FILE* file = fopen(filename, "w");
+  if (!file) {
+    Serial.printf("❌ Impossible d'ouvrir %s\n", filename);
+    return;
+  }
 
-        file.println("{");
-        file.print("  \"timestamp\": \"");
-        file.print(formatTimestamp(time(nullptr)));
-        file.println("\",");
-        file.print("  \"type\": \"rf_scan\",");
-        file.print("  \"count\": ");
-        file.print(results.size());
-        file.println(",");
-        file.println("  \"signals\": [");
+  writeHTMLHeader(file, attack->getName());
 
-        for (size_t i = 0; i < results.size(); i++) {
-            const auto &r = results[i];
-            file.print("    {");
-            file.print("\"frequency\":");
-            file.print(r.frequency, 3);
-            file.print(",\"rssi\":");
-            file.print(r.rssi);
-            file.print(",\"timestamp\":");
-            file.print(r.timestamp);
-            file.print(",\"modulation\":\"");
-            file.print(r.modulation);
-            file.print("\"}");
-            if (i < results.size() - 1) file.print(",");
-            file.println();
-        }
+  fprintf(file, "    <h1>Rapport d'Attaque: %s</h1>\n", attack->getName());
+  fprintf(file, "    <p class=\"timestamp\">Généré automatiquement</p>\n");
 
-        file.println("  ]");
-        file.println("}");
-        file.close();
+  fprintf(file, "    <h2>📊 Statistiques</h2>\n");
+  writeAttackStats(file, attack);
 
-        DBG_INFO("ResultsExporter", "RF results exported to " + exportFile);
-    }
-    else if (format == FORMAT_CSV) {
-        File file = LittleFS.open(exportFile.substring(0, exportFile.lastIndexOf('.')) + ".csv", "w");
-        if (!file) return;
+  fprintf(file, "    <h2>📋 Résultats Détaillés</h2>\n");
+  writeResultsTable(file, attack);
 
-        file.println("Frequency(MHz),RSSI(dBm),Timestamp,Modulation");
-        for (const auto &r : results) {
-            file.print(r.frequency, 3);
-            file.print(",");
-            file.print(r.rssi);
-            file.print(",");
-            file.print(formatTimestamp(r.timestamp));
-            file.print(",");
-            file.println(r.modulation);
-        }
+  writeHTMLFooter(file);
+  fclose(file);
 
-        file.close();
-    }
+  Serial.printf("✓ Rapport HTML exporté: %s\n", filename);
 }
 
-void Exporter::exportNFCResults(const std::vector<NFCResult> &results,
-                               ExportFormat format,
-                               const String &filename) {
-    String exportFile = filename.length() > 0 ? filename : generateFilename("nfc_scan");
+void ResultsExporter::exportAttackToJSON(Attack* attack, const char* filename) {
+  if (!attack) {
+    Serial.println("❌ Attaque null");
+    return;
+  }
 
-    if (format == FORMAT_JSON) {
-        File file = LittleFS.open(exportFile, "w");
-        if (!file) return;
+  FILE* file = fopen(filename, "w");
+  if (!file) {
+    Serial.printf("❌ Impossible d'ouvrir %s\n", filename);
+    return;
+  }
 
-        file.println("{");
-        file.print("  \"timestamp\": \"");
-        file.print(formatTimestamp(time(nullptr)));
-        file.println("\",");
-        file.print("  \"type\": \"nfc_scan\",");
-        file.print("  \"count\": ");
-        file.print(results.size());
-        file.println(",");
-        file.println("  \"cards\": [");
+  fprintf(file, "{\n");
+  fprintf(file, "  \"attack\": {\n");
+  fprintf(file, "    \"name\": \"%s\",\n", attack->getName());
+  fprintf(file, "    \"status\": %u,\n", (uint8_t)attack->getCurrentStatus());
+  fprintf(file, "    \"resultCount\": %u,\n", attack->getResultCount());
+  fprintf(file, "    \"results\": [\n");
 
-        for (size_t i = 0; i < results.size(); i++) {
-            const auto &r = results[i];
-            file.print("    {");
-            file.print("\"uid\":\"");
-            file.print(r.uid);
-            file.print("\",\"type\":\"");
-            file.print(r.type);
-            file.print("\",\"data\":\"");
-            file.print(r.data);
-            file.print("\",\"timestamp\":");
-            file.print(r.timestamp);
-            file.print("}");
-            if (i < results.size() - 1) file.print(",");
-            file.println();
-        }
+  for (uint16_t i = 0; i < attack->getResultCount(); i++) {
+    const AttackResult* result = attack->getResult(i);
+    if (!result) continue;
 
-        file.println("  ]");
-        file.println("}");
-        file.close();
+    fprintf(file, "      {\n");
+    fprintf(file, "        \"index\": %u,\n", i);
+    fprintf(file, "        \"data\": \"%s\",\n", result->data);
+    fprintf(file, "        \"type\": %u,\n", (uint8_t)result->type);
+    fprintf(file, "        \"rssi\": %d,\n", result->rssi);
+    fprintf(file, "        \"length\": %u\n", result->dataLength);
+    fprintf(file, "      }%s\n", i < attack->getResultCount() - 1 ? "," : "");
+  }
 
-        DBG_INFO("ResultsExporter", "NFC results exported to " + exportFile);
-    }
-    else if (format == FORMAT_CSV) {
-        File file = LittleFS.open(exportFile.substring(0, exportFile.lastIndexOf('.')) + ".csv", "w");
-        if (!file) return;
+  fprintf(file, "    ]\n");
+  fprintf(file, "  }\n");
+  fprintf(file, "}\n");
 
-        file.println("UID,Type,Data,Timestamp");
-        for (const auto &r : results) {
-            file.print(r.uid);
-            file.print(",");
-            file.print(r.type);
-            file.print(",");
-            file.print(r.data);
-            file.print(",");
-            file.println(formatTimestamp(r.timestamp));
-        }
-
-        file.close();
-    }
+  fclose(file);
+  Serial.printf("✓ Rapport JSON exporté: %s\n", filename);
 }
 
-void Exporter::listExports() {
-    File dir = LittleFS.open(EXPORT_DIR, "r");
-    if (!dir) return;
+void ResultsExporter::exportAttackToCSV(Attack* attack, const char* filename) {
+  if (!attack) {
+    Serial.println("❌ Attaque null");
+    return;
+  }
 
-    Serial.println();
-    Serial.print(COLOR_CYAN);
-    Serial.println("╔═══════════════════════════════════════╗");
-    Serial.println("║ 📁 Exported Files");
-    Serial.println("╠═══════════════════════════════════════╣");
+  FILE* file = fopen(filename, "w");
+  if (!file) {
+    Serial.printf("❌ Impossible d'ouvrir %s\n", filename);
+    return;
+  }
 
-    File file = dir.openNextFile();
-    uint32_t totalSize = 0;
-    int count = 0;
+  fprintf(file, "Attaque,%s\n", attack->getName());
+  fprintf(file, "Résultats Total,%u\n\n", attack->getResultCount());
+  fprintf(file, "Index,Description,Type,RSSI,Données(bytes)\n");
 
-    while (file) {
-        if (!file.isDirectory()) {
-            String name = file.name();
-            size_t fileSize = file.size();
-            totalSize += fileSize;
-            count++;
+  for (uint16_t i = 0; i < attack->getResultCount(); i++) {
+    const AttackResult* result = attack->getResult(i);
+    if (!result) continue;
 
-            Serial.print("║ ");
-            Serial.print(name.substring(name.lastIndexOf('/') + 1));
-            Serial.print(" (");
-            Serial.print(fileSize);
-            Serial.println(" bytes)");
-        }
-        file = dir.openNextFile();
-    }
+    fprintf(file, "%u,\"%s\",%u,%d,%u\n",
+            i + 1, result->data, (uint8_t)result->type, result->rssi, result->dataLength);
+  }
 
-    Serial.print("║ Total: ");
-    Serial.print(count);
-    Serial.print(" files, ");
-    Serial.print(totalSize);
-    Serial.println(" bytes");
-    Serial.println("╚═══════════════════════════════════════╝");
-    Serial.print(COLOR_RESET);
+  fclose(file);
+  Serial.printf("✓ Rapport CSV exporté: %s\n", filename);
 }
 
-uint32_t Exporter::getTotalExportSize() {
-    File dir = LittleFS.open(EXPORT_DIR, "r");
-    if (!dir) return 0;
+void ResultsExporter::exportMultipleToHTML(std::vector<Attack*>& attacks, const char* filename) {
+  if (attacks.empty()) {
+    Serial.println("❌ Aucune attaque à exporter");
+    return;
+  }
 
-    uint32_t totalSize = 0;
-    File file = dir.openNextFile();
+  FILE* file = fopen(filename, "w");
+  if (!file) {
+    Serial.printf("❌ Impossible d'ouvrir %s\n", filename);
+    return;
+  }
 
-    while (file) {
-        if (!file.isDirectory()) {
-            totalSize += file.size();
-        }
-        file = dir.openNextFile();
+  writeHTMLHeader(file, "Rapport Attaques Multiples");
+
+  fprintf(file, "    <h1>📊 Rapport Attaques Multiples</h1>\n");
+  fprintf(file, "    <p class=\"timestamp\">%u attaques exportées</p>\n", attacks.size());
+
+  // Statistiques globales
+  uint16_t totalResults = 0;
+  uint16_t successCount = 0;
+
+  for (auto attack : attacks) {
+    totalResults += attack->getResultCount();
+    if (attack->getCurrentStatus() == AttackStatus::SUCCESS ||
+        attack->getCurrentStatus() == AttackStatus::PARTIAL) {
+      successCount++;
     }
+  }
 
-    return totalSize;
+  fprintf(file, "    <div class=\"stats\">\n");
+  fprintf(file, "      <div class=\"stat-box\">\n");
+  fprintf(file, "        <div class=\"stat-label\">Attaques Réussies</div>\n");
+  fprintf(file, "        <div class=\"stat-value\">%u/%u</div>\n", successCount, attacks.size());
+  fprintf(file, "      </div>\n");
+  fprintf(file, "      <div class=\"stat-box\">\n");
+  fprintf(file, "        <div class=\"stat-label\">Résultats Totaux</div>\n");
+  fprintf(file, "        <div class=\"stat-value\">%u</div>\n", totalResults);
+  fprintf(file, "      </div>\n");
+  fprintf(file, "    </div>\n");
+
+  // Détail chaque attaque
+  for (size_t i = 0; i < attacks.size(); i++) {
+    Attack* attack = attacks[i];
+    fprintf(file, "    <h2>[%u] %s</h2>\n", i + 1, attack->getName());
+    writeAttackStats(file, attack);
+    writeResultsTable(file, attack);
+  }
+
+  writeHTMLFooter(file);
+  fclose(file);
+
+  Serial.printf("✓ Rapport multi-attaques exporté: %s\n", filename);
 }
 
-bool Exporter::deleteExport(const String &filename) {
-    bool success = LittleFS.remove(filename);
-    if (success) {
-        DBG_INFO("ResultsExporter", "Deleted " + filename);
-    } else {
-        DBG_ERROR("ResultsExporter", "Failed to delete " + filename);
-    }
-    return success;
-}
+void ResultsExporter::generateReport(std::vector<Attack*>& attacks, const char* filename) {
+  // Génère rapport dans 3 formats
+  char htmlFile[128], jsonFile[128], csvFile[128];
 
-}  // namespace ResultsExporter
+  snprintf(htmlFile, 127, "%s_report.html", filename);
+  snprintf(jsonFile, 127, "%s_data.json", filename);
+  snprintf(csvFile, 127, "%s_results.csv", filename);
+
+  exportMultipleToHTML(attacks, htmlFile);
+
+  // Export individuels JSON/CSV
+  for (auto attack : attacks) {
+    char attackFile[128];
+    snprintf(attackFile, 127, "%s_%s.json", filename, attack->getName());
+    exportAttackToJSON(attack, attackFile);
+  }
+
+  Serial.printf("✓ Rapports complets exportés (%s*)\n", filename);
+}

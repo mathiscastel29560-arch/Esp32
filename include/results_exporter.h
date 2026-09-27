@@ -1,81 +1,33 @@
-#pragma once
-#include <Arduino.h>
+#ifndef RESULTS_EXPORTER_H
+#define RESULTS_EXPORTER_H
+
+#include "attack_framework.h"
 #include <vector>
 
-namespace ResultsExporter {
-
-// WiFi scan result
-struct WiFiResult {
-    String ssid;
-    int32_t rssi;
-    uint8_t channel;
-    String security;
-    String bssid;
-};
-
-// BLE device result
-struct BLEResult {
-    String name;
-    String address;
-    int32_t rssi;
-    String advData;
-};
-
-// RF signal result
-struct RFResult {
-    float frequency;
-    int32_t rssi;
-    uint32_t timestamp;
-    String modulation;
-};
-
-// NFC card result
-struct NFCResult {
-    String uid;
-    String type;
-    String data;
-    uint32_t timestamp;
-};
-
-// Export formats
-enum ExportFormat {
-    FORMAT_CSV,
-    FORMAT_JSON,
-    FORMAT_HTML,
-    FORMAT_TXT
-};
-
-class Exporter {
+// ============= RESULTS EXPORTER =============
+class ResultsExporter {
 public:
-    // Initialize exporter
-    static void begin();
+  static ResultsExporter& getInstance() {
+    static ResultsExporter instance;
+    return instance;
+  }
 
-    // WiFi exports
-    static void exportWiFiResults(const std::vector<WiFiResult> &results,
-                                 ExportFormat format = FORMAT_JSON,
-                                 const String &filename = "");
+  // Export formats
+  void exportAttackToHTML(Attack* attack, const char* filename);
+  void exportAttackToJSON(Attack* attack, const char* filename);
+  void exportAttackToCSV(Attack* attack, const char* filename);
 
-    // BLE exports
-    static void exportBLEResults(const std::vector<BLEResult> &results,
-                                ExportFormat format = FORMAT_JSON,
-                                const String &filename = "");
+  // Batch export
+  void exportMultipleToHTML(std::vector<Attack*>& attacks, const char* filename);
+  void generateReport(std::vector<Attack*>& attacks, const char* filename);
 
-    // RF exports
-    static void exportRFResults(const std::vector<RFResult> &results,
-                               ExportFormat format = FORMAT_JSON,
-                               const String &filename = "");
+private:
+  ResultsExporter();
 
-    // NFC exports
-    static void exportNFCResults(const std::vector<NFCResult> &results,
-                                ExportFormat format = FORMAT_JSON,
-                                const String &filename = "");
-
-    // Utility functions
-    static String generateFilename(const String &prefix);
-    static String formatTimestamp(uint32_t timestamp);
-    static void listExports();
-    static uint32_t getTotalExportSize();
-    static bool deleteExport(const String &filename);
+  void writeHTMLHeader(FILE* file, const char* title);
+  void writeHTMLFooter(FILE* file);
+  void writeAttackStats(FILE* file, Attack* attack);
+  void writeResultsTable(FILE* file, Attack* attack);
 };
 
-}  // namespace ResultsExporter
+#endif // RESULTS_EXPORTER_H
