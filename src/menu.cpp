@@ -8,6 +8,8 @@
 #include "results_formatter.h"
 #include "tx_arm.h"
 #include "system_settings.h"
+#include "audit_history.h"
+#include "audit_statistics.h"
 #include "wifi_tools.h"
 #include <WiFi.h>
 #include "ble_tools.h"
@@ -89,6 +91,7 @@ enum State {
     SYSTEM_SUBMENU,
     SETTINGS_SUBMENU,
     PARAMETERS_SUBMENU,
+    HISTORY_STATS_SUBMENU,
     HARDWARE_TEST_SUBMENU,
     DEVICE_INFO_SUBMENU,
     DEBUG_INFO_SUBMENU,
@@ -130,6 +133,7 @@ std::vector<String> mainMenuItems() {
         "⚙️  System",
         "⚙️  Settings",
         "🎛️  Paramètres",
+        "📊 Historique & Stats",
         "🧪 Hardware Test",
         "ℹ️  Device Info",
         "🐛 Debug Info",
@@ -231,6 +235,22 @@ std::vector<String> parametersMenuItems() {
         "🔄 Réinitialiser défauts",
         "📊 Afficher rapport",
         "🔙 Retour",
+    };
+}
+
+std::vector<String> historyStatsMenuItems() {
+    auto& history = AuditHistory::getInstance();
+    auto& stats = AuditStatistics::getInstance();
+
+    auto auditStats = stats.calculateStats();
+
+    return {
+        "📋 View Full History (" + String(auditStats.totalAudits) + " records)",
+        "📊 Statistics Summary",
+        "📈 Detailed Analytics",
+        "🗑️  Clear Old Records",
+        "💾 Export History (CSV)",
+        "🔙 Back",
     };
 }
 
@@ -1205,6 +1225,53 @@ void runParametersAction(int idx) {
     }
 }
 
+void runHistoryStatsAction(int idx) {
+    auto& history = AuditHistory::getInstance();
+    auto& stats = AuditStatistics::getInstance();
+
+    switch (idx) {
+        case 0: { // View Full History
+            history.printHistory();
+            showResult("Historique", "Affiché sur serial");
+            break;
+        }
+        case 1: { // Statistics Summary
+            stats.printStatistics();
+            showResult("Statistiques", "Rapport affiché sur serial");
+            break;
+        }
+        case 2: { // Detailed Analytics
+            auto auditStats = stats.calculateStats();
+            String analytics = "WiFi: " + String(auditStats.wifiAudits) + "\n";
+            analytics += "BLE: " + String(auditStats.bleAudits) + "\n";
+            analytics += "RF: " + String(auditStats.rfAudits) + "\n";
+            analytics += "IoT: " + String(auditStats.iotAudits) + "\n";
+            analytics += "Succès: " + String(auditStats.successPercent) + "%";
+            showResult("Analyse Détaillée", analytics);
+            break;
+        }
+        case 3: { // Clear Old Records
+            if (history.getRecordCount() > 0) {
+                // Delete oldest 20% of records
+                uint16_t toDelete = (history.getRecordCount() * 20) / 100;
+                if (toDelete == 0) toDelete = 1;
+
+                for (uint16_t i = 0; i < toDelete; i++) {
+                    history.deleteOldest();
+                }
+                showResult("Nettoyage", String(toDelete) + " anciens enregistrements supprimés");
+            } else {
+                showResult("Nettoyage", "Aucun enregistrement à supprimer");
+            }
+            break;
+        }
+        case 4: { // Export History (CSV)
+            showResult("Export CSV", "Fonctionnalité à implémenter\nProchain update");
+            break;
+        }
+    }
+}
+
 void runHardwareTestAction(int idx) {
     switch (idx) {
         case 0: { // GPIO Test
@@ -1608,13 +1675,14 @@ void loop() {
                     case 4: g_state = SYSTEM_SUBMENU; break;
                     case 5: g_state = SETTINGS_SUBMENU; break;
                     case 6: g_state = PARAMETERS_SUBMENU; break;
-                    case 7: g_state = HARDWARE_TEST_SUBMENU; break;
-                    case 8: g_state = DEVICE_INFO_SUBMENU; break;
-                    case 9: g_state = DEBUG_INFO_SUBMENU; break;
-                    case 10: g_state = CALIBRATION_SUBMENU; break;
-                    case 11: g_state = ABOUT_SUBMENU; break;
-                    case 12: g_state = NETWORK_SUBMENU; break;
-                    case 13: g_state = HELP_SUBMENU; break;
+                    case 7: g_state = HISTORY_STATS_SUBMENU; break;
+                    case 8: g_state = HARDWARE_TEST_SUBMENU; break;
+                    case 9: g_state = DEVICE_INFO_SUBMENU; break;
+                    case 10: g_state = DEBUG_INFO_SUBMENU; break;
+                    case 11: g_state = CALIBRATION_SUBMENU; break;
+                    case 12: g_state = ABOUT_SUBMENU; break;
+                    case 13: g_state = NETWORK_SUBMENU; break;
+                    case 14: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1726,6 +1794,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "AUDIT PARAMS");
             break;
 
+        case HISTORY_STATS_SUBMENU:
+            items = historyStatsMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 7;
+                } else {
+                    runHistoryStatsAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "HISTORY & STATS");
+            break;
+
         case HARDWARE_TEST_SUBMENU:
             items = hardwareTestMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1733,7 +1816,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 7;
+                    g_selection = 8;
                 } else {
                     runHardwareTestAction(g_selection);
                 }
@@ -1748,7 +1831,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 8;
+                    g_selection = 9;
                 } else {
                     runDeviceInfoAction(g_selection);
                 }
@@ -1763,7 +1846,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 9;
+                    g_selection = 10;
                 } else {
                     runDebugInfoAction(g_selection);
                 }
@@ -1778,7 +1861,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 10;
+                    g_selection = 11;
                 } else {
                     runCalibrationAction(g_selection);
                 }
@@ -1793,7 +1876,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 11;
+                    g_selection = 12;
                 } else {
                     runAboutAction(g_selection);
                 }
@@ -1808,7 +1891,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 12;
+                    g_selection = 13;
                 } else {
                     runNetworkAction(g_selection);
                 }
@@ -1823,7 +1906,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 12;
+                    g_selection = 14;
                 } else {
                     // Extract category name from menu item (e.g., "[W] WiFi" -> "WiFi")
                     String menuItem = items[g_selection];
