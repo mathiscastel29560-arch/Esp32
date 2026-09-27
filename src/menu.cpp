@@ -7,6 +7,7 @@
 #include "debug_logger.h"
 #include "results_formatter.h"
 #include "tx_arm.h"
+#include "audit_parameters.h"
 #include "wifi_tools.h"
 #include <WiFi.h>
 #include "ble_tools.h"
@@ -87,6 +88,7 @@ enum State {
     IOT_SUBMENU,
     SYSTEM_SUBMENU,
     SETTINGS_SUBMENU,
+    PARAMETERS_SUBMENU,
     HARDWARE_TEST_SUBMENU,
     DEVICE_INFO_SUBMENU,
     DEBUG_INFO_SUBMENU,
@@ -127,6 +129,7 @@ std::vector<String> mainMenuItems() {
         "🌐 IoT/Advanced",
         "⚙️  System",
         "⚙️  Settings",
+        "📋 Audit Params",
         "🧪 Hardware Test",
         "ℹ️  Device Info",
         "🐛 Debug Info",
@@ -206,6 +209,32 @@ std::vector<String> settingsMenuItems() {
         "🔄 Invert Display: " + String(Settings::g_config.invertColors ? "ON" : "OFF"),
         "🔐 Auto-Lock: " + String(Settings::g_config.autoLock ? "ON" : "OFF"),
         "📝 Logging: " + String(Settings::g_config.enableLogging ? "ON" : "OFF"),
+        "🔙 Back",
+    };
+}
+
+std::vector<String> parametersMenuItems() {
+    auto& params = AuditParameters::getInstance();
+    return {
+        "⏱️  WiFi Timeout: " + String(params.getWiFiScanTimeout() / 1000) + "s",
+        "⏱️  BLE Timeout: " + String(params.getBLEScanTimeout() / 1000) + "s",
+        "⏱️  RF Timeout: " + String(params.getRFScanTimeout() / 1000) + "s",
+        "📊 Max Results: " + String(params.getMaxResults()),
+        "📡 Max WiFi Networks: " + String(params.getMaxWiFiNetworks()),
+        "🔵 Max BLE Devices: " + String(params.getMaxBLEDevices()),
+        "📶 RSSI Threshold: " + String(params.getRSSIThreshold()) + " dBm",
+        "🔄 Scan Mode: " + String(params.getScanModeString()),
+        "📝 Logging: " + String(params.isLoggingEnabled() ? "ON" : "OFF"),
+        "📤 Auto-Export: " + String(params.isAutoExportEnabled() ? "ON" : "OFF"),
+        "💾 Export HTML: " + String(params.getExportHTML() ? "ON" : "OFF"),
+        "💾 Export JSON: " + String(params.getExportJSON() ? "ON" : "OFF"),
+        "💾 Export CSV: " + String(params.getExportCSV() ? "ON" : "OFF"),
+        "⚙️  Duplicate Detection: " + String(params.isDuplicateDetection() ? "ON" : "OFF"),
+        "🕵️  Stealth Mode: " + String(params.isStealthMode() ? "ON" : "OFF"),
+        "🔄 Freq Hopping: " + String(params.isFrequencyHoppingEnabled() ? "ON" : "OFF"),
+        "🔢 Max Concurrent: " + String(params.getMaxConcurrentAttacks()),
+        "💾 Reset to Defaults",
+        "📊 Show Report",
         "🔙 Back",
     };
 }
@@ -1079,6 +1108,150 @@ void runSettingsAction(int idx) {
     }
 }
 
+void runParametersAction(int idx) {
+    auto& params = AuditParameters::getInstance();
+
+    switch (idx) {
+        case 0: { // WiFi Timeout
+            uint32_t timeout = params.getWiFiScanTimeout();
+            timeout = (timeout + 5000) % 60001;
+            if (timeout == 0) timeout = 5000;
+            params.setWiFiScanTimeout(timeout);
+            params.saveToNVS();
+            showResult("WiFi Timeout", String(timeout / 1000) + "s");
+            break;
+        }
+        case 1: { // BLE Timeout
+            uint32_t timeout = params.getBLEScanTimeout();
+            timeout = (timeout + 5000) % 60001;
+            if (timeout == 0) timeout = 5000;
+            params.setBLEScanTimeout(timeout);
+            params.saveToNVS();
+            showResult("BLE Timeout", String(timeout / 1000) + "s");
+            break;
+        }
+        case 2: { // RF Timeout
+            uint32_t timeout = params.getRFScanTimeout();
+            timeout = (timeout + 5000) % 60001;
+            if (timeout == 0) timeout = 5000;
+            params.setRFScanTimeout(timeout);
+            params.saveToNVS();
+            showResult("RF Timeout", String(timeout / 1000) + "s");
+            break;
+        }
+        case 3: { // Max Results
+            uint16_t maxRes = params.getMaxResults();
+            maxRes = (maxRes + 10) % 256;
+            if (maxRes < 10) maxRes = 10;
+            params.setMaxResults(maxRes);
+            params.saveToNVS();
+            showResult("Max Results", String(maxRes));
+            break;
+        }
+        case 4: { // Max WiFi Networks
+            uint16_t maxWifi = params.getMaxWiFiNetworks();
+            maxWifi = (maxWifi + 5) % 101;
+            if (maxWifi < 5) maxWifi = 5;
+            params.setMaxWiFiNetworks(maxWifi);
+            params.saveToNVS();
+            showResult("Max WiFi Networks", String(maxWifi));
+            break;
+        }
+        case 5: { // Max BLE Devices
+            uint16_t maxBle = params.getMaxBLEDevices();
+            maxBle = (maxBle + 5) % 101;
+            if (maxBle < 5) maxBle = 5;
+            params.setMaxBLEDevices(maxBle);
+            params.saveToNVS();
+            showResult("Max BLE Devices", String(maxBle));
+            break;
+        }
+        case 6: { // RSSI Threshold
+            int8_t rssi = params.getRSSIThreshold();
+            rssi = (rssi + 5);
+            if (rssi > -30) rssi = -100;
+            params.setRSSIThreshold(rssi);
+            params.saveToNVS();
+            showResult("RSSI Threshold", String(rssi) + " dBm");
+            break;
+        }
+        case 7: { // Scan Mode
+            AuditParameters::ScanMode mode = params.getScanMode();
+            mode = (AuditParameters::ScanMode)((mode + 1) % 3);
+            params.setScanMode(mode);
+            params.saveToNVS();
+            showResult("Scan Mode", String(params.getScanModeString()));
+            break;
+        }
+        case 8: { // Logging
+            params.setLoggingEnabled(!params.isLoggingEnabled());
+            params.saveToNVS();
+            showResult("Logging", params.isLoggingEnabled() ? "ON" : "OFF");
+            break;
+        }
+        case 9: { // Auto-Export
+            params.setAutoExportEnabled(!params.isAutoExportEnabled());
+            params.saveToNVS();
+            showResult("Auto-Export", params.isAutoExportEnabled() ? "ON" : "OFF");
+            break;
+        }
+        case 10: { // Export HTML
+            params.setExportHTML(!params.getExportHTML());
+            params.saveToNVS();
+            showResult("Export HTML", params.getExportHTML() ? "ON" : "OFF");
+            break;
+        }
+        case 11: { // Export JSON
+            params.setExportJSON(!params.getExportJSON());
+            params.saveToNVS();
+            showResult("Export JSON", params.getExportJSON() ? "ON" : "OFF");
+            break;
+        }
+        case 12: { // Export CSV
+            params.setExportCSV(!params.getExportCSV());
+            params.saveToNVS();
+            showResult("Export CSV", params.getExportCSV() ? "ON" : "OFF");
+            break;
+        }
+        case 13: { // Duplicate Detection
+            params.setDuplicateDetection(!params.isDuplicateDetection());
+            params.saveToNVS();
+            showResult("Duplicate Detection", params.isDuplicateDetection() ? "ON" : "OFF");
+            break;
+        }
+        case 14: { // Stealth Mode
+            params.setStealthMode(!params.isStealthMode());
+            params.saveToNVS();
+            showResult("Stealth Mode", params.isStealthMode() ? "ON" : "OFF");
+            break;
+        }
+        case 15: { // Frequency Hopping
+            params.setFrequencyHopping(!params.isFrequencyHoppingEnabled());
+            params.saveToNVS();
+            showResult("Frequency Hopping", params.isFrequencyHoppingEnabled() ? "ON" : "OFF");
+            break;
+        }
+        case 16: { // Max Concurrent
+            uint8_t maxCon = params.getMaxConcurrentAttacks();
+            maxCon = (maxCon % 4) + 1;
+            params.setMaxConcurrentAttacks(maxCon);
+            params.saveToNVS();
+            showResult("Max Concurrent Attacks", String(maxCon));
+            break;
+        }
+        case 17: { // Reset to Defaults
+            params.resetToDefaults();
+            showResult("Reset Parameters", "All set to defaults");
+            break;
+        }
+        case 18: { // Show Report
+            params.printParameters();
+            showResult("Parameters Report", "Printed to serial");
+            break;
+        }
+    }
+}
+
 void runHardwareTestAction(int idx) {
     switch (idx) {
         case 0: { // GPIO Test
@@ -1481,13 +1654,14 @@ void loop() {
                     case 3: g_state = IOT_SUBMENU; break;
                     case 4: g_state = SYSTEM_SUBMENU; break;
                     case 5: g_state = SETTINGS_SUBMENU; break;
-                    case 6: g_state = HARDWARE_TEST_SUBMENU; break;
-                    case 7: g_state = DEVICE_INFO_SUBMENU; break;
-                    case 8: g_state = DEBUG_INFO_SUBMENU; break;
-                    case 9: g_state = CALIBRATION_SUBMENU; break;
-                    case 10: g_state = ABOUT_SUBMENU; break;
-                    case 11: g_state = NETWORK_SUBMENU; break;
-                    case 12: g_state = HELP_SUBMENU; break;
+                    case 6: g_state = PARAMETERS_SUBMENU; break;
+                    case 7: g_state = HARDWARE_TEST_SUBMENU; break;
+                    case 8: g_state = DEVICE_INFO_SUBMENU; break;
+                    case 9: g_state = DEBUG_INFO_SUBMENU; break;
+                    case 10: g_state = CALIBRATION_SUBMENU; break;
+                    case 11: g_state = ABOUT_SUBMENU; break;
+                    case 12: g_state = NETWORK_SUBMENU; break;
+                    case 13: g_state = HELP_SUBMENU; break;
                 }
                 g_selection = 0;
             }
@@ -1584,6 +1758,21 @@ void loop() {
             drawSimpleMenu(items, g_selection, "SETTINGS");
             break;
 
+        case PARAMETERS_SUBMENU:
+            items = parametersMenuItems();
+            if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
+            if (dnPress) g_selection = (g_selection + 1) % items.size();
+            if (okPress) {
+                if (g_selection == items.size() - 1) {
+                    g_state = MAIN_MENU;
+                    g_selection = 6;
+                } else {
+                    runParametersAction(g_selection);
+                }
+            }
+            drawSimpleMenu(items, g_selection, "AUDIT PARAMS");
+            break;
+
         case HARDWARE_TEST_SUBMENU:
             items = hardwareTestMenuItems();
             if (upPress) g_selection = (g_selection - 1 + items.size()) % items.size();
@@ -1591,7 +1780,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 6;
+                    g_selection = 7;
                 } else {
                     runHardwareTestAction(g_selection);
                 }
@@ -1606,7 +1795,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 7;
+                    g_selection = 8;
                 } else {
                     runDeviceInfoAction(g_selection);
                 }
@@ -1621,7 +1810,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 8;
+                    g_selection = 9;
                 } else {
                     runDebugInfoAction(g_selection);
                 }
@@ -1636,7 +1825,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 9;
+                    g_selection = 10;
                 } else {
                     runCalibrationAction(g_selection);
                 }
@@ -1651,7 +1840,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 10;
+                    g_selection = 11;
                 } else {
                     runAboutAction(g_selection);
                 }
@@ -1666,7 +1855,7 @@ void loop() {
             if (okPress) {
                 if (g_selection == items.size() - 1) {
                     g_state = MAIN_MENU;
-                    g_selection = 11;
+                    g_selection = 12;
                 } else {
                     runNetworkAction(g_selection);
                 }
