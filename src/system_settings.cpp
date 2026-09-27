@@ -76,20 +76,6 @@ void SystemSettings::loadFromNVS() {
     cpuFrequency = (CPUFrequency)value;
   }
 
-  if (nvs_get_u8(handle, "autolock", &value) == ESP_OK) {
-    autoLock = (value != 0);
-  }
-
-  nvs_get_u16(handle, "autolock_timeout", &autoLockTimeout);
-
-  if (nvs_get_u8(handle, "buzzer", &value) == ESP_OK) {
-    buzzerEnabled = (value != 0);
-  }
-
-  if (nvs_get_u8(handle, "vibration", &value) == ESP_OK) {
-    vibrationEnabled = (value != 0);
-  }
-
   if (nvs_get_u8(handle, "bluetooth", &value) == ESP_OK) {
     bluetoothEnabled = (value != 0);
   }
@@ -125,10 +111,6 @@ void SystemSettings::saveToNVS() {
   nvs_set_u8(handle, "sleep_mode", sleepMode ? 1 : 0);
   nvs_set_u16(handle, "sleep_timeout", sleepTimeout);
   nvs_set_u8(handle, "cpu_freq", (uint8_t)cpuFrequency);
-  nvs_set_u8(handle, "autolock", autoLock ? 1 : 0);
-  nvs_set_u16(handle, "autolock_timeout", autoLockTimeout);
-  nvs_set_u8(handle, "buzzer", buzzerEnabled ? 1 : 0);
-  nvs_set_u8(handle, "vibration", vibrationEnabled ? 1 : 0);
   nvs_set_u8(handle, "bluetooth", bluetoothEnabled ? 1 : 0);
   nvs_set_u8(handle, "usb_charging", usbCharging ? 1 : 0);
   nvs_set_u8(handle, "debug", debugMode ? 1 : 0);
@@ -149,10 +131,6 @@ void SystemSettings::resetToDefaults() {
   sleepMode = false;
   sleepTimeout = 600;
   cpuFrequency = FREQ_160MHZ;
-  autoLock = true;
-  autoLockTimeout = 180;
-  buzzerEnabled = true;
-  vibrationEnabled = true;
   bluetoothEnabled = true;
   usbCharging = true;
   debugMode = false;
@@ -174,17 +152,12 @@ void SystemSettings::printSettings() const {
 
   Serial.printf("\n🔊 Audio & Retour:\n");
   Serial.printf("   Volume:           %u%%\n", volume);
-  Serial.printf("   Buzzer:           %s\n", buzzerEnabled ? "ON" : "OFF");
-  Serial.printf("   Vibration:        %s\n", vibrationEnabled ? "ON" : "OFF");
 
   Serial.printf("\n⚡ Gestion Énergie:\n");
   Serial.printf("   Mode batterie:    %s\n", getBatterySavingModeString());
   Serial.printf("   WiFi power save:  %s\n", wifiPowerSaving ? "ON" : "OFF");
   Serial.printf("   Fréquence CPU:    %s\n", getCPUFrequencyString());
   Serial.printf("   Mode veille:      %s (%u s)\n", sleepMode ? "ON" : "OFF", sleepTimeout);
-
-  Serial.printf("\n🔒 Sécurité:\n");
-  Serial.printf("   Auto-lock:        %s (%u s)\n", autoLock ? "ON" : "OFF", autoLockTimeout);
 
   Serial.printf("\n🔗 Connectivité:\n");
   Serial.printf("   Bluetooth:        %s\n", bluetoothEnabled ? "ON" : "OFF");

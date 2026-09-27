@@ -225,9 +225,6 @@ std::vector<String> parametersMenuItems() {
         "📶 WiFi power save: " + String(sys.isWiFiPowerSavingEnabled() ? "ON" : "OFF"),
         "💻 CPU: " + String(sys.getCPUFrequencyString()),
         "💤 Veille: " + String(sys.isSleepModeEnabled() ? "ON" : "OFF") + " (" + String(sys.getSleepTimeout()) + "s)",
-        "🔒 Auto-lock: " + String(sys.isAutoLockEnabled() ? "ON" : "OFF") + " (" + String(sys.getAutoLockTimeout()) + "s)",
-        "🔔 Buzzer: " + String(sys.isBuzzerEnabled() ? "ON" : "OFF"),
-        "📳 Vibration: " + String(sys.isVibrationEnabled() ? "ON" : "OFF"),
         "🔵 Bluetooth: " + String(sys.isBluetoothEnabled() ? "ON" : "OFF"),
         "🔌 Chargement USB: " + String(sys.isUSBChargingEnabled() ? "ON" : "OFF"),
         "🐛 DEBUG: " + String(sys.isDebugEnabled() ? "ON" : "OFF"),
@@ -1177,48 +1174,30 @@ void runParametersAction(int idx) {
             showResult("Mode veille", sys.isSleepModeEnabled() ? "ON" : "OFF");
             break;
         }
-        case 9: { // Auto-lock
-            sys.setAutoLock(!sys.isAutoLockEnabled());
-            sys.saveToNVS();
-            showResult("Auto-lock", sys.isAutoLockEnabled() ? "ON" : "OFF");
-            break;
-        }
-        case 10: { // Buzzer
-            sys.setBuzzer(!sys.isBuzzerEnabled());
-            sys.saveToNVS();
-            showResult("Buzzer", sys.isBuzzerEnabled() ? "ON" : "OFF");
-            break;
-        }
-        case 11: { // Vibration
-            sys.setVibration(!sys.isVibrationEnabled());
-            sys.saveToNVS();
-            showResult("Vibration", sys.isVibrationEnabled() ? "ON" : "OFF");
-            break;
-        }
-        case 12: { // Bluetooth
+        case 9: { // Bluetooth
             sys.setBluetooth(!sys.isBluetoothEnabled());
             sys.saveToNVS();
             showResult("Bluetooth", sys.isBluetoothEnabled() ? "ON" : "OFF");
             break;
         }
-        case 13: { // USB Charging
+        case 10: { // USB Charging
             sys.setUSBCharging(!sys.isUSBChargingEnabled());
             sys.saveToNVS();
             showResult("Chargement USB", sys.isUSBChargingEnabled() ? "ON" : "OFF");
             break;
         }
-        case 14: { // DEBUG Mode
+        case 11: { // DEBUG Mode
             sys.setDebugMode(!sys.isDebugEnabled());
             sys.saveToNVS();
             showResult("Mode DEBUG", sys.isDebugEnabled() ? "ON" : "OFF");
             break;
         }
-        case 15: { // Reset to Defaults
+        case 12: { // Reset to Defaults
             sys.resetToDefaults();
             showResult("Réinitialiser", "Tous les paramètres aux défauts");
             break;
         }
-        case 16: { // Show Report
+        case 13: { // Show Report
             sys.printSettings();
             showResult("Rapport Paramètres", "Imprimé sur serial");
             break;

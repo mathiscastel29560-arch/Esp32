@@ -34,13 +34,6 @@ public:
   uint16_t getScreenTimeout() const { return screenTimeout; }
   void setScreenTimeout(uint16_t seconds) { screenTimeout = seconds; }
 
-  // Auto-Lock
-  bool isAutoLockEnabled() const { return autoLock; }
-  void setAutoLock(bool enable) { autoLock = enable; }
-
-  uint16_t getAutoLockTimeout() const { return autoLockTimeout; }
-  void setAutoLockTimeout(uint16_t seconds) { autoLockTimeout = seconds; }
-
   // WiFi Power Saving
   bool isWiFiPowerSavingEnabled() const { return wifiPowerSaving; }
   void setWiFiPowerSaving(bool enable) { wifiPowerSaving = enable; }
@@ -65,20 +58,12 @@ public:
   uint8_t getContrast() const { return contrast; }
   void setContrast(uint8_t level) { contrast = level; }
 
-  // Beeper/Buzzer Toggle
-  bool isBuzzerEnabled() const { return buzzerEnabled; }
-  void setBuzzer(bool enable) { buzzerEnabled = enable; }
-
   // Sleep/Standby Mode
   bool isSleepModeEnabled() const { return sleepMode; }
   void setSleepMode(bool enable) { sleepMode = enable; }
 
   uint16_t getSleepTimeout() const { return sleepTimeout; }
   void setSleepTimeout(uint16_t seconds) { sleepTimeout = seconds; }
-
-  // Vibration/Haptic Feedback
-  bool isVibrationEnabled() const { return vibrationEnabled; }
-  void setVibration(bool enable) { vibrationEnabled = enable; }
 
   // USB Charging Detection
   bool isUSBChargingEnabled() const { return usbCharging; }
@@ -114,14 +99,6 @@ private:
   bool sleepMode = false;
   uint16_t sleepTimeout = 600;  // 10 minutes
   CPUFrequency cpuFrequency = FREQ_160MHZ;
-
-  // Security
-  bool autoLock = true;
-  uint16_t autoLockTimeout = 180;  // 3 minutes
-
-  // Audio/Feedback
-  bool buzzerEnabled = true;
-  bool vibrationEnabled = true;
 
   // Connectivity
   bool bluetoothEnabled = true;
