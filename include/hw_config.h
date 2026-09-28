@@ -57,14 +57,22 @@
 // ---- Battery Monitoring (ADC) ----
 #define BATTERY_ADC_PIN  PIN_BATTERY_ADC    // 7
 #define BATTERY_VOLTAGE_DIVIDER 2.0         // 2:1 voltage divider
-#define TFT_DC   47
-#define TFT_RST  48
-#define TFT_BL   -1    // No backlight PWM (always on)
+
+// ---- TFT Display (SPI) ----
+// Configured via platformio.ini build_flags (TFT_eSPI compile-time)
+// CS=5, DC=16, RST tied to board reset (-1), BL=48
+#define TFT_CS      5
+#define TFT_DC      16
+#define TFT_RST     -1     // Tied to board's own reset line
+#define TFT_BL      48     // GPIO 48 for backlight control
 
 // ---- OLED Display (I2C) ----
+// Auto-detected at boot: if OLED responds on I2C addr 0x3C, use it
+// Otherwise, firmware tries TFT next
 // I2C Address: 0x3C
-#define OLED_I2C_SDA  20
-#define OLED_I2C_SCL  21
+#define OLED_I2C_ADDR  0x3C
+#define OLED_WIDTH     128
+#define OLED_HEIGHT    64
 
 // ============ CONFIGURATION CONSTANTS ============
 
