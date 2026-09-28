@@ -74,10 +74,14 @@
 // ---- Battery voltage monitor (resistor-divider into ADC) ----
 #define PIN_BATTERY_ADC     7
 
-// ---- TFT Touchscreen (XPT2046 controller, SPI shared with display) ----
+// ---- TFT Touchscreen (XPT2046 controller, SPI shared with TFT on Bus 1) ----
 #define PIN_TOUCH_CS        45                   // T_CS from LCD breakout board
 #define TOUCH_FREQUENCY     2500000              // XPT2046 max frequency (2.5 MHz)
-// Touch data uses same SPI bus as TFT: MISO=13, MOSI=11, SCK=12
+// Touch data uses SPI Bus 1: MISO=13, MOSI=11, SCK=12 (shared with TFT only)
+
+// ---- NFC/RFID Module V3 (OPTIONAL - Not included in base config) ----
+// If adding NFC later, use GPIO 22-23 for UART2 (requires SPI2 MOSI relocation)
+// For now: SPI Bus 2 is fully dedicated to RF modules (CC1101 + NRF24)
 
 // NOTE: the slide switch is the device's power switch. It is wired in
 // series with the battery, between TP4056 OUT+ and the MT3608 boost input
@@ -85,8 +89,7 @@
 // to read: when it's off, the board has no power at all. TX-capable
 // actions (deauth, beacon spam, evil portal, sub-GHz replay) are gated by
 // physically holding the BACK button at the moment the action fires (see
-// tx_arm.h) instead — GPIO47 is the only pin left free for a dedicated
-// second switch if you'd rather have that back.
+// tx_arm.h) instead — GPIO 47 is available for a dedicated power switch.
 
 // ---- Wi-Fi control-panel access point ----
 // ⚠️  SECURITY WARNING: Default credentials below are for AUDIT/LAB use only!
