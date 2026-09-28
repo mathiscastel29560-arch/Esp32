@@ -1,5 +1,6 @@
 #include "buttons.h"
 #include "config.h"
+#include "touchscreen_driver.h"
 
 namespace {
 struct BtnState {
@@ -22,10 +23,17 @@ namespace Buttons {
 
 void begin() {
     for (auto &b : btns) pinMode(b.pin, INPUT_PULLUP);
+
+    // Initialize touchscreen if TFT is present
+    if (Display::kind() == Display::ScreenKind::TFT) {
+        Touchscreen::begin();
+    }
 }
 
 Button poll() {
     uint32_t now = millis();
+
+    // Check physical GPIO buttons first
     for (int i = 0; i < 4; i++) {
         int reading = digitalRead(btns[i].pin);
         if (reading != btns[i].lastRead && now - btns[i].lastChange > DEBOUNCE_MS) {
@@ -36,6 +44,15 @@ Button poll() {
             }
         }
     }
+
+    // Check touchscreen if TFT is present
+    if (Display::kind() == Display::ScreenKind::TFT) {
+        Button touchBtn = Touchscreen::poll();
+        if (touchBtn != NONE) {
+            return touchBtn;
+        }
+    }
+
     return NONE;
 }
 

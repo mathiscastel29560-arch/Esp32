@@ -64,6 +64,11 @@
 // ---- Battery voltage monitor (resistor-divider into ADC) ----
 #define PIN_BATTERY_ADC     7
 
+// ---- TFT Touchscreen (XPT2046 controller, SPI shared with display) ----
+#define PIN_TOUCH_CS        45                   // T_CS from LCD breakout board
+#define TOUCH_FREQUENCY     2500000              // XPT2046 max frequency (2.5 MHz)
+// Touch data uses same SPI bus as TFT: MISO=13, MOSI=11, SCK=12
+
 // NOTE: the slide switch is the device's power switch. It is wired in
 // series with the battery, between TP4056 OUT+ and the MT3608 boost input
 // (see HARDWARE.md §4) — NOT to a GPIO. There is nothing for the firmware

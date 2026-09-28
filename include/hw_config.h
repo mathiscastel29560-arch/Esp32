@@ -66,6 +66,11 @@
 #define TFT_RST     -1     // Tied to board's own reset line
 #define TFT_BL      48     // GPIO 48 for backlight control
 
+// ---- XPT2046 Touchscreen Controller (SPI shared with TFT) ----
+// SPI: SCK=12, MOSI=11, MISO=13 (shared with TFT)
+#define TOUCH_CS    45     // Touch chip select (T_CS pin from LCD module)
+#define TOUCH_IRQ   46     // Touch interrupt (optional, T_IRQ pin)
+
 // ---- OLED Display (I2C) ----
 // Auto-detected at boot: if OLED responds on I2C addr 0x3C, use it
 // Otherwise, firmware tries TFT next

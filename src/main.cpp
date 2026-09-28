@@ -68,6 +68,9 @@ void setup() {
     Display::begin();
     Ui::begin();
 
+    // Initialize button input (GPIO buttons + touchscreen if TFT is present)
+    Buttons::begin();
+
     // Initialize all real hardware drivers (CC1101, NRF24, PN532, GPS, RTC, GPIO)
     Hardware::initAll();
 
