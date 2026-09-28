@@ -78,16 +78,16 @@ void strobe(uint8_t cmd) {
 bool init(const Config& config) {
     if (initialized) return true;
 
-    Serial.println("[NRF24] Initializing SPI...");
+    Serial.println("[NRF24] Initializing SPI Bus 2 (dedicated RF bus)...");
 
-    // Guard: Warn about SPI bus sharing
-    Serial.println("[NRF24] ⚠️  WARNING: SPI bus shared with TFT, CC1101");
-    Serial.println("[NRF24]  Ensure Display and CC1101 are compatible or not active simultaneously");
+    // ✓ Now on dedicated SPI Bus 2 (GPIO 22, 24, 25) - separate from TFT
+    Serial.println("[NRF24] ✓ Using SPI Bus 2 (shared with CC1101 only)");
+    Serial.printf("[NRF24]   SCK=%d, MOSI=%d, MISO=%d, CS=%d\n", SPI2_CLK, SPI2_MOSI, SPI2_MISO, NRF24_CS);
 
-    // Use HSPI to share with CC1101 (TFT uses its own SPI management)
+    // Use HSPI (SPI2) with new dedicated pins
     spi = new SPIClass(HSPI);
-    spi->begin(SPI_CLK, SPI_MISO, SPI_MOSI, NRF24_CS);
-    spi->setFrequency(5000000);  // 5 MHz
+    spi->begin(SPI2_CLK, SPI2_MISO, SPI2_MOSI, NRF24_CS);
+    spi->setFrequency(5000000);  // 5 MHz (NRF24 supports up to 10 MHz)
     spi->setDataMode(SPI_MODE0);
     spi->setBitOrder(MSBFIRST);
 

@@ -205,7 +205,7 @@ void testCC1101() {
         DBG_ERROR("CC1101 initialization failed!");
         DBG_ERROR("Possible causes:");
         DBG_ERROR("  - CC1101 module not connected");
-        DBG_ERROR("  - SPI bus error (SCK=%d, MOSI=%d, MISO=%d)", SPI_CLK, SPI_MOSI, SPI_MISO);
+        DBG_ERROR("  - SPI Bus 2 error (SCK=%d, MOSI=%d, MISO=%d)", SPI2_CLK, SPI2_MOSI, SPI2_MISO);
         DBG_ERROR("  - Wrong CS pin (GPIO%d)", CC1101_CS);
         DBG_ERROR("  - SubGhz module active (conflicts with CC1101Driver)");
         return;
@@ -250,7 +250,7 @@ void testNRF24() {
         DBG_ERROR("NRF24 initialization failed!");
         DBG_ERROR("Possible causes:");
         DBG_ERROR("  - NRF24 module not connected");
-        DBG_ERROR("  - SPI bus error (SCK=%d, MOSI=%d, MISO=%d)", SPI_CLK, SPI_MOSI, SPI_MISO);
+        DBG_ERROR("  - SPI Bus 2 error (SCK=%d, MOSI=%d, MISO=%d)", SPI2_CLK, SPI2_MOSI, SPI2_MISO);
         DBG_ERROR("  - Wrong pins (CS=%d, CE=%d)", NRF24_CS, NRF24_CE);
         DBG_ERROR("  - Display/TFT initialization interfering");
         return;

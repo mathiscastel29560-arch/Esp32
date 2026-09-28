@@ -65,8 +65,8 @@ void begin() {
         oledDisplay.display();
 
         // No TFT_eSPI init in this branch, so nothing else has called
-        // SPI.begin() yet -- CC1101/NRF24 still need the shared SPI bus.
-        SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
+        // SPI.begin() yet -- CC1101/NRF24 still need SPI Bus 2 (separate).
+        SPI.begin(PIN_SPI1_SCK, PIN_SPI1_MISO, PIN_SPI1_MOSI);
         return;
     }
 

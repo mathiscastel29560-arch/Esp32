@@ -5,10 +5,15 @@
 // Maps from config.h to driver-specific constants
 // All pins are locked to project HARDWARE.md pinout
 
-// ---- SPI Bus (Shared by TFT, CC1101, NRF24L01) ----
-#define SPI_CLK    PIN_SPI_SCK     // 12
-#define SPI_MOSI   PIN_SPI_MOSI    // 11
-#define SPI_MISO   PIN_SPI_MISO    // 13
+// ---- SPI Bus 1 (TFT Display + Touchscreen) ----
+#define SPI1_CLK    PIN_SPI1_SCK     // 12
+#define SPI1_MOSI   PIN_SPI1_MOSI    // 11
+#define SPI1_MISO   PIN_SPI1_MISO    // 13
+
+// ---- SPI Bus 2 (CC1101 + NRF24L01) - Separate to reduce congestion ----
+#define SPI2_CLK    PIN_SPI2_SCK     // 24
+#define SPI2_MOSI   PIN_SPI2_MOSI    // 22
+#define SPI2_MISO   PIN_SPI2_MISO    // 25
 
 // ---- CC1101 Radio Module (433 MHz) ----
 #define CC1101_CS    PIN_CC1101_CS      // 10

@@ -31,18 +31,28 @@
 #define PIN_GPS_TX          17   // ESP32 TX -> GPS RX
 #define GPS_BAUD            9600
 
-// ---- Shared SPI bus: TFT + CC1101 + NRF24L01+PA/LNA (separate CS/aux per device) ----
-#define PIN_SPI_SCK         12
-#define PIN_SPI_MOSI        11
-#define PIN_SPI_MISO        13
+// ---- SPI Bus 1: TFT Display + Touchscreen (high-speed) ----
+#define PIN_SPI1_SCK        12
+#define PIN_SPI1_MOSI       11
+#define PIN_SPI1_MISO       13
+#define SPI1_FREQUENCY      40000000  // 40 MHz for TFT
+
+// ---- SPI Bus 2: RF Modules (CC1101 + NRF24) - separate bus to avoid congestion ----
+#define PIN_SPI2_SCK        24
+#define PIN_SPI2_MOSI       22
+#define PIN_SPI2_MISO       25
+#define SPI2_FREQUENCY      10000000  // 10 MHz for RF modules (CC1101 typically 1-2 MHz, NRF24 up to 10 MHz)
+#define SPI2_HOST           SPI2_HOST // ESP32-S3 SPI2 peripheral
 
 // CC1101 sub-GHz transceiver — 433MHz module (marked "433M" on the PCB)
+// Now on SPI Bus 2 to reduce congestion on SPI Bus 1
 #define PIN_CC1101_CS       10
 #define PIN_CC1101_GDO0     4
 #define PIN_CC1101_GDO2     40
 #define CC1101_FREQ_MHZ     433.92f
 
 // NRF24L01+PA/LNA 2.4GHz transceiver
+// Now on SPI Bus 2 to reduce congestion on SPI Bus 1
 #define PIN_NRF24_CS        14
 #define PIN_NRF24_CE        15
 #define PIN_NRF24_IRQ       41

@@ -75,7 +75,7 @@ DiagnosticResult testCC1101() {
     digitalWrite(PIN_CC1101_CS, LOW);
     delayMicroseconds(10);
 
-    SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
+    SPI.begin(PIN_SPI2_SCK, PIN_SPI2_MISO, PIN_SPI2_MOSI);  // SPI Bus 2 for RF modules
     uint8_t version = SPI.transfer(0x0F | 0x80);  // Read mode for register 0x0F
     digitalWrite(PIN_CC1101_CS, HIGH);
 
@@ -98,7 +98,7 @@ DiagnosticResult testNRF24() {
     digitalWrite(PIN_NRF24_CS, LOW);
     delayMicroseconds(10);
 
-    SPI.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI);
+    SPI.begin(PIN_SPI2_SCK, PIN_SPI2_MISO, PIN_SPI2_MOSI);  // SPI Bus 2 for RF modules
     uint8_t config = SPI.transfer(0x00);  // Read CONFIG
     digitalWrite(PIN_NRF24_CS, HIGH);
 

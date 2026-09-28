@@ -53,17 +53,17 @@ bool init(const Config& config) {
     DBG_WARN("[CC1101] Ensure SubGhz module is NOT active");
     DBG_WARN("[CC1101] Conflicts possible if SubGhz and CC1101Driver used simultaneously");
 
-    // Initialize SPI - use HSPI to avoid conflicts with TFT
-    DBG_INFO("[CC1101] Initializing SPI bus...");
-    DBG_VERBOSE("  SCK=%d, MOSI=%d, MISO=%d, CS=%d", SPI_CLK, SPI_MOSI, SPI_MISO, CC1101_CS);
+    // Initialize SPI Bus 2 - dedicated for CC1101 (separate from TFT bus)
+    DBG_INFO("[CC1101] Initializing SPI Bus 2 (dedicated RF bus)...");
+    DBG_VERBOSE("  SCK=%d, MOSI=%d, MISO=%d, CS=%d", SPI2_CLK, SPI2_MOSI, SPI2_MISO, CC1101_CS);
 
-    spi = new SPIClass(HSPI);
-    spi->begin(SPI_CLK, SPI_MISO, SPI_MOSI, CC1101_CS);
-    spi->setFrequency(1000000);  // 1 MHz SPI clock
+    spi = new SPIClass(HSPI);  // HSPI = SPI2 on ESP32-S3
+    spi->begin(SPI2_CLK, SPI2_MISO, SPI2_MOSI, CC1101_CS);
+    spi->setFrequency(1000000);  // 1 MHz SPI clock (CC1101 max typically ~2MHz)
     spi->setDataMode(SPI_MODE0);
     spi->setBitOrder(MSBFIRST);
 
-    DBG_VERBOSE("  SPI frequency: 1 MHz");
+    DBG_VERBOSE("  SPI Bus 2 frequency: 1 MHz");
 
     // Configure CS pin
     pinMode(CC1101_CS, OUTPUT);
@@ -94,7 +94,7 @@ bool init(const Config& config) {
         DBG_ERROR("[CC1101] Invalid chip ID: 0x%02X (expected 0x04)", chipId);
         DBG_ERROR("[CC1101] Possible causes:");
         DBG_ERROR("  - CC1101 module not connected");
-        DBG_ERROR("  - SPI bus error (SCK=%d, MOSI=%d, MISO=%d)", SPI_CLK, SPI_MOSI, SPI_MISO);
+        DBG_ERROR("  - SPI Bus 2 error (SCK=%d, MOSI=%d, MISO=%d)", SPI2_CLK, SPI2_MOSI, SPI2_MISO);
         DBG_ERROR("  - Wrong CS pin (GPIO%d)", CC1101_CS);
         return false;
     }
